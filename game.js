@@ -596,7 +596,7 @@ const Game = (function () {
     techniquePrice, abodePrice, seekCost, feedCost, insightPrice, legacyGain, canReincarnate, canExplore,
     techniqueMult, abodeBonus, pillMult, legacyMult, rootMult, petAllBonus, petOutPerSec, getTotalLayers,
     formatNum, formatSpeed, formatTime,
-    combatStats, qualityMult, treasureStats, canBattle, battleCooldownLeft, isLevelUnlocked, fight, simulateCombat,
+    combatStats, currentSpeed, qualityMult, treasureStats, canBattle, battleCooldownLeft, isLevelUnlocked, fight, simulateCombat,
     hasTreasure, equipTreasure, unequip, enhanceCost, enhanceTreasure, smeltTreasure,
     get state() { return state; },
     get REALMS() { return REALMS; }, get ROOTS() { return ROOTS; }, get TECHNIQUES() { return TECHNIQUES; },

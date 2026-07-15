@@ -131,10 +131,10 @@ const PILLS = [
 
 /* ---------- 灵宠（寻妖→喂养→自动产出） ---------- */
 const PETS = [
-  { id: 'qilin',    name: '火麟兽', icon: '🐲', desc: '自动产出修为',      produce: { type: 'xp',   base: 0.4 },  max: 60, weight: 3 },
-  { id: 'jinchan',  name: '招财金蟾', icon: '🐸', desc: '自动产出灵石',      produce: { type: 'stone',base: 0.06 }, max: 60, weight: 3 },
-  { id: 'qingniao', name: '采灵青鸟', icon: '🐦', desc: '自动产出天材地宝',  produce: { type: 'mat',  base: 0.015 },max: 60, weight: 2 },
-  { id: 'xiezhi',   name: '祥瑞獬豸', icon: '🦄', desc: '全资源微量加成',    produce: { type: 'all',  base: 0.02 }, max: 60, weight: 1 }
+  { id: 'qilin',    name: '火麟兽', icon: '🐲', desc: '自动产出修为',      produce: { type: 'xp',   base: 1.5 },   max: 80, weight: 3 },
+  { id: 'jinchan',  name: '招财金蟾', icon: '🐸', desc: '自动产出灵石',      produce: { type: 'stone',base: 0.25 },  max: 80, weight: 3 },
+  { id: 'qingniao', name: '采灵青鸟', icon: '🐦', desc: '自动产出天材地宝',  produce: { type: 'mat',  base: 0.06 },  max: 80, weight: 2 },
+  { id: 'xiezhi',   name: '祥瑞獬豸', icon: '🦄', desc: '全资源加成（封顶）',    produce: { type: 'all',  base: 0.04 },  max: 80, weight: 1 }
 ];
 
 /* ---------- 秘境历练（消耗灵石探索，随机奖励 + 风险） ---------- */

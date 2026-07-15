@@ -309,7 +309,7 @@
         <div class="level-body">
           <div class="name">${lv.icon} ${lv.name} ${lv.boss ? '<span class="boss-tag">BOSS</span>' : ''} ${cleared ? '<span class="cleared-tag">已通关</span>' : ''}</div>
           <div class="enemy-stats">攻${lv.atk} 防${lv.def} 气血${lv.hp} 命中${Math.round(lv.hit * 100)}% 闪避${Math.round(lv.dodge * 100)}% 暴击${Math.round(lv.crit * 100)}%</div>
-          <div class="reward-line">奖励 灵石${Game.formatNum(lv.reward.stone[0])}~${Game.formatNum(lv.reward.stone[1])} · 🌿${lv.reward.mat[0]}~${lv.reward.mat[1]} · 修为${Game.formatNum(lv.reward.xp[0])}~${Game.formatNum(lv.reward.xp[1])}${lv.drop && lv.drop.chance ? ` · 法宝掉落${Math.round(lv.drop.chance * 100)}%` : ''}</div>
+          <div class="reward-line">奖励 灵石${Game.formatNum(lv.reward.stone[0])}~${Game.formatNum(lv.reward.stone[1])} · 🌿${lv.reward.mat[0]}~${lv.reward.mat[1]} · 修为 ≈ ${Game.formatNum(Math.floor((Game.currentSpeed?Game.currentSpeed():0) * (lv.boss?18:6)))}${lv.drop && lv.drop.chance ? ` · 法宝掉落${Math.round(lv.drop.chance * 100)}%` : ''}</div>
         </div>${btn}</div>`;
     }).join('');
     const cdText = cd ? `<div class="cd-text">⏳ 调息中… 还需 ${Game.battleCooldownLeft()} 秒</div>` : '';
