@@ -296,8 +296,8 @@ const Game = (function () {
     if (!canExplore()) return false;
     state.stone -= r.cost; state.exploreCount++;
     state.realmCd = Date.now() + CONFIG.realmCooldown * 1000;
-    const xp = randInt(r.xp[0], r.xp[1]);
-    const stone = randInt(r.stone[0], r.stone[1]);
+    const xp = Math.floor(currentSpeed() * rand(3, 8)); // 秘境修为 = 修炼速度×秒数，扣灵石后净效≤修炼
+    const stone = Math.floor(randInt(r.stone[0], r.stone[1]) * 0.25);
     const mat = randInt(r.mat[0], r.mat[1]);
     state.xp += xp; state.totalXp += xp; state.stone += stone; state.materials += mat;
     let parts = [`修为+${formatNum(xp)}`, `灵石+${formatNum(stone)}`, `天材地宝+${mat}`];
@@ -467,9 +467,9 @@ const Game = (function () {
     const res = simulateCombat(lv);
     let reward = null, drop = null;
     if (res.win) {
-      const stone = randInt(lv.reward.stone[0], lv.reward.stone[1]);
+      const stone = Math.floor(randInt(lv.reward.stone[0], lv.reward.stone[1]) * 0.45);
       const mat = randInt(lv.reward.mat[0], lv.reward.mat[1]);
-      const xp = randInt(lv.reward.xp[0], lv.reward.xp[1]);
+      const xp = Math.floor(currentSpeed() * (lv.boss ? 18 : 6)); // 战利品修为 = 修炼速度×秒数，普怪持平修炼、BOSS三倍
       state.stone += stone; state.materials += mat; state.xp += xp; state.totalXp += xp;
       reward = { stone, mat, xp };
       if (state.mapProgress[mapId] === undefined || state.mapProgress[mapId] < idx) state.mapProgress[mapId] = idx;

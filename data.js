@@ -23,7 +23,7 @@ const CONFIG = {
   offlineEff: 0.5,         // 离线修炼效率（相对在线）
 
   /* 手动与奇遇 */
-  clickBase: 1.0,          // 「运转周天」单次获得 = 当前速度 × 此值
+  clickBase: 0.5,          // 「运转周天」单次获得 = 当前速度 × 此值
   clickStoneChance: 0.15,  // 每次运转周天额外获得灵石的概率
   eventMinSec: 20,         // 奇遇最短间隔（秒）
   eventMaxSec: 55,         // 奇遇最长间隔（秒）
@@ -54,7 +54,7 @@ const CONFIG = {
   feedCostGrowth: 1.35,    // 喂养成本增长
 
   /* 秘境探索冷却（秒） */
-  realmCooldown: 1.5,
+  realmCooldown: 3,
 
   /* ---- 战斗 / 法宝 ---- */
   combat: {
@@ -64,7 +64,7 @@ const CONFIG = {
     critMult: 1.6,        // 暴击伤害倍率
     defMit: 0.5,          // 防御减伤系数（dmg -= def*defMit）
     variance: 0.15,       // 伤害浮动 ±15%
-    battleCd: 4,          // 每次战斗冷却（秒）
+    battleCd: 6,          // 每次战斗冷却（秒），避免连刷取代修炼
     maxRounds: 300,       // 单场战斗最大回合数（防死循环）
     enemyAtkFromRealm: 0.6, // 敌人强度随玩家境界的基准系数（兜底）
     enemyHpFromRealm: 40
