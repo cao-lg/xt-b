@@ -96,19 +96,15 @@ const Game = (function () {
   // 综合修炼速度（修为/秒）
   function currentSpeed() {
     let speed = CONFIG.baseSpeed;
-    speed *= Math.pow(CONFIG.growthPerLayer, getTotalLayers());
+    speed *= Math.pow(CONFIG.growthPerLayer, state.layer);
     speed *= Math.pow(CONFIG.realmSpeedMult, state.realmIndex);
-    speed *= techniqueMult();
-    speed *= (1 + abodeBonus());
-    speed *= pillMult();
-    speed *= rootMult('speed');
-    speed *= legacyMult();
-    speed *= (1 + insightSpeedMult());
-    speed *= (1 + petAllBonus());
+    const track = techniqueMult() * (1 + abodeBonus()) * pillMult() * rootMult('speed') * (1 + insightSpeedMult()) * (1 + petAllBonus());
+    speed *= Math.min(track, CONFIG.speedCap);            // 封顶非转生加成，避免乘数复利失控
+    speed *= Math.min(legacyMult(), CONFIG.legacyCap);    // 仙缘(转生)叠加上限
     return speed;
   }
   function stoneSpeed() {
-    return currentSpeed() * CONFIG.stoneRatio * rootMult('stone') * legacyMult() * (1 + insightStoneMult()) * (1 + petAllBonus());
+    return currentSpeed() * CONFIG.stoneRatio * rootMult('stone') * Math.min(legacyMult(), CONFIG.legacyCap) * (1 + insightStoneMult()) * (1 + petAllBonus());
   }
 
   // 灵宠每秒产出（各类资源）
@@ -379,7 +375,7 @@ const Game = (function () {
 
   /* ---------- 手动运转周天 ---------- */
   function clickCultivate() {
-    const gain = Math.max(1, currentSpeed() * CONFIG.clickBase * 5);
+    const gain = Math.max(1, currentSpeed() * CONFIG.clickBase);
     state.xp += gain; state.totalXp += gain;
     let extra = '';
     if (Math.random() < CONFIG.clickStoneChance) { const g = randInt(1, Math.max(2, Math.floor(currentSpeed()))); state.stone += g; extra = `，灵石+${g}`; }
