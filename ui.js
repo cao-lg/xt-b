@@ -331,23 +331,112 @@
       showCombat(r); renderBattle();
     }));
   }
+  // 取玩家等级最高的功法作为「本命功法」，决定施法光环色
+  const TECH_ELEMENT = { tuna: '#6fcf97', yinqi: '#56ccf2', zhoutian: '#aab7ff', wuxing: '#f2c94c', taiyi: '#f2994a', hongmeng: '#bb6bd9' };
+  function topTechnique() {
+    const techs = Game.state.techniques || {}; let best = null, bestLv = 0;
+    Game.TECHNIQUES.forEach(t => { const lv = techs[t.id] || 0; if (lv > bestLv) { bestLv = lv; best = t; } });
+    return best;
+  }
   function showCombat(r) {
-    const lv = r.level;
-    const lines = r.res.log.slice(0, 18).map(e => {
+    const lv = r.level, res = r.res;
+    const pHp0 = res.player.hp, eHp0 = res.enemy.hp;
+    const tech = topTechnique();
+    const aura = tech ? (TECH_ELEMENT[tech.id] || '#9fd0ff') : '#9fd0ff';
+    const techName = tech ? tech.icon + tech.name : '🌀 道法';
+    const lines = res.log.slice(0, 18).map(e => {
       if (e.miss) return `<div class="cl ${e.side}">${e.side === 'p' ? '你' : '敌'} 落空/被闪避…</div>`;
       return `<div class="cl ${e.side}">${e.side === 'p' ? '你' : '敌'} 造成 ${e.dmg}${e.crit ? ' 💥暴击' : ''}</div>`;
     }).join('');
-    const more = r.res.log.length > 18 ? `<div class="cl">…共 ${r.res.log.length} 回合</div>` : '';
+    const more = res.log.length > 18 ? `<div class="cl">…共 ${res.log.length} 回合</div>` : '';
     let rewardHtml = '';
     if (r.win && r.reward) rewardHtml = `<div class="reward">战利品：灵石+${Game.formatNum(r.reward.stone)} 🌿+${r.reward.mat} 修为+${Game.formatNum(r.reward.xp)}</div>`;
     if (r.win && r.drop) rewardHtml += `<div class="reward drop">获得法宝 ${r.drop.icon}${r.drop.name} <span style="color:${qColor(r.drop.quality)}">${qName(r.drop.quality)}</span>${r.drop.first ? '（新）' : ''}</div>`;
     const m = modal(`
       <h2 class="${r.win ? 'win' : 'lose'}">${lv.icon} ${r.win ? '胜！' : '败'}</h2>
-      <div class="combat-sub">${lv.name} · 回合 ${r.res.rounds} · 你剩余气血 ${r.res.pHp}</div>
+      <div class="battle-stage" style="--aura:${aura}">
+        <div class="bars">
+          <div class="hpbar p"><div class="hp-fill p" style="width:100%"></div><span class="hp-label" data-plabel>气血 ${pHp0}</span></div>
+          <div class="hpbar e"><div class="hp-fill e" style="width:100%"></div><span class="hp-label" data-elabel>${lv.name} ${eHp0}</span></div>
+        </div>
+        <div class="arena">
+          <div class="fighter p"><div class="aura"></div><div class="avatar">🧘</div><div class="fname">你</div></div>
+          <div class="fighter e ${lv.boss ? 'boss' : ''}">${lv.boss ? '<div class="crown">👑</div>' : ''}<div class="avatar">${lv.icon}</div><div class="fname">${lv.name}</div></div>
+        </div>
+        <div class="skill-banner">施放 · ${techName}</div>
+        <div class="beam"></div>
+        <div class="fx-layer"></div>
+      </div>
+      <div class="combat-sub">${lv.name} · 回合 ${res.rounds} · 你剩余气血 <span data-pend>${pHp0}</span></div>
       <div class="combat-log">${lines}${more}</div>
-      ${rewardHtml}
-      <button class="btn" id="cb-ok">收剑</button>`, 'combat');
+      <div class="combat-reward" style="display:none">${rewardHtml}</div>
+      <button class="btn" id="cb-ok" style="display:none">收剑</button>`, 'combat');
     $('#cb-ok').addEventListener('click', () => closeModal(m));
+    playBattle(res, lv, m);
+    return m;
+  }
+  // 逐回合回放战斗 log，驱动卡通演出
+  function playBattle(res, lv, m) {
+    const stage = m.querySelector('.battle-stage');
+    const pFill = stage.querySelector('.hp-fill.p'), eFill = stage.querySelector('.hp-fill.e');
+    const pLabel = stage.querySelector('[data-plabel]'), eLabel = stage.querySelector('[data-elabel]');
+    const pFighter = stage.querySelector('.fighter.p'), eFighter = stage.querySelector('.fighter.e');
+    const fx = stage.querySelector('.fx-layer');
+    const banner = stage.querySelector('.skill-banner'), beam = stage.querySelector('.beam');
+    const pAura = pFighter.querySelector('.aura');
+    const log = res.log, pHp0 = res.player.hp, eHp0 = res.enemy.hp;
+    let pHp = pHp0, eHp = eHp0, i = 0;
+    const delay = Math.max(110, Math.min(400, 6500 / Math.max(1, log.length)));
+    function setHp() {
+      pFill.style.width = Math.max(0, pHp / pHp0 * 100) + '%';
+      eFill.style.width = Math.max(0, eHp / eHp0 * 100) + '%';
+      pLabel.textContent = '气血 ' + Math.max(0, Math.round(pHp));
+      eLabel.textContent = lv.name + ' ' + Math.max(0, Math.round(eHp));
+      m.querySelector('[data-pend]').textContent = Math.max(0, Math.round(pHp));
+    }
+    function lunge(who) { const f = who === 'p' ? pFighter : eFighter; const c = who === 'p' ? 'lunge-p' : 'lunge-e'; f.classList.remove(c); void f.offsetWidth; f.classList.add(c); }
+    function hitReact(f) { f.classList.remove('hit'); void f.offsetWidth; f.classList.add('hit'); setTimeout(() => f.classList.remove('hit'), 320); }
+    function floatText(target, text, cls) {
+      const s = fx.getBoundingClientRect(), t = target.getBoundingClientRect();
+      const el = document.createElement('div'); el.className = 'dmg-num ' + cls; el.textContent = text;
+      el.style.left = (t.left - s.left + t.width / 2) + 'px';
+      el.style.top = (t.top - s.top + t.height * 0.18) + 'px';
+      fx.appendChild(el); setTimeout(() => el.remove(), 950);
+    }
+    function castSkill() {
+      pAura.classList.add('on');
+      banner.classList.remove('show'); void banner.offsetWidth; banner.classList.add('show');
+      beam.classList.remove('show'); void beam.offsetWidth; beam.classList.add('show');
+      setTimeout(() => pAura.classList.remove('on'), 1100);
+    }
+    function step() {
+      if (!stage.isConnected) return;
+      if (i >= log.length) { finish(); return; }
+      const e = log[i];
+      if (e.side === 'p' && (i === 0 || i % 6 === 5)) castSkill();
+      if (e.side === 'p') {
+        if (e.miss) { floatText(eFighter, '闪避', 'miss'); lunge('p'); }
+        else {
+          eHp = Math.max(0, eHp - e.dmg); setHp(); lunge('p'); hitReact(eFighter);
+          floatText(eFighter, '-' + e.dmg + (e.crit ? ' 暴击!' : ''), e.crit ? 'crit' : 'dmg');
+          if (e.crit) { stage.classList.remove('crit'); void stage.offsetWidth; stage.classList.add('crit'); }
+        }
+      } else {
+        if (e.miss) { floatText(pFighter, '闪避', 'miss'); lunge('e'); }
+        else {
+          pHp = Math.max(0, pHp - e.dmg); setHp(); lunge('e'); hitReact(pFighter);
+          floatText(pFighter, '-' + e.dmg + (e.crit ? ' 暴击!' : ''), e.crit ? 'crit' : 'dmg');
+          if (e.crit) { stage.classList.remove('crit'); void stage.offsetWidth; stage.classList.add('crit'); }
+        }
+      }
+      i++; setTimeout(step, delay);
+    }
+    function finish() {
+      pHp = res.pHp; eHp = res.eHp; setHp();
+      const rw = m.querySelector('.combat-reward'); if (rw) rw.style.display = '';
+      const ok = m.querySelector('#cb-ok'); if (ok) ok.style.display = '';
+    }
+    setTimeout(step, 250);
   }
 
   /* ---------------- 法宝 ---------------- */

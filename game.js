@@ -493,7 +493,7 @@ const Game = (function () {
       pushLog(`💀 战${lv.name}败，道行尚浅，再练练。`, lv.icon);
     }
     save(); emit('battle', { res, reward, drop, level: lv, mapId, idx, win: res.win });
-    return { res, reward, drop, win: res.win };
+    return { res, reward, drop, win: res.win, level: lv };
   }
 
   function hasTreasure(tid) { return state.treasures[tid] && state.treasures[tid].count > 0; }
