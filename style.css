@@ -208,17 +208,17 @@ html, body {
 
 /* ---------------- 底部标签栏 ---------------- */
 .tabbar {
-  flex: 0 0 auto; display: flex; background: rgba(12,16,28,0.96);
-  border-top: 1px solid var(--border); padding: 6px 2px calc(6px + env(safe-area-inset-bottom));
+  flex: 0 0 auto; display: flex; flex-wrap: wrap; justify-content: center; background: rgba(12,16,28,0.96);
+  border-top: 1px solid var(--border); padding: 4px 2px calc(4px + env(safe-area-inset-bottom));
   backdrop-filter: blur(10px); overflow-x: auto; -webkit-overflow-scrolling: touch;
 }
 .tabbar::-webkit-scrollbar { display: none; }
 .tab {
-  flex: 0 0 auto; min-width: 58px; border: none; background: none; color: var(--text-dim);
-  font-size: 11px; display: flex; flex-direction: column; align-items: center; gap: 3px;
-  cursor: pointer; padding: 4px 6px; transition: color 0.15s;
+  flex: 1 1 52px; max-width: 70px; border: none; background: none; color: var(--text-dim);
+  font-size: 10px; display: flex; flex-direction: column; align-items: center; gap: 2px;
+  cursor: pointer; padding: 3px 4px; transition: color 0.15s;
 }
-.tab span { font-size: 11px; }
+.tab span { font-size: 10px; }
 .tab.active { color: var(--gold-soft); }
 .tab.active span { color: var(--gold-soft); }
 
