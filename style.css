@@ -453,3 +453,75 @@ h2.lose { color: #ff9f9f; }
 @keyframes bannerIn { 0% { opacity: 0; transform: translateX(-50%) translateY(-8px); } 18% { opacity: 1; transform: translateX(-50%) translateY(0); } 80% { opacity: 1; } 100% { opacity: 0; transform: translateX(-50%) translateY(-6px); } }
 @keyframes beamFlash { 0% { opacity: 0; transform: scaleX(.2); } 30% { opacity: 1; transform: scaleX(1); } 100% { opacity: 0; transform: scaleX(1); } }
 @keyframes screenShake { 0%,100% { transform: translate(0,0); } 25% { transform: translate(-4px, 2px); } 50% { transform: translate(4px, -2px); } 75% { transform: translate(-3px, 1px); } }
+
+/* ============ 战斗演出升级（SVG 角色 / 主题场景 / 弹道 / 二阶段 / 印章） ============ */
+.battle-stage { --bg:#1d3b25; --ground:rgba(90,170,100,.32); --accent:#7fe0a0; --fig:#d7ecdd; --fig2:#3f7a52; --particle:#bfe9c8; --aura:#9fd0ff; }
+.scene-bg { position: absolute; inset: 0; background: var(--bg); overflow: hidden; z-index: 0; }
+.scene-bg::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 40%; background: var(--ground); border-top: 2px solid rgba(255,255,255,.08); }
+.scene-bg::before { content: ''; position: absolute; inset: -20% -10%; background-image: radial-gradient(circle, var(--particle) 0 2px, transparent 3px); background-size: 60px 60px; opacity: .5; animation: driftMotes 14s linear infinite; }
+@keyframes driftMotes { from { transform: translate(0,0); } to { transform: translate(-60px, -40px); } }
+
+/* VS 入场 */
+.vs-intro { position: absolute; inset: 0; z-index: 6; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+.vs-intro span { font-size: 56px; font-weight: 900; color: #fff; text-shadow: 0 0 18px var(--accent), 0 2px 6px #000; animation: vsFlash .9s ease forwards; }
+@keyframes vsFlash { 0% { opacity: 0; transform: scale(.4) rotate(-12deg); } 30% { opacity: 1; transform: scale(1.1) rotate(0); } 70% { opacity: 1; } 100% { opacity: 0; transform: scale(1.4); } }
+
+/* 战力对比条 */
+.powerbar { position: relative; z-index: 3; display: flex; align-items: center; gap: 8px; margin: 0 4px 6px; font-size: 10px; color: #dfe7ff; }
+.powerbar .pw-p { color: #9fffd1; font-weight: 700; }
+.powerbar .pw-e { color: #ffb0b0; font-weight: 700; }
+.pw-track { flex: 1; height: 9px; border-radius: 6px; overflow: hidden; display: flex; background: rgba(0,0,0,.4); border: 1px solid rgba(255,255,255,.1); }
+.pw-fill { height: 100%; transition: width .3s ease; }
+.pw-fill.p { background: linear-gradient(90deg, #4be38a, #7fffd1); }
+.pw-fill.e { background: linear-gradient(90deg, #ff7a7a, #ff4d6d); }
+
+/* 角色 SVG */
+.fighter .svg-fig { width: 86px; height: 94px; filter: drop-shadow(0 6px 10px rgba(0,0,0,.45)); animation: idleFloat 2.6s ease-in-out infinite; }
+.fighter.boss .svg-fig { width: 116px; height: 124px; filter: drop-shadow(0 0 22px rgba(255,90,90,.55)) drop-shadow(0 6px 12px rgba(0,0,0,.5)); }
+.svg-fig .cult .robe { fill: var(--fig2); }
+.svg-fig .cult .robe-trim { fill: var(--accent); opacity: .85; }
+.svg-fig .cult .skin { fill: #f3e2cf; }
+.svg-fig .cult .hair { fill: #3a2e2a; }
+.svg-fig .cult .hair-tie { fill: none; stroke: var(--fig2); stroke-width: 3; }
+.svg-fig .cult .sword { fill: #dfe9ff; }
+.svg-fig .cult .sword-tip { fill: var(--accent); }
+.svg-fig .cult .sword-gem { fill: var(--accent); }
+.svg-fig .mon .m-body { fill: var(--fig2); }
+.svg-fig .mon .m-head { fill: var(--fig); }
+.svg-fig .mon .m-ear, .svg-fig .mon .m-horn, .svg-fig .mon .m-star, .svg-fig .mon .m-tail, .svg-fig .mon .m-spear-tip { fill: var(--accent); }
+.svg-fig .mon .m-spear { fill: #cfd6e6; }
+.svg-fig .mon .m-eye { fill: var(--accent); }
+.svg-fig .mon .m-snout, .svg-fig .mon .m-mouth, .svg-fig .mon .m-leg { fill: var(--fig); }
+.svg-fig .mon .crown { fill: gold; filter: drop-shadow(0 0 4px rgba(255,200,0,.8)); }
+.svg-fig .mon .aura-ring { stroke: var(--accent); opacity: .5; stroke-width: 3; }
+@keyframes idleFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+
+/* 心法护体光环（玩家） */
+.fighter.p .aura { position: absolute; top: 6px; width: 96px; height: 96px; border-radius: 50%; pointer-events: none; opacity: 0; transition: opacity .3s; }
+.fighter.p .aura.on { opacity: .5; animation: auraPulse 1.1s ease-in-out infinite; }
+
+/* 功法弹道 */
+.projectile { position: absolute; z-index: 4; width: 40px; height: 30px; pointer-events: none; filter: drop-shadow(0 0 8px var(--proj, #aab7ff)); }
+.projectile.go { animation: projFly var(--pdur,.32s) ease-in forwards; }
+@keyframes projFly { from { transform: translate(0,0) scale(.7); opacity: .2; } 20% { opacity: 1; } to { transform: translate(var(--dx,120px), var(--dy,0)) scale(1.15); opacity: 1; } }
+.impact { position: absolute; z-index: 5; width: 46px; height: 46px; margin: -23px 0 0 -23px; border-radius: 50%; pointer-events: none; background: radial-gradient(circle, var(--proj,#aab7ff) 0%, transparent 70%); animation: impactPop .35s ease-out forwards; }
+@keyframes impactPop { 0% { transform: scale(.3); opacity: .9; } 100% { transform: scale(1.8); opacity: 0; } }
+
+/* 受击粒子 */
+.particle { position: absolute; z-index: 5; width: 6px; height: 6px; border-radius: 50%; pointer-events: none; background: var(--particle, #fff); animation: particleBurst .6s ease-out forwards; }
+@keyframes particleBurst { from { transform: translate(0,0) scale(1); opacity: 1; } to { transform: translate(var(--tx,0), var(--ty,0)) scale(.2); opacity: 0; } }
+
+/* BOSS 二阶段 */
+.battle-stage.phase2 .fighter.e .svg-fig { filter: drop-shadow(0 0 26px rgba(255,60,60,.8)) drop-shadow(0 6px 12px rgba(0,0,0,.5)); animation: phasePulse .7s ease-in-out infinite; }
+@keyframes phasePulse { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-4px) scale(1.03); } }
+.battle-stage.phase2::after { content: ''; position: absolute; inset: 0; z-index: 1; pointer-events: none; box-shadow: inset 0 0 60px rgba(255,40,40,.35); animation: phaseGlow .7s ease-in-out infinite; }
+@keyframes phaseGlow { 0%,100% { opacity: .5; } 50% { opacity: 1; } }
+
+/* 胜负印章 */
+.seal { position: absolute; inset: 0; z-index: 7; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+.seal span { font-size: 72px; font-weight: 900; color: #fff; border: 6px solid #fff; border-radius: 14px; padding: 4px 22px; transform: rotate(-14deg); animation: sealStamp .5s cubic-bezier(.2,1.4,.4,1) forwards; }
+.seal.win span { color: #ffe9a8; border-color: #ffd24d; text-shadow: 0 0 16px #ffb300; box-shadow: 0 0 24px rgba(255,180,0,.5); }
+.seal.lose span { color: #ffd0d0; border-color: #ff6b6b; text-shadow: 0 0 16px #ff3b3b; box-shadow: 0 0 24px rgba(255,60,60,.5); }
+@keyframes sealStamp { 0% { opacity: 0; transform: rotate(-14deg) scale(2.4); } 100% { opacity: 1; transform: rotate(-14deg) scale(1); } }
+
+.combat-modal { max-width: 560px; }

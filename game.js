@@ -43,7 +43,8 @@ const Game = (function () {
       nextEventAt: now + randInt(CONFIG.eventMinSec, CONFIG.eventMaxSec) * 1000,
       startTime: now,
       totalXp: 0,
-      breaks: 0
+      breaks: 0,
+      sfx: false             // 战斗音效开关（默认关闭）
     };
   }
 
@@ -488,6 +489,7 @@ const Game = (function () {
     } else {
       pushLog(`💀 战${lv.name}败，道行尚浅，再练练。`, lv.icon);
     }
+    lv._mapId = mapId;
     save(); emit('battle', { res, reward, drop, level: lv, mapId, idx, win: res.win });
     return { res, reward, drop, win: res.win, level: lv };
   }
