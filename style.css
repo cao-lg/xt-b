@@ -1,0 +1,382 @@
+/* ============================================================
+ * 放置修仙 · 逍遥道途 —— 样式（修仙暗金主题 · 移动优先）
+ * ============================================================ */
+:root {
+  --bg: #0a0e17;
+  --bg2: #0f1422;
+  --panel: rgba(22, 30, 48, 0.72);
+  --panel-solid: #161e30;
+  --border: rgba(120, 140, 190, 0.18);
+  --gold: #e8c45a;
+  --gold-soft: #ffd76f;
+  --jade: #7fd1c1;
+  --text: #e8edf6;
+  --text-dim: #9aa6c0;
+  --danger: #ff7a7a;
+  --good: #7fe0a8;
+  --shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  height: 100%;
+  background:
+    radial-gradient(1200px 600px at 50% -10%, #16203a 0%, transparent 60%),
+    radial-gradient(800px 500px at 90% 110%, #1a1530 0%, transparent 55%),
+    var(--bg);
+  color: var(--text);
+  font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", system-ui, sans-serif;
+  overflow: hidden;
+  user-select: none;
+}
+
+#app {
+  max-width: 540px;
+  margin: 0 auto;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  background: linear-gradient(180deg, rgba(15,20,34,0.6), rgba(10,14,23,0.85));
+  box-shadow: 0 0 60px rgba(0,0,0,0.5);
+}
+
+/* ---------------- 顶部状态栏 ---------------- */
+.topbar {
+  padding: 14px 16px 12px;
+  background: linear-gradient(180deg, rgba(20,28,46,0.95), rgba(20,28,46,0.6));
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: blur(10px);
+  flex: 0 0 auto;
+}
+.realm-badge { display: flex; align-items: center; gap: 12px; }
+#realm-emoji {
+  font-size: 34px;
+  filter: drop-shadow(0 0 10px rgba(232,196,90,0.5));
+  animation: breathe 3.4s ease-in-out infinite;
+}
+@keyframes breathe { 0%,100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+.dao-name { font-size: 13px; color: var(--gold-soft); letter-spacing: 1px; }
+.realm-name { font-size: 19px; font-weight: 700; color: var(--text); margin-top: 2px; }
+
+.stat-row {
+  display: flex; gap: 8px; margin-top: 12px;
+}
+.stat {
+  flex: 1; background: var(--panel); border: 1px solid var(--border);
+  border-radius: 10px; padding: 7px 8px; text-align: center;
+}
+.stat-label { display: block; font-size: 11px; color: var(--text-dim); }
+.stat-val { display: block; font-size: 14px; font-weight: 700; margin-top: 3px; color: var(--gold-soft); }
+
+.progress-wrap {
+  position: relative; margin-top: 12px; height: 18px;
+  background: rgba(0,0,0,0.35); border-radius: 10px; overflow: hidden;
+  border: 1px solid var(--border);
+}
+.progress-bar {
+  height: 100%; width: 0%;
+  background: linear-gradient(90deg, #b9892b, var(--gold), var(--gold-soft));
+  box-shadow: 0 0 14px rgba(232,196,90,0.6);
+  transition: width 0.12s linear;
+}
+.progress-pct {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font-size: 11px; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+}
+
+/* ---------------- 主视图 ---------------- */
+.view { flex: 1 1 auto; overflow-y: auto; padding: 16px; -webkit-overflow-scrolling: touch; }
+.view::-webkit-scrollbar { width: 6px; }
+.view::-webkit-scrollbar-thumb { background: rgba(120,140,190,0.3); border-radius: 6px; }
+
+.section-title {
+  font-size: 14px; color: var(--gold-soft); margin: 4px 2px 12px;
+  letter-spacing: 1px; display: flex; align-items: center; gap: 6px;
+}
+.section-title small { color: var(--text-dim); font-weight: 400; letter-spacing: 0; }
+
+/* 修炼主页面 */
+.cultivate-stage {
+  display: flex; flex-direction: column; align-items: center; gap: 18px;
+  padding: 18px 0 8px;
+}
+.avatar {
+  font-size: 84px; line-height: 1;
+  filter: drop-shadow(0 0 24px rgba(127,209,193,0.45));
+  animation: floaty 4s ease-in-out infinite;
+}
+@keyframes floaty { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+.avatar-glow {
+  width: 150px; height: 150px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(127,209,193,0.25), transparent 70%);
+  display: flex; align-items: center; justify-content: center;
+}
+.buff-line { font-size: 12px; color: var(--jade); text-align: center; min-height: 16px; }
+.buff-line .pill-tag {
+  display: inline-block; margin: 0 3px; padding: 2px 7px; border-radius: 20px;
+  background: rgba(127,209,193,0.15); border: 1px solid rgba(127,209,193,0.4);
+}
+
+/* 按钮 */
+.btn {
+  border: none; border-radius: 14px; font-size: 16px; font-weight: 700;
+  padding: 14px; width: 100%; color: #20160a; cursor: pointer;
+  background: linear-gradient(180deg, var(--gold-soft), var(--gold));
+  box-shadow: 0 6px 18px rgba(232,196,90,0.35);
+  transition: transform 0.08s, filter 0.15s, opacity 0.15s;
+}
+.btn:active { transform: scale(0.97); }
+.btn:disabled { filter: grayscale(0.7) brightness(0.7); cursor: not-allowed; box-shadow: none; }
+.btn-break {
+  margin-top: 12px; color: #fff;
+  background: linear-gradient(180deg, #c0653a, #8a3b1e);
+  box-shadow: 0 6px 18px rgba(180,70,30,0.4);
+}
+.btn-break.ready {
+  color: #20160a;
+  background: linear-gradient(180deg, #ffe08a, #e8a13a);
+  animation: pulse 1.3s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%,100% { box-shadow: 0 0 0 0 rgba(232,196,90,0.55); }
+  50% { box-shadow: 0 0 0 12px rgba(232,196,90,0); }
+}
+.hint { font-size: 12px; color: var(--text-dim); text-align: center; margin-top: 10px; line-height: 1.6; }
+
+/* 列表卡片 */
+.list { display: flex; flex-direction: column; gap: 10px; }
+.card {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 14px; padding: 12px; backdrop-filter: blur(6px);
+}
+.card .icon { font-size: 28px; flex: 0 0 auto; }
+.card .body { flex: 1 1 auto; min-width: 0; }
+.card .name { font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+.card .lv { font-size: 11px; color: var(--gold-soft); background: rgba(232,196,90,0.12); padding: 1px 7px; border-radius: 10px; }
+.card .desc { font-size: 12px; color: var(--text-dim); margin-top: 4px; }
+.card .sub { font-size: 11px; color: var(--jade); margin-top: 3px; }
+.buy-btn {
+  flex: 0 0 auto; border: none; border-radius: 10px; padding: 9px 12px;
+  font-size: 13px; font-weight: 700; cursor: pointer; min-width: 86px;
+  background: linear-gradient(180deg, #2f6f63, #1f4f47); color: #eafff8;
+  transition: transform 0.08s, filter 0.15s;
+}
+.buy-btn:active { transform: scale(0.95); }
+.buy-btn:disabled { filter: grayscale(0.8) brightness(0.6); cursor: not-allowed; }
+.buy-btn.maxed { background: linear-gradient(180deg,#5a5f70,#3a3f50); color:#cfd6e6; }
+.price { display: block; font-size: 11px; color: var(--gold-soft); margin-top: 2px; text-align: center; }
+
+/* 奇遇日志 */
+.log-item {
+  display: flex; gap: 10px; padding: 10px 12px; font-size: 13px; line-height: 1.5;
+  background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+}
+.log-item .icon { font-size: 18px; flex: 0 0 auto; }
+.log-item .time { font-size: 10px; color: var(--text-dim); margin-top: 2px; }
+.empty { text-align: center; color: var(--text-dim); font-size: 13px; padding: 30px 0; }
+
+/* 成就 */
+.achv-card { opacity: 0.45; filter: grayscale(0.6); }
+.achv-card.unlocked { opacity: 1; filter: none; border-color: rgba(232,196,90,0.4); }
+.achv-card.unlocked .icon { filter: drop-shadow(0 0 8px rgba(232,196,90,0.6)); }
+
+/* 设置 */
+.setting-block { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 14px; }
+.setting-block + .setting-block { margin-top: 12px; }
+.setting-block h3 { font-size: 14px; color: var(--gold-soft); margin-bottom: 10px; }
+.field { display: flex; gap: 8px; }
+.field input {
+  flex: 1; background: rgba(0,0,0,0.3); border: 1px solid var(--border);
+  border-radius: 10px; padding: 10px; color: var(--text); font-size: 14px;
+}
+.field input:focus { outline: 1px solid var(--gold); }
+.btn-sm {
+  border: none; border-radius: 10px; padding: 0 16px; font-weight: 700; cursor: pointer;
+  background: linear-gradient(180deg, var(--gold-soft), var(--gold)); color: #20160a;
+}
+.btn-danger {
+  border: 1px solid rgba(255,122,122,0.5); border-radius: 10px; padding: 10px;
+  background: rgba(255,122,122,0.1); color: var(--danger); font-weight: 700; cursor: pointer; width: 100%;
+}
+.stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.stat-grid .cell { background: rgba(0,0,0,0.25); border-radius: 10px; padding: 10px; }
+.stat-grid .cell b { color: var(--gold-soft); font-size: 16px; }
+.stat-grid .cell span { font-size: 11px; color: var(--text-dim); display: block; margin-top: 3px; }
+
+/* ---------------- 底部标签栏 ---------------- */
+.tabbar {
+  flex: 0 0 auto; display: flex; background: rgba(12,16,28,0.96);
+  border-top: 1px solid var(--border); padding: 6px 2px calc(6px + env(safe-area-inset-bottom));
+  backdrop-filter: blur(10px); overflow-x: auto; -webkit-overflow-scrolling: touch;
+}
+.tabbar::-webkit-scrollbar { display: none; }
+.tab {
+  flex: 0 0 auto; min-width: 58px; border: none; background: none; color: var(--text-dim);
+  font-size: 11px; display: flex; flex-direction: column; align-items: center; gap: 3px;
+  cursor: pointer; padding: 4px 6px; transition: color 0.15s;
+}
+.tab span { font-size: 11px; }
+.tab.active { color: var(--gold-soft); }
+.tab.active span { color: var(--gold-soft); }
+
+/* ---------------- 弹窗 ---------------- */
+#modal-layer { position: fixed; inset: 0; pointer-events: none; z-index: 50; }
+.modal-mask {
+  position: absolute; inset: 0; background: rgba(4,6,12,0.7);
+  display: flex; align-items: center; justify-content: center; pointer-events: auto;
+  animation: fade 0.25s ease;
+}
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+.modal {
+  width: 86%; max-width: 420px; background: linear-gradient(180deg, #1a2236, #11182a);
+  border: 1px solid rgba(232,196,90,0.35); border-radius: 18px; padding: 22px;
+  box-shadow: var(--shadow); text-align: center; animation: pop 0.3s cubic-bezier(.2,1.2,.4,1);
+}
+@keyframes pop { from { transform: scale(0.85); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.modal h2 { font-size: 20px; color: var(--gold-soft); margin-bottom: 12px; }
+.modal p { font-size: 14px; color: var(--text); line-height: 1.7; margin-bottom: 8px; }
+.modal .big { font-size: 22px; font-weight: 800; color: var(--gold); }
+.modal .btn { margin-top: 16px; width: auto; padding: 12px 28px; }
+
+/* 渡劫动画 */
+.tribulation .modal { border-color: rgba(255,138,138,0.6); }
+.trib {
+  font-size: 64px; animation: shake 0.4s ease-in-out infinite;
+  filter: drop-shadow(0 0 22px rgba(255,210,90,0.8));
+}
+@keyframes shake { 0%,100%{transform:translateX(0) rotate(0);} 25%{transform:translateX(-6px) rotate(-4deg);} 75%{transform:translateX(6px) rotate(4deg);} }
+.trib-glow {
+  position: absolute; inset: 0; background: radial-gradient(circle, rgba(255,220,120,0.25), transparent 60%);
+  animation: flash 0.6s ease-in-out infinite; pointer-events: none;
+}
+@keyframes flash { 0%,100%{opacity:0.4;} 50%{opacity:1;} }
+
+/* ---------------- Toast ---------------- */
+#toast-layer {
+  position: fixed; top: 14px; left: 0; right: 0; z-index: 60;
+  display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none;
+}
+.toast {
+  background: rgba(20,28,46,0.95); border: 1px solid rgba(232,196,90,0.4);
+  color: var(--text); padding: 10px 18px; border-radius: 30px; font-size: 13px;
+  box-shadow: var(--shadow); animation: toastIn 0.3s ease, toastOut 0.4s ease 2.2s forwards;
+}
+.toast.gold { border-color: var(--gold); color: var(--gold-soft); }
+@keyframes toastIn { from { transform: translateY(-20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+@keyframes toastOut { to { transform: translateY(-20px); opacity: 0; } }
+
+/* 点击飘字 */
+.float-num {
+  position: fixed; z-index: 40; pointer-events: none; font-weight: 800; font-size: 18px;
+  color: var(--gold-soft); text-shadow: 0 1px 4px rgba(0,0,0,0.6);
+  animation: floatUp 0.9s ease-out forwards;
+}
+@keyframes floatUp { from { transform: translateY(0); opacity: 1; } to { transform: translateY(-60px); opacity: 0; } }
+
+/* ---------------- v2 新增样式 ---------------- */
+/* 资源条（悟性/材料/仙缘等） */
+.res-bar { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+.res-chip {
+  flex: 1; min-width: 84px; background: var(--panel); border: 1px solid var(--border);
+  border-radius: 10px; padding: 8px; text-align: center;
+}
+.res-chip .l { font-size: 11px; color: var(--text-dim); }
+.res-chip .v { font-size: 15px; font-weight: 700; color: var(--gold-soft); margin-top: 2px; }
+.res-chip.legacy .v { color: #c9a8ff; }
+.res-chip.insight .v { color: #9ff0ff; }
+.res-chip.mat .v { color: #7fe0a8; }
+
+/* 迷你进度条（悟道/喂养消耗） */
+.mini-prog { height: 7px; background: rgba(0,0,0,0.35); border-radius: 6px; overflow: hidden; margin-top: 6px; }
+.mini-prog > i { display: block; height: 100%; background: linear-gradient(90deg, #b9892b, var(--gold)); }
+.cd-text { font-size: 11px; color: var(--danger); margin-top: 4px; }
+
+/* 飞升页 */
+.fly-hero { text-align: center; padding: 16px 0 8px; }
+.fly-hero .big { font-size: 30px; color: #c9a8ff; font-weight: 800; }
+.fly-hero .sub { font-size: 13px; color: var(--text-dim); margin-top: 10px; line-height: 1.8; }
+.btn-fly {
+  margin-top: 14px; color: #fff;
+  background: linear-gradient(180deg, #9f7bff, #6a3fd0);
+  box-shadow: 0 6px 18px rgba(120,80,220,0.4);
+}
+.btn-fly.ready { animation: pulse 1.3s ease-in-out infinite; }
+
+/* 灵根选择 */
+.root-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.root-card {
+  background: var(--panel); border: 1px solid var(--border); border-radius: 14px;
+  padding: 14px; cursor: pointer; transition: transform 0.1s, border-color 0.15s;
+}
+.root-card:active { transform: scale(0.97); }
+.root-card:hover, .root-card.sel { border-color: var(--gold); }
+.root-card .ic { font-size: 30px; }
+.root-card .nm { font-weight: 700; margin-top: 6px; font-size: 15px; }
+.root-card .ds { font-size: 12px; color: var(--text-dim); margin-top: 4px; line-height: 1.5; }
+
+/* ============ v3：战斗 / 法宝 ============ */
+/* 战斗：自身面板 */
+.player-panel { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 12px 14px; margin-bottom: 10px; }
+.pp-head { font-size: 14px; color: var(--text-dim); }
+.pp-head b { color: #ffd76f; font-size: 18px; margin-left: 4px; }
+.pp-stats { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 8px; }
+.pp-stats span { font-size: 12px; color: var(--text); background: rgba(255,255,255,0.05); padding: 3px 8px; border-radius: 8px; }
+
+/* 战斗：地图选择 */
+.map-tabs { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 8px; }
+.map-tab { flex: 0 0 auto; background: var(--panel); border: 1px solid var(--border); color: var(--text); border-radius: 10px; padding: 8px 12px; font-size: 13px; cursor: pointer; white-space: nowrap; }
+.map-tab.active { border-color: var(--gold); background: rgba(255,215,111,0.12); color: var(--gold); }
+.map-tab.locked { opacity: 0.45; }
+.map-desc { font-size: 12px; color: var(--text-dim); margin-bottom: 10px; }
+
+/* 战斗：关卡路径 */
+.level-path { display: flex; flex-direction: column; gap: 8px; }
+.level-row { display: flex; align-items: center; gap: 10px; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; }
+.level-row.cleared { border-color: rgba(127,209,193,0.5); }
+.level-row.locked { opacity: 0.55; }
+.level-idx { width: 26px; height: 26px; flex: 0 0 auto; border-radius: 50%; background: rgba(255,255,255,0.08); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; color: var(--gold); }
+.level-body { flex: 1; min-width: 0; }
+.level-body .name { font-size: 14px; font-weight: 700; }
+.enemy-stats { font-size: 11px; color: var(--text-dim); margin-top: 3px; }
+.reward-line { font-size: 11px; color: #7fe0a8; margin-top: 3px; }
+.boss-tag { font-size: 10px; background: var(--danger); color: #fff; padding: 1px 6px; border-radius: 6px; margin-left: 4px; }
+.cleared-tag { font-size: 10px; background: rgba(127,209,193,0.25); color: #7fd1c1; padding: 1px 6px; border-radius: 6px; margin-left: 4px; }
+.fight-btn { background: linear-gradient(180deg, #ff9f6f, #e8633a); color: #fff; box-shadow: 0 4px 12px rgba(230,99,58,0.35); }
+
+/* 战斗：日志弹窗 */
+.combat-sub { font-size: 12px; color: var(--text-dim); margin: 4px 0 8px; }
+.combat-log { background: rgba(0,0,0,0.3); border-radius: 10px; padding: 8px 10px; max-height: 220px; overflow-y: auto; font-size: 12px; line-height: 1.7; }
+.cl { color: var(--text-dim); }
+.cl.p { color: #7fd1c1; }
+.cl.e { color: #ff9f9f; }
+h2.win { color: #7fd1c1; }
+h2.lose { color: #ff9f9f; }
+.reward { margin-top: 10px; font-size: 13px; color: #ffd76f; }
+.reward.drop { color: #c79fff; }
+
+/* 法宝：装备槽 */
+.slot-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin: 10px 0; }
+.slot { display: flex; align-items: center; gap: 8px; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 10px; }
+.slot.filled { border-color: var(--gold); }
+.slot.empty { opacity: 0.6; }
+.slot > div:first-child { font-size: 24px; }
+.slot .sn { font-size: 13px; font-weight: 700; }
+.slot .sd { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+
+/* 法宝：囊 */
+.section-title.sub { margin-top: 6px; font-size: 14px; }
+.treasure-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px; }
+.tcard { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 10px; display: flex; flex-direction: column; }
+.tcard.locked { opacity: 0.5; align-items: center; justify-content: center; text-align: center; }
+.tcard .ti { font-size: 26px; }
+.tcard .tn { font-size: 13px; font-weight: 700; margin-top: 4px; }
+.tcard .td { font-size: 11px; color: var(--text-dim); margin-top: 3px; line-height: 1.4; min-height: 28px; }
+.tcard .tattrs { font-size: 11px; color: #7fd1c1; margin-top: 5px; }
+.tcard .q { font-size: 11px; font-weight: 700; }
+.tcard .tsub { font-size: 11px; color: var(--text-dim); margin-top: 4px; }
+.tcard .tactions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.buy-btn.eq { background: rgba(120,140,190,0.25); color: #fff; box-shadow: none; }
+.buy-btn.smelt { background: rgba(255,159,111,0.25); color: #ffd1b0; box-shadow: none; }

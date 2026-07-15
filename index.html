@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>放置修仙 · 逍遥道途</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- 顶部状态栏 -->
+    <header class="topbar">
+      <div class="realm-badge">
+        <span id="realm-emoji">🧘</span>
+        <div class="realm-text">
+          <div id="dao-name" class="dao-name">无名散修</div>
+          <div id="realm-name" class="realm-name">炼气期 · 一层</div>
+        </div>
+      </div>
+      <div class="stat-row">
+        <div class="stat">
+          <span class="stat-label">修为</span>
+          <span class="stat-val"><span id="xp-val">0</span> / <span id="xp-need">0</span></span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">灵石</span>
+          <span class="stat-val">💎 <span id="stone-val">0</span></span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">灵气/秒</span>
+          <span class="stat-val" id="speed-val">1.0</span>
+        </div>
+      </div>
+      <div class="progress-wrap">
+        <div class="progress-bar" id="progress-bar"></div>
+        <span class="progress-pct" id="progress-pct">0%</span>
+      </div>
+    </header>
+
+    <!-- 主视图区（由 ui.js 渲染） -->
+    <main id="view" class="view"></main>
+
+    <!-- 底部标签栏（横向滚动） -->
+    <nav class="tabbar">
+      <button class="tab active" data-tab="cultivate">🧘<span>修炼</span></button>
+      <button class="tab" data-tab="technique">📜<span>功法</span></button>
+      <button class="tab" data-tab="abode">⛰️<span>洞府</span></button>
+      <button class="tab" data-tab="pill">💊<span>丹药</span></button>
+      <button class="tab" data-tab="pet">🐾<span>灵宠</span></button>
+      <button class="tab" data-tab="secret">🗺️<span>秘境</span></button>
+      <button class="tab" data-tab="insight">📿<span>悟道</span></button>
+      <button class="tab" data-tab="fly">🔁<span>飞升</span></button>
+      <button class="tab" data-tab="battle">⚔️<span>历练</span></button>
+      <button class="tab" data-tab="treasure">💎<span>法宝</span></button>
+      <button class="tab" data-tab="event">📖<span>奇遇</span></button>
+      <button class="tab" data-tab="achv">🏆<span>成就</span></button>
+      <button class="tab" data-tab="setting">⚙️<span>设置</span></button>
+    </nav>
+  </div>
+
+  <!-- 弹窗层 -->
+  <div id="modal-layer"></div>
+  <!-- 提示层 -->
+  <div id="toast-layer"></div>
+
+  <script src="data.js"></script>
+  <script src="game.js"></script>
+  <script src="ui.js"></script>
+</body>
+</html>
