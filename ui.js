@@ -145,7 +145,11 @@
     const seekBtn = `<button class="btn" id="btn-seek" ${seekAfford ? '' : 'disabled'}>🐾 寻妖（${Game.formatNum(seek)} 💎）</button>`;
     const cards = Game.PETS.map(p => {
       const lv = s.pets[p.id] || 0;
-      const out = (p.produce.type === 'all') ? `全资源 +${Math.round(p.produce.base * lv * 100)}%` : `产出 ${p.produce.base * lv < 0.01 ? (p.produce.base * lv).toFixed(3) : Game.formatNum(p.produce.base * lv)}/${typeUnit(p.produce.type)}`;
+      const perLv = p.produce.base * lv;          // 该灵宠本等级基础产率
+      const perSec = perLv * Game.legacyMult() * (1 + Game.petAllBonus()); // 计入仙缘 / 全资源加成后的真实每秒产出
+      const out = (p.produce.type === 'all')
+        ? `全资源加成 +${Math.round(perLv * 100)}%`
+        : `产出 ${fmtAmt(perSec)} ${typeUnit(p.produce.type)}/秒`;
       const feed = Game.feedCost(p.id), fAfford = lv > 0 && s.materials >= feed;
       const fbtn = lv <= 0 ? `<span class="sub">尚未收服</span>`
         : `<button class="buy-btn" data-feed="${p.id}" ${fAfford ? '' : 'disabled'}>喂养<div class="price">${feed} 🌿</div></button>`;
@@ -154,12 +158,15 @@
     view.innerHTML = `
       <div class="section-title">🐾 灵宠 <small>寻妖收服，喂养升级，自动产出</small></div>
       <div class="res-bar"><div class="res-chip mat"><div class="l">天材地宝</div><div class="v">🌿 ${Game.formatNum(s.materials)}</div></div></div>
+      <div class="hint">🌿 <b>天材地宝</b>：喂养灵宠、强化法宝的核心素材。寻妖（重复收服赠予）、秘境、奇遇、战斗、熔炼盈余法宝皆可得。</div>
       ${seekBtn}
       <div class="list" style="margin-top:12px">${cards}</div>`;
     $('#btn-seek').addEventListener('click', () => { if (Game.seekPet()) renderCurrent(); else toast('灵石不足'); });
     view.querySelectorAll('[data-feed]').forEach(b => b.addEventListener('click', () => { if (Game.feedPet(b.dataset.feed)) renderCurrent(); else toast('天材地宝不足'); }));
   }
   function typeUnit(t) { return t === 'xp' ? '修为' : t === 'stone' ? '灵石' : '🌿'; }
+  // 小数安全的数值格式：小于 1 时保留两位小数（避免 formatNum 直接取整为 0）
+  function fmtAmt(v) { return v < 1 ? (+v).toFixed(2) : Game.formatNum(v); }
 
   /* ---------------- 战斗 / 法宝 辅助 ---------------- */
   function qName(q) { const Q = Game.QUALITY.find(x => x.id === q); return Q ? Q.name : ''; }
@@ -350,6 +357,7 @@
     var tech = topTechnique();
     var aura = tech ? (TECH_ELEMENT[tech.id] || '#9fd0ff') : '#9fd0ff';
     var techName = tech ? tech.icon + tech.name : '🌀 道法';
+    var techEl = tech ? (A.elementOf(tech.id) || 'cycle') : 'cycle';  // 玩家本命功法对应的施法元素
     var th = A.theme(lv._mapId || currentMap);
     var pPow = res.player.power, ePow = Math.floor(lv.atk * 2 + lv.def * 1.5 + lv.hp * 0.25);
     var totalPow = Math.max(1, pPow + ePow), pPct = (pPow / totalPow * 100).toFixed(1), ePct = (ePow / totalPow * 100).toFixed(1);
@@ -384,11 +392,11 @@
       '<div class="combat-reward" style="display:none">'+rewardHtml+'</div>'+
       '<button class="btn" id="cb-ok" style="display:none">收剑</button>', 'combat');
     $('#cb-ok').addEventListener('click',function(){closeModal(m)});
-    playBattle(res,lv,m,aura);
+    playBattle(res,lv,m,aura,techEl);
     return m;
   }
   // 逐回合回放战斗 log，驱动 SVG 卡通演出：弹道 / 粒子 / BOSS 二阶段 / 胜负印章 / 音效
-  function playBattle(res, lv, m, aura) {
+  function playBattle(res, lv, m, aura, techEl) {
     var A=window.ART, S=window.SFX, stage=m.querySelector('.battle-stage');
     var pFill=stage.querySelector('.hp-fill.p'), eFill=stage.querySelector('.hp-fill.e');
     var pLabel=stage.querySelector('[data-plabel]'), eLabel=stage.querySelector('[data-elabel]');
@@ -403,7 +411,7 @@
     function hitR(f){f.classList.remove('hit');void f.offsetWidth;f.classList.add('hit');setTimeout(function(){f.classList.remove('hit')},320);}
     function ft(target,text,cls){var s=fx.getBoundingClientRect(),t=target.getBoundingClientRect();var el=document.createElement('div');el.className='dmg-num '+cls;el.textContent=text;el.style.left=(t.left-s.left+t.width/2)+'px';el.style.top=(t.top-s.top+t.height*.18)+'px';fx.appendChild(el);setTimeout(function(){el.remove()},950);}
     function spawnParticles(target,n){var s=fx.getBoundingClientRect(),t=target.getBoundingClientRect(),cx=t.left-s.left+t.width/2,cy=t.top-s.top+t.height/2;for(var j=0;j<n;j++){var el=document.createElement('div');el.className='particle';var a=Math.random()*Math.PI*2,d=20+Math.random()*36;el.style.left=cx+'px';el.style.top=cy+'px';el.style.setProperty('--tx',Math.cos(a)*d+'px');el.style.setProperty('--ty',Math.sin(a)*d+'px');fx.appendChild(el);setTimeout(function(){el.remove()},650);}}
-    function castSkill(){castCount++;pAura.classList.add('on');banner.classList.remove('show');void banner.offsetWidth;banner.classList.add('show');if(S&&S.getEnabled())S.play('skill');var s=fx.getBoundingClientRect(),tp=pFighter.getBoundingClientRect(),te=eFighter.getBoundingClientRect();var cx=tp.left-s.left+tp.width/2,cy=tp.top-s.top+tp.height*.4;var dx=te.left-s.left+te.width/2-cx,dy=te.top-s.top+te.height*.4-cy;var el=document.createElement('div');el.className='projectile';el.style.left=cx+'px';el.style.top=cy+'px';el.style.setProperty('--dx',dx+'px');el.style.setProperty('--dy',dy+'px');el.style.setProperty('--proj',aura);el.innerHTML=A.projectileSVG(A.elementOf(castCount%2===0?'taiyi':'hongmeng'));fx.appendChild(el);el.classList.add('go');el.addEventListener('animationend',function(){el.remove();var im=document.createElement('div');im.className='impact';im.style.left=(cx+dx)+'px';im.style.top=(cy+dy)+'px';im.style.setProperty('--proj',aura);fx.appendChild(im);setTimeout(function(){im.remove()},400);});setTimeout(function(){pAura.classList.remove('on')},1100);}
+    function castSkill(){castCount++;pAura.classList.add('on');banner.classList.remove('show');void banner.offsetWidth;banner.classList.add('show');if(S&&S.getEnabled())S.play('skill');var s=fx.getBoundingClientRect(),tp=pFighter.getBoundingClientRect(),te=eFighter.getBoundingClientRect();var cx=tp.left-s.left+tp.width/2,cy=tp.top-s.top+tp.height*.4;var dx=te.left-s.left+te.width/2-cx,dy=te.top-s.top+te.height*.4-cy;var el=document.createElement('div');el.className='projectile';el.style.left=cx+'px';el.style.top=cy+'px';el.style.setProperty('--dx',dx+'px');el.style.setProperty('--dy',dy+'px');el.style.setProperty('--proj',aura);el.innerHTML=A.projectileSVG(techEl);fx.appendChild(el);el.classList.add('go');el.addEventListener('animationend',function(){el.remove();var im=document.createElement('div');im.className='impact';im.style.left=(cx+dx)+'px';im.style.top=(cy+dy)+'px';im.style.setProperty('--proj',aura);fx.appendChild(im);setTimeout(function(){im.remove()},400);});setTimeout(function(){pAura.classList.remove('on')},1100);}
     function finish(){pHp=res.pHp;eHp=res.eHp;sh();var rw=m.querySelector('.combat-reward');if(rw)rw.style.display='';var ok=m.querySelector('#cb-ok');if(ok)ok.style.display='';if(seal){seal.style.display='';void seal.offsetWidth;seal.querySelector('span').style.animation='none';void seal.querySelector('span').offsetWidth;seal.querySelector('span').style.animation='sealStamp .5s cubic-bezier(.2,1.4,.4,1) forwards';}if(S&&S.getEnabled())S.play(res.win?'win':'lose');}
     function step(){if(!stage.isConnected)return;if(i>=log.length){finish();return}var e=log[i];if(e.side==='p'&&(i===0||i%6===5))castSkill();if(!phased&&lv.boss&&eHp/eHp0<=.5){phased=true;stage.classList.add('phase2');banner.textContent='【二阶段】· 暴怒';banner.classList.remove('show');void banner.offsetWidth;banner.classList.add('show');setTimeout(function(){banner.textContent='施放 · 暴怒';},1200);if(S&&S.getEnabled())S.play('skill');}
     if(e.side==='p'){if(e.miss){ft(eFighter,'闪避','miss');lunge('p');}else{eHp=Math.max(0,eHp-e.dmg);sh();lunge('p');hitR(eFighter);ft(eFighter,'-'+e.dmg+(e.crit?' 暴击!':''),e.crit?'crit':'dmg');spawnParticles(eFighter,e.crit?12:7);if(e.crit){stage.classList.remove('crit');void stage.offsetWidth;stage.classList.add('crit');if(S&&S.getEnabled())S.play('crit');}else if(S&&S.getEnabled())S.play('hit');}}
@@ -453,6 +461,7 @@
     view.innerHTML = `
       <div class="section-title">💎 法宝 <small>获取/装备/强化/熔炼，撑起战力</small></div>
       <div class="res-bar"><div class="res-chip mat"><div class="l">天材地宝</div><div class="v">🌿 ${Game.formatNum(s.materials)}</div></div><div class="res-chip"><div class="l">灵石</div><div class="v">💎 ${Game.formatNum(s.stone)}</div></div></div>
+      <div class="hint">🌿 <b>天材地宝</b>：强化法宝（每件耗 🌿+💎，随等级与品质递增）、喂养灵宠的必需素材；盈余法宝可<b>熔炼</b>返还天材地宝。掉落于战斗/秘境/奇遇，寻妖重复收服亦赠。</div>
       <div class="slot-row">${slotHtml}</div>
       <div class="section-title sub">法宝囊</div>
       <div class="treasure-grid">${inv}</div>`;

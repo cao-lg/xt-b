@@ -165,6 +165,7 @@ const TREASURES = [
   { id: 'jinyi',      name: '金缕衣',   icon: '🛡️', slot: 'armor',   quality: 1, base: { def: 10, hp: 40 },          desc: '金线织就，防御气血兼修' },
   { id: 'taiji',      name: '太极图',   icon: '☯️', slot: 'armor',   quality: 3, base: { def: 16, dodge: 0.04 },     desc: '阴阳流转，闪避加身' },
   { id: 'wujin',      name: '乌金甲',   icon: '🪖', slot: 'armor',   quality: 4, base: { def: 22, hp: 90 },          desc: '乌金百炼，坚不可摧' },
+  { id: 'hunyuan',    name: '混元铠',   icon: '🛡️', slot: 'armor',   quality: 5, base: { def: 30, hp: 150, dodge: 0.05 }, desc: '混元一气，神铠护身，万法不侵' },
   { id: 'fengming',   name: '风鸣环',   icon: '💍', slot: 'trinket', quality: 2, base: { dodge: 0.06, hit: 0.03 },   desc: '风随环动，身法飘忽' },
   { id: 'xingchen',   name: '星辰珠',   icon: '🔮', slot: 'trinket', quality: 3, base: { crit: 0.06, hit: 0.03 },    desc: '星力汇聚，暴击激增' },
   { id: 'kunlun',     name: '昆仑镜',   icon: '🪞', slot: 'trinket', quality: 5, base: { dodge: 0.05, crit: 0.04, hit: 0.02 }, desc: '照见虚妄，诸般增益' }
@@ -191,13 +192,13 @@ const MAPS = [
     { name: '噬魂魔兵',     icon: '😈', atk: 44, def: 15, hp: 371,  hit: 0.88, dodge: 0.11, crit: 0.08, reward: { stone: [2500, 5200],  mat: [16, 34],  xp: [16000, 36000] },  drop: { chance: 0.42, pool: ['taiji', 'wujin', 'xingchen', 'xuanyuan', 'kunlun'] } },
     { name: '炼狱炎魔',     icon: '🦹', atk: 44, def: 15, hp: 371,  hit: 0.88, dodge: 0.11, crit: 0.08, reward: { stone: [5500, 11000], mat: [30, 60],  xp: [38000, 80000] },  drop: { chance: 0.40, pool: ['xuanyuan', 'wujin', 'kunlun', 'donghuang'] } },
     { name: '九幽魔将',     icon: '🦠', atk: 44, def: 15, hp: 389,  hit: 0.88, dodge: 0.11, crit: 0.08, reward: { stone: [12000, 24000],mat: [55, 110], xp: [90000, 180000] }, drop: { chance: 0.38, pool: ['xuanyuan', 'kunlun', 'donghuang', 'wujin'] } },
-    { name: '魔渊君·修罗',  icon: '👺', atk: 54, def: 15, hp: 357,  hit: 0.88, dodge: 0.11, crit: 0.08, reward: { stone: [28000, 55000],mat: [100, 200],xp: [200000, 420000] },drop: { chance: 0.36, pool: ['xuanyuan', 'kunlun', 'donghuang'] }, boss: true }
+    { name: '魔渊君·修罗',  icon: '👺', atk: 54, def: 15, hp: 357,  hit: 0.88, dodge: 0.11, crit: 0.08, reward: { stone: [28000, 55000],mat: [100, 200],xp: [200000, 420000] },drop: { chance: 0.36, pool: ['xuanyuan', 'kunlun', 'donghuang', 'hunyuan'] }, boss: true }
   ]},
   { id: 'xianxi', name: '仙界裂隙', icon: '🌌', desc: '仙魔交汇之地，藏无上法宝，化神以上方可入', levels: [
-    { name: '裂隙游魂',     icon: '🌟', atk: 149, def: 116, hp: 2607, hit: 0.92, dodge: 0.15, crit: 0.11, reward: { stone: [24000, 48000], mat: [80, 160], xp: [170000, 360000] }, drop: { chance: 0.40, pool: ['xuanyuan', 'kunlun', 'donghuang'] } },
-    { name: '守界仙卫',     icon: '🛡️', atk: 149, def: 116, hp: 2634, hit: 0.92, dodge: 0.15, crit: 0.11, reward: { stone: [52000, 100000],mat: [150, 300],xp: [380000, 800000] }, drop: { chance: 0.38, pool: ['xuanyuan', 'kunlun', 'donghuang'] } },
-    { name: '堕仙残影',     icon: '🪽', atk: 149, def: 116, hp: 2628, hit: 0.92, dodge: 0.15, crit: 0.11, reward: { stone: [110000, 220000],mat:[280, 560], xp: [900000, 1800000] },drop: { chance: 0.36, pool: ['xuanyuan', 'kunlun', 'donghuang'] } },
-    { name: '裂隙主宰·鸿钧',icon: '🌠', atk: 179, def: 116, hp: 2411, hit: 0.92, dodge: 0.15, crit: 0.11, reward: { stone: [260000, 520000],mat:[520, 1000],xp: [2000000, 4200000] },drop: { chance: 0.34, pool: ['donghuang', 'xuanyuan', 'kunlun'] }, boss: true }
+    { name: '裂隙游魂',     icon: '🌟', atk: 149, def: 116, hp: 2607, hit: 0.92, dodge: 0.15, crit: 0.11, reward: { stone: [24000, 48000], mat: [80, 160], xp: [170000, 360000] }, drop: { chance: 0.40, pool: ['xuanyuan', 'kunlun', 'donghuang', 'hunyuan'] } },
+    { name: '守界仙卫',     icon: '🛡️', atk: 149, def: 116, hp: 2634, hit: 0.92, dodge: 0.15, crit: 0.11, reward: { stone: [52000, 100000],mat: [150, 300],xp: [380000, 800000] }, drop: { chance: 0.38, pool: ['xuanyuan', 'kunlun', 'donghuang', 'hunyuan'] } },
+    { name: '堕仙残影',     icon: '🪽', atk: 149, def: 116, hp: 2628, hit: 0.92, dodge: 0.15, crit: 0.11, reward: { stone: [110000, 220000],mat:[280, 560], xp: [900000, 1800000] },drop: { chance: 0.36, pool: ['xuanyuan', 'kunlun', 'donghuang', 'hunyuan'] } },
+    { name: '裂隙主宰·鸿钧',icon: '🌠', atk: 179, def: 116, hp: 2411, hit: 0.92, dodge: 0.15, crit: 0.11, reward: { stone: [260000, 520000],mat:[520, 1000],xp: [2000000, 4200000] },drop: { chance: 0.34, pool: ['donghuang', 'xuanyuan', 'kunlun', 'hunyuan'] }, boss: true }
   ]}
 ];
 
