@@ -532,7 +532,7 @@
       const ts = Game.treasureStats(t.id); const cost = Game.enhanceCost(t.id);
       const maxed = own.level >= CONFIG.treasure.maxLevel;
       const enhAfford = !maxed && s.materials >= cost.mat && s.stone >= cost.stone;
-      const smeltAfford = own.count >= 2;
+      const smeltAfford = own.count >= 1;
       const equipped = s.equipped[t.slot] === t.id;
       const enhBtn = maxed ? `<button class="buy-btn maxed" disabled>圆满</button>`
         : `<button class="buy-btn" data-enh="${t.id}" ${enhAfford ? '' : 'disabled'}>强化<div class="price">${cost.mat}🌿 ${Game.formatNum(cost.stone)}💎</div></button>`;
@@ -567,7 +567,7 @@
     view.querySelectorAll('[data-equip]').forEach(b => b.addEventListener('click', () => { if (Game.equipTreasure(b.dataset.equip)) renderTreasure(); else toast('无法装备'); }));
     view.querySelectorAll('[data-unequip]').forEach(b => b.addEventListener('click', () => { Game.unequip(b.dataset.unequip); renderTreasure(); }));
     view.querySelectorAll('[data-enh]').forEach(b => b.addEventListener('click', () => { if (Game.enhanceTreasure(b.dataset.enh)) renderTreasure(); else toast('材料或灵石不足'); }));
-    view.querySelectorAll('[data-smelt]').forEach(b => b.addEventListener('click', () => { if (Game.smeltTreasure(b.dataset.smelt)) renderTreasure(); else toast('至少需要 2 件方可熔炼'); }));
+    view.querySelectorAll('[data-smelt]').forEach(b => b.addEventListener('click', () => { if (Game.smeltTreasure(b.dataset.smelt)) renderTreasure(); else toast('至少持有 1 件方可熔炼'); }));
   }
 
   /* ---------------- 购买委托 ---------------- */

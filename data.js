@@ -84,7 +84,7 @@ const CONFIG = {
     techShare: 0.55,      // 功法额外分摊给 防/血 的比例
     abodeDef: 16,         // 洞府灵气 → 防（abodeSum × abodeDef）
     abodeHp: 34,          // 洞府灵气 → 血（abodeSum × abodeHp）
-    pillK: 35,            // 丹药临时 buff → 全属性（(pillMult-1) × pillK）；调小，避免丹药战斗加成碾压（原 220 在低境过高）
+    pillK: 0,              // 丹药不再影响战斗属性（仅修炼速度 buff）；若需战斗丹，请开发专用新丹药
     petAllCombat: 90,     // 灵宠·獬豸 全资源 → 全属性（petAllBonus × petAllCombat）
     legacyCombat: 70,     // 仙缘 → 全属性固定值（legacy × legacyCombat）
     // 悟道：仅「大道」为比例倍率；「渡劫/聚财」为固定值
@@ -233,52 +233,52 @@ const TREASURES = [
  * reward: 胜利奖励区间；drop: {chance 掉落概率, pool:[法宝id...]}            */
 const MAPS = [
   { id: 'yaolin', name: '妖兽森林', icon: '🌲', desc: '林间妖兽横行，初出茅庐者可历练于此', realmReq: 0, levels: [
-    { name: '野狼妖', icon: '🐺', atk: 150, def: 282, hp: 714, hit: 0.6698, dodge: 0.1411, crit: 0.02, reward: {"stone":[20,60],"mat":[1,3],"xp":[100,400]}, drop: {"chance":0.55,"pool":["qingfeng","jinyi","fengming"]} },
-    { name: '巨蟒妖', icon: '🐍', atk: 192, def: 361, hp: 912, hit: 0.6698, dodge: 0.1411, crit: 0.02, reward: {"stone":[50,140],"mat":[2,5],"xp":[300,900]}, drop: {"chance":0.5,"pool":["qingfeng","lihuofan","jinyi","fengming"]} },
-    { name: '赤睛虎', icon: '🐯', atk: 222, def: 416, hp: 1051, hit: 0.6698, dodge: 0.1411, crit: 0.02, reward: {"stone":[120,320],"mat":[3,8],"xp":[800,2000]}, drop: {"chance":0.45,"pool":["lihuofan","jinyi","taiji","fengming","xingchen"]} },
-    { name: '妖将·血爪', icon: '👹', atk: 251, def: 471, hp: 1189, hit: 0.6698, dodge: 0.1411, crit: 0.02, reward: {"stone":[300,700],"mat":[5,12],"xp":[2000,5000]}, drop: {"chance":0.4,"pool":["lihuofan","taiji","xingchen","wujin"]}, boss: true },
+    { name: '野狼妖', icon: '🐺', atk: 134, def: 251, hp: 634, hit: 0.6698, dodge: 0.1411, crit: 0.02, reward: {"stone":[20,60],"mat":[1,3],"xp":[100,400]}, drop: {"chance":0.55,"pool":["qingfeng","jinyi","fengming"]} },
+    { name: '巨蟒妖', icon: '🐍', atk: 176, def: 330, hp: 833, hit: 0.6698, dodge: 0.1411, crit: 0.02, reward: {"stone":[50,140],"mat":[2,5],"xp":[300,900]}, drop: {"chance":0.5,"pool":["qingfeng","lihuofan","jinyi","fengming"]} },
+    { name: '赤睛虎', icon: '🐯', atk: 205, def: 385, hp: 971, hit: 0.6698, dodge: 0.1411, crit: 0.02, reward: {"stone":[120,320],"mat":[3,8],"xp":[800,2000]}, drop: {"chance":0.45,"pool":["lihuofan","jinyi","taiji","fengming","xingchen"]} },
+    { name: '妖将·血爪', icon: '👹', atk: 230, def: 432, hp: 1090, hit: 0.6698, dodge: 0.1411, crit: 0.02, reward: {"stone":[300,700],"mat":[5,12],"xp":[2000,5000]}, drop: {"chance":0.4,"pool":["lihuofan","taiji","xingchen","wujin"]}, boss: true },
   ]},
   { id: 'guzhanchang', name: '上古战场', icon: '⚔️', desc: '残魂不灭，杀机四伏，需筑基以上修为', realmReq: 1, levels: [
-    { name: '无名战魂', icon: '👻', atk: 1573, def: 2166, hp: 5473, hit: 0.7045, dodge: 0.1824, crit: 0.039, reward: {"stone":[260,600],"mat":[4,10],"xp":[1800,4500]}, drop: {"chance":0.45,"pool":["lihuofan","jinyi","taiji","fengming","xingchen"]} },
-    { name: '断戟将军', icon: '🪦', atk: 2010, def: 2768, hp: 6993, hit: 0.7045, dodge: 0.1824, crit: 0.039, reward: {"stone":[600,1300],"mat":[7,16],"xp":[4000,9000]}, drop: {"chance":0.42,"pool":["lihuofan","taiji","wujin","xingchen","xuanyuan"]} },
-    { name: '阴煞统领', icon: '💀', atk: 2316, def: 3189, hp: 8057, hit: 0.7045, dodge: 0.1824, crit: 0.039, reward: {"stone":[1300,2800],"mat":[12,26],"xp":[9000,20000]}, drop: {"chance":0.4,"pool":["taiji","wujin","xingchen","xuanyuan","kunlun"]} },
-    { name: '古战场之主', icon: '👑', atk: 2622, def: 3610, hp: 9121, hit: 0.7045, dodge: 0.1824, crit: 0.039, reward: {"stone":[3000,6000],"mat":[20,42],"xp":[20000,45000]}, drop: {"chance":0.38,"pool":["wujin","xuanyuan","kunlun","donghuang"]}, boss: true },
+    { name: '无名战魂', icon: '👻', atk: 1398, def: 1926, hp: 4865, hit: 0.7045, dodge: 0.1824, crit: 0.039, reward: {"stone":[260,600],"mat":[4,10],"xp":[1800,4500]}, drop: {"chance":0.45,"pool":["lihuofan","jinyi","taiji","fengming","xingchen"]} },
+    { name: '断戟将军', icon: '🪦', atk: 1835, def: 2527, hp: 6385, hit: 0.7045, dodge: 0.1824, crit: 0.039, reward: {"stone":[600,1300],"mat":[7,16],"xp":[4000,9000]}, drop: {"chance":0.42,"pool":["lihuofan","taiji","wujin","xingchen","xuanyuan"]} },
+    { name: '阴煞统领', icon: '💀', atk: 2141, def: 2948, hp: 7449, hit: 0.7045, dodge: 0.1824, crit: 0.039, reward: {"stone":[1300,2800],"mat":[12,26],"xp":[9000,20000]}, drop: {"chance":0.4,"pool":["taiji","wujin","xingchen","xuanyuan","kunlun"]} },
+    { name: '古战场之主', icon: '👑', atk: 2404, def: 3310, hp: 8361, hit: 0.7045, dodge: 0.1824, crit: 0.039, reward: {"stone":[3000,6000],"mat":[20,42],"xp":[20000,45000]}, drop: {"chance":0.38,"pool":["wujin","xuanyuan","kunlun","donghuang"]}, boss: true },
   ]},
   { id: 'moyuan', name: '魔渊', icon: '🌋', desc: '魔气滔天，凶险异常，金丹以上方可涉足', realmReq: 2, levels: [
-    { name: '噬魂魔兵', icon: '😈', atk: 5790, def: 7549, hp: 19070, hit: 0.7393, dodge: 0.2115, crit: 0.1932, reward: {"stone":[2500,5200],"mat":[16,34],"xp":[16000,36000]}, drop: {"chance":0.42,"pool":["taiji","wujin","xingchen","xuanyuan","kunlun"]} },
-    { name: '炼狱炎魔', icon: '🦹', atk: 7398, def: 9645, hp: 24367, hit: 0.7393, dodge: 0.2115, crit: 0.1932, reward: {"stone":[5500,11000],"mat":[30,60],"xp":[38000,80000]}, drop: {"chance":0.4,"pool":["xuanyuan","wujin","kunlun","donghuang"]} },
-    { name: '九幽魔将', icon: '🦠', atk: 8524, def: 11113, hp: 28076, hit: 0.7393, dodge: 0.2115, crit: 0.1932, reward: {"stone":[12000,24000],"mat":[55,110],"xp":[90000,180000]}, drop: {"chance":0.38,"pool":["xuanyuan","kunlun","donghuang","wujin"]} },
-    { name: '魔渊君·修罗', icon: '👺', atk: 9650, def: 12581, hp: 31784, hit: 0.7393, dodge: 0.2115, crit: 0.1932, reward: {"stone":[28000,55000],"mat":[100,200],"xp":[200000,420000]}, drop: {"chance":0.36,"pool":["xuanyuan","kunlun","donghuang","hunyuan"]}, boss: true },
+    { name: '噬魂魔兵', icon: '😈', atk: 5147, def: 6710, hp: 16951, hit: 0.7393, dodge: 0.2115, crit: 0.1932, reward: {"stone":[2500,5200],"mat":[16,34],"xp":[16000,36000]}, drop: {"chance":0.42,"pool":["taiji","wujin","xingchen","xuanyuan","kunlun"]} },
+    { name: '炼狱炎魔', icon: '🦹', atk: 6755, def: 8807, hp: 22249, hit: 0.7393, dodge: 0.2115, crit: 0.1932, reward: {"stone":[5500,11000],"mat":[30,60],"xp":[38000,80000]}, drop: {"chance":0.4,"pool":["xuanyuan","wujin","kunlun","donghuang"]} },
+    { name: '九幽魔将', icon: '🦠', atk: 7881, def: 10275, hp: 25957, hit: 0.7393, dodge: 0.2115, crit: 0.1932, reward: {"stone":[12000,24000],"mat":[55,110],"xp":[90000,180000]}, drop: {"chance":0.38,"pool":["xuanyuan","kunlun","donghuang","wujin"]} },
+    { name: '魔渊君·修罗', icon: '👺', atk: 8846, def: 11533, hp: 29135, hit: 0.7393, dodge: 0.2115, crit: 0.1932, reward: {"stone":[28000,55000],"mat":[100,200],"xp":[200000,420000]}, drop: {"chance":0.36,"pool":["xuanyuan","kunlun","donghuang","hunyuan"]}, boss: true },
   ]},
   { id: 'xianxi', name: '仙界裂隙', icon: '🌌', desc: '仙魔交汇之地，藏无上法宝，化神以上方可入', realmReq: 4, levels: [
-    { name: '裂隙游魂', icon: '🌟', atk: 44054, def: 56176, hp: 141917, hit: 1.1555, dodge: 0.1717, crit: 0.288, reward: {"stone":[24000,48000],"mat":[80,160],"xp":[170000,360000]}, drop: {"chance":0.4,"pool":["xuanyuan","kunlun","donghuang","hunyuan"]} },
-    { name: '守界仙卫', icon: '🛡️', atk: 56291, def: 71780, hp: 181339, hit: 1.1555, dodge: 0.1717, crit: 0.288, reward: {"stone":[52000,100000],"mat":[150,300],"xp":[380000,800000]}, drop: {"chance":0.38,"pool":["xuanyuan","kunlun","donghuang","hunyuan"]} },
-    { name: '堕仙残影', icon: '🪽', atk: 64857, def: 82703, hp: 208934, hit: 1.1555, dodge: 0.1717, crit: 0.288, reward: {"stone":[110000,220000],"mat":[280,560],"xp":[900000,1800000]}, drop: {"chance":0.36,"pool":["xuanyuan","kunlun","donghuang","hunyuan"]} },
-    { name: '裂隙主宰·鸿钧', icon: '🌠', atk: 73423, def: 93626, hp: 236529, hit: 1.1555, dodge: 0.1717, crit: 0.288, reward: {"stone":[260000,520000],"mat":[520,1000],"xp":[2000000,4200000]}, drop: {"chance":0.34,"pool":["donghuang","xuanyuan","kunlun","hunyuan"]}, boss: true },
+    { name: '裂隙游魂', icon: '🌟', atk: 39159, def: 49934, hp: 126149, hit: 1.1555, dodge: 0.1717, crit: 0.288, reward: {"stone":[24000,48000],"mat":[80,160],"xp":[170000,360000]}, drop: {"chance":0.4,"pool":["xuanyuan","kunlun","donghuang","hunyuan"]} },
+    { name: '守界仙卫', icon: '🛡️', atk: 51396, def: 65538, hp: 165570, hit: 1.1555, dodge: 0.1717, crit: 0.288, reward: {"stone":[52000,100000],"mat":[150,300],"xp":[380000,800000]}, drop: {"chance":0.38,"pool":["xuanyuan","kunlun","donghuang","hunyuan"]} },
+    { name: '堕仙残影', icon: '🪽', atk: 59962, def: 76461, hp: 193165, hit: 1.1555, dodge: 0.1717, crit: 0.288, reward: {"stone":[110000,220000],"mat":[280,560],"xp":[900000,1800000]}, drop: {"chance":0.36,"pool":["xuanyuan","kunlun","donghuang","hunyuan"]} },
+    { name: '裂隙主宰·鸿钧', icon: '🌠', atk: 67304, def: 85824, hp: 216818, hit: 1.1555, dodge: 0.1717, crit: 0.288, reward: {"stone":[260000,520000],"mat":[520,1000],"xp":[2000000,4200000]}, drop: {"chance":0.34,"pool":["donghuang","xuanyuan","kunlun","hunyuan"]}, boss: true },
   ]},
   { id: 'xuli', name: '炼虚禁地', icon: '⛩️', desc: '法则乱流，非炼虚以上不可踏足', realmReq: 5, levels: [
-    { name: '法则乱流', icon: '🌪️', atk: 107225, def: 135725, hp: 342885, hit: 1.2427, dodge: 0.2032, crit: 0.3322, reward: {"stone":[36000,72000],"mat":[120,240],"xp":[250000,520000]}, drop: {"chance":0.36,"pool":["xuanyuan","kunlun","donghuang","hunyuan"]} },
-    { name: '虚空妖灵', icon: '👾', atk: 137009, def: 173427, hp: 438131, hit: 1.2427, dodge: 0.2032, crit: 0.3322, reward: {"stone":[78000,150000],"mat":[220,440],"xp":[550000,1100000]}, drop: {"chance":0.34,"pool":["xuanyuan","kunlun","donghuang","hunyuan"]} },
-    { name: '混沌守卫', icon: '🛡️', atk: 157858, def: 199818, hp: 504803, hit: 1.2427, dodge: 0.2032, crit: 0.3322, reward: {"stone":[165000,330000],"mat":[400,800],"xp":[1200000,2400000]}, drop: {"chance":0.32,"pool":["xuanyuan","kunlun","donghuang","hunyuan"]} },
-    { name: '妖皇·裂空', icon: '👑', atk: 178708, def: 226209, hp: 571476, hit: 1.2427, dodge: 0.2032, crit: 0.3322, reward: {"stone":[390000,780000],"mat":[700,1400],"xp":[2500000,5200000]}, drop: {"chance":0.3,"pool":["donghuang","xuanyuan","kunlun","hunyuan"]}, boss: true },
+    { name: '法则乱流', icon: '🌪️', atk: 95311, def: 120645, hp: 304787, hit: 1.2427, dodge: 0.2032, crit: 0.3322, reward: {"stone":[36000,72000],"mat":[120,240],"xp":[250000,520000]}, drop: {"chance":0.36,"pool":["xuanyuan","kunlun","donghuang","hunyuan"]} },
+    { name: '虚空妖灵', icon: '👾', atk: 125095, def: 158346, hp: 400033, hit: 1.2427, dodge: 0.2032, crit: 0.3322, reward: {"stone":[78000,150000],"mat":[220,440],"xp":[550000,1100000]}, drop: {"chance":0.34,"pool":["xuanyuan","kunlun","donghuang","hunyuan"]} },
+    { name: '混沌守卫', icon: '🛡️', atk: 145944, def: 184737, hp: 466705, hit: 1.2427, dodge: 0.2032, crit: 0.3322, reward: {"stone":[165000,330000],"mat":[400,800],"xp":[1200000,2400000]}, drop: {"chance":0.32,"pool":["xuanyuan","kunlun","donghuang","hunyuan"]} },
+    { name: '妖皇·裂空', icon: '👑', atk: 163815, def: 207358, hp: 523853, hit: 1.2427, dodge: 0.2032, crit: 0.3322, reward: {"stone":[390000,780000],"mat":[700,1400],"xp":[2500000,5200000]}, drop: {"chance":0.3,"pool":["donghuang","xuanyuan","kunlun","hunyuan"]}, boss: true },
   ]},
   { id: 'heti', name: '合体战场', icon: '⚔️', desc: '上古仙魔战场，合体期方可一战', realmReq: 6, levels: [
-    { name: '残存仙兵', icon: '🗡️', atk: 256631, def: 316775, hp: 800275, hit: 0.9458, dodge: 1.3286, crit: 0.5825, reward: {"stone":[55000,110000],"mat":[180,360],"xp":[350000,720000]}, drop: {"chance":0.34,"pool":["donghuang","xuanyuan","kunlun","hunyuan"]} },
-    { name: '魔道巨擘', icon: '😈', atk: 327918, def: 404769, hp: 1022573, hit: 0.9458, dodge: 1.3286, crit: 0.5825, reward: {"stone":[120000,240000],"mat":[330,660],"xp":[800000,1600000]}, drop: {"chance":0.32,"pool":["donghuang","xuanyuan","kunlun","hunyuan"]} },
-    { name: '战场英灵', icon: '👻', atk: 377818, def: 466364, hp: 1178182, hit: 0.9458, dodge: 1.3286, crit: 0.5825, reward: {"stone":[260000,520000],"mat":[600,1200],"xp":[1800000,3600000]}, drop: {"chance":0.3,"pool":["donghuang","xuanyuan","kunlun","hunyuan"]} },
-    { name: '战神·刑天', icon: '🪓', atk: 427719, def: 527959, hp: 1333791, hit: 0.9458, dodge: 1.3286, crit: 0.5825, reward: {"stone":[600000,1200000],"mat":[1000,2000],"xp":[3800000,7800000]}, drop: {"chance":0.28,"pool":["donghuang","xuanyuan","kunlun","hunyuan"]}, boss: true },
+    { name: '残存仙兵', icon: '🗡️', atk: 228117, def: 281578, hp: 711355, hit: 0.9458, dodge: 1.3286, crit: 0.5825, reward: {"stone":[55000,110000],"mat":[180,360],"xp":[350000,720000]}, drop: {"chance":0.34,"pool":["donghuang","xuanyuan","kunlun","hunyuan"]} },
+    { name: '魔道巨擘', icon: '😈', atk: 299403, def: 369571, hp: 933654, hit: 0.9458, dodge: 1.3286, crit: 0.5825, reward: {"stone":[120000,240000],"mat":[330,660],"xp":[800000,1600000]}, drop: {"chance":0.32,"pool":["donghuang","xuanyuan","kunlun","hunyuan"]} },
+    { name: '战场英灵', icon: '👻', atk: 349304, def: 431167, hp: 1089263, hit: 0.9458, dodge: 1.3286, crit: 0.5825, reward: {"stone":[260000,520000],"mat":[600,1200],"xp":[1800000,3600000]}, drop: {"chance":0.3,"pool":["donghuang","xuanyuan","kunlun","hunyuan"]} },
+    { name: '战神·刑天', icon: '🪓', atk: 392076, def: 483962, hp: 1222642, hit: 0.9458, dodge: 1.3286, crit: 0.5825, reward: {"stone":[600000,1200000],"mat":[1000,2000],"xp":[3800000,7800000]}, drop: {"chance":0.28,"pool":["donghuang","xuanyuan","kunlun","hunyuan"]}, boss: true },
   ]},
   { id: 'dasheng', name: '大乘遗迹', icon: '🏛️', desc: '大乘先辈遗留下来的试炼之地', realmReq: 7, levels: [
-    { name: '遗迹守卫', icon: '🗿', atk: 567770, def: 701482, hp: 1772164, hit: 0.9835, dodge: 1.4208, crit: 0.6263, reward: {"stone":[85000,170000],"mat":[260,520],"xp":[480000,1000000]}, drop: {"chance":0.32,"pool":["donghuang","xuanyuan","kunlun","hunyuan"]} },
-    { name: '法则幻影', icon: '✨', atk: 725484, def: 896338, hp: 2264432, hit: 0.9835, dodge: 1.4208, crit: 0.6263, reward: {"stone":[180000,360000],"mat":[480,960],"xp":[1100000,2200000]}, drop: {"chance":0.3,"pool":["donghuang","xuanyuan","kunlun","hunyuan"]} },
-    { name: '太古神兽', icon: '🐉', atk: 835884, def: 1032737, hp: 2609020, hit: 0.9835, dodge: 1.4208, crit: 0.6263, reward: {"stone":[380000,760000],"mat":[880,1760],"xp":[2500000,5000000]}, drop: {"chance":0.28,"pool":["donghuang","xuanyuan","kunlun","hunyuan"]} },
-    { name: '古佛·迦叶', icon: '🛕', atk: 946283, def: 1169136, hp: 2953607, hit: 0.9835, dodge: 1.4208, crit: 0.6263, reward: {"stone":[900000,1800000],"mat":[1500,3000],"xp":[5200000,10500000]}, drop: {"chance":0.26,"pool":["donghuang","xuanyuan","kunlun","hunyuan"]}, boss: true },
+    { name: '遗迹守卫', icon: '🗿', atk: 504684, def: 623539, hp: 1575257, hit: 0.9835, dodge: 1.4208, crit: 0.6263, reward: {"stone":[85000,170000],"mat":[260,520],"xp":[480000,1000000]}, drop: {"chance":0.32,"pool":["donghuang","xuanyuan","kunlun","hunyuan"]} },
+    { name: '法则幻影', icon: '✨', atk: 662398, def: 818395, hp: 2067525, hit: 0.9835, dodge: 1.4208, crit: 0.6263, reward: {"stone":[180000,360000],"mat":[480,960],"xp":[1100000,2200000]}, drop: {"chance":0.3,"pool":["donghuang","xuanyuan","kunlun","hunyuan"]} },
+    { name: '太古神兽', icon: '🐉', atk: 772798, def: 954794, hp: 2412112, hit: 0.9835, dodge: 1.4208, crit: 0.6263, reward: {"stone":[380000,760000],"mat":[880,1760],"xp":[2500000,5000000]}, drop: {"chance":0.28,"pool":["donghuang","xuanyuan","kunlun","hunyuan"]} },
+    { name: '古佛·迦叶', icon: '🛕', atk: 867426, def: 1071708, hp: 2707473, hit: 0.9835, dodge: 1.4208, crit: 0.6263, reward: {"stone":[900000,1800000],"mat":[1500,3000],"xp":[5200000,10500000]}, drop: {"chance":0.26,"pool":["donghuang","xuanyuan","kunlun","hunyuan"]}, boss: true },
   ]},
   { id: 'tianjie', name: '天道台', icon: '☁️', desc: '直面天道的最终试炼，渡劫期方可登临', realmReq: 8, levels: [
-    { name: '天雷化身', icon: '⚡', atk: 1255453, def: 1550620, hp: 3917357, hit: 1.0212, dodge: 1.5164, crit: 0.673, reward: {"stone":[130000,260000],"mat":[380,760],"xp":[650000,1350000]}, drop: {"chance":0.3,"pool":["donghuang","xuanyuan","kunlun","hunyuan"]} },
-    { name: '心魔镜像', icon: '🪞', atk: 1604190, def: 1981348, hp: 5005512, hit: 1.0212, dodge: 1.5164, crit: 0.673, reward: {"stone":[280000,560000],"mat":[700,1400],"xp":[1500000,3000000]}, drop: {"chance":0.28,"pool":["donghuang","xuanyuan","kunlun","hunyuan"]} },
-    { name: '天道意志', icon: '👁️', atk: 1848306, def: 2282858, hp: 5767220, hit: 1.0212, dodge: 1.5164, crit: 0.673, reward: {"stone":[600000,1200000],"mat":[1300,2600],"xp":[3500000,7000000]}, drop: {"chance":0.26,"pool":["donghuang","xuanyuan","kunlun","hunyuan"]} },
-    { name: '天道化身', icon: '🌌', atk: 2092422, def: 2584367, hp: 6528928, hit: 1.0212, dodge: 1.5164, crit: 0.673, reward: {"stone":[1400000,2800000],"mat":[2200,4400],"xp":[7500000,15000000]}, drop: {"chance":0.24,"pool":["donghuang","xuanyuan","kunlun","hunyuan"]}, boss: true },
+    { name: '天雷化身', icon: '⚡', atk: 1115958, def: 1378329, hp: 3482095, hit: 1.0212, dodge: 1.5164, crit: 0.673, reward: {"stone":[130000,260000],"mat":[380,760],"xp":[650000,1350000]}, drop: {"chance":0.3,"pool":["donghuang","xuanyuan","kunlun","hunyuan"]} },
+    { name: '心魔镜像', icon: '🪞', atk: 1464695, def: 1809057, hp: 4570250, hit: 1.0212, dodge: 1.5164, crit: 0.673, reward: {"stone":[280000,560000],"mat":[700,1400],"xp":[1500000,3000000]}, drop: {"chance":0.28,"pool":["donghuang","xuanyuan","kunlun","hunyuan"]} },
+    { name: '天道意志', icon: '👁️', atk: 1708811, def: 2110567, hp: 5331958, hit: 1.0212, dodge: 1.5164, crit: 0.673, reward: {"stone":[600000,1200000],"mat":[1300,2600],"xp":[3500000,7000000]}, drop: {"chance":0.26,"pool":["donghuang","xuanyuan","kunlun","hunyuan"]} },
+    { name: '天道化身', icon: '🌌', atk: 1918054, def: 2369004, hp: 5984851, hit: 1.0212, dodge: 1.5164, crit: 0.673, reward: {"stone":[1400000,2800000],"mat":[2200,4400],"xp":[7500000,15000000]}, drop: {"chance":0.24,"pool":["donghuang","xuanyuan","kunlun","hunyuan"]}, boss: true },
   ]},
 ];
 

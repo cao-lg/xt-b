@@ -523,9 +523,9 @@ const Game = (function () {
     pAdd(dodgeParts, '基础', C2.baseDodge); if (r > 0) pAdd(dodgeParts, '境界', r * C2.realmDodge); if ((il.jie || 0) > 0) pAdd(dodgeParts, '悟道·渡劫', (il.jie || 0) * C2.insJieDodge); if (dodgePet > 0) pAdd(dodgeParts, '宠物', dodgePet); if (rc && rc.dodge) pAdd(dodgeParts, `灵根·${root.name}`, rc.dodge); if (dodgeTre > 0) pAdd(dodgeParts, '法宝', dodgeTre);
     pAdd(critParts, '基础', C2.baseCrit); if (r > 0) pAdd(critParts, '境界', r * C2.realmCrit); if ((il.dao || 0) > 0) pAdd(critParts, '悟道·大道', (il.dao || 0) * C2.insDaoCrit); if (critPet > 0) pAdd(critParts, '宠物', critPet); if (rc && rc.crit) pAdd(critParts, `灵根·${root.name}`, rc.crit); if (critTre > 0) pAdd(critParts, '法宝', critTre);
     return [
-      statLine('攻', atkBracket, contribs([['基础', C2.flatAtk], ['功法', techA], ['丹药', pillF], ['灵宠全', paF], ['仙缘', legF], ['灵根', rootA], ['法宝', treA], ['灵宠', petA]]), final.atk),
-      statLine('防', defBracket, contribs([['基础', C2.flatDef], ['洞府', abodeSum * C2.abodeDef], ['渡劫', jieDef], ['丹药', pillF], ['灵宠全', paF], ['仙缘', legF], ['灵根', rootD], ['法宝', treD], ['灵宠', petD], ['功法分摊', ts]]), final.def),
-      statLine('血', hpBracket, contribs([['基础', C2.flatHp], ['洞府', abodeSum * C2.abodeHp], ['聚财', caiHp], ['丹药', pillF], ['灵宠全', paF], ['仙缘', legF], ['灵根', rootH], ['法宝', treH], ['灵宠', petH], ['功法分摊', ts]]), final.hp),
+      statLine('攻', atkBracket, contribs([['基础', C2.flatAtk], ['功法', techA], ['灵宠全', paF], ['仙缘', legF], ['灵根', rootA], ['法宝', treA], ['灵宠', petA]]), final.atk),
+      statLine('防', defBracket, contribs([['基础', C2.flatDef], ['洞府', abodeSum * C2.abodeDef], ['渡劫', jieDef], ['灵宠全', paF], ['仙缘', legF], ['灵根', rootD], ['法宝', treD], ['灵宠', petD], ['功法分摊', ts]]), final.def),
+      statLine('血', hpBracket, contribs([['基础', C2.flatHp], ['洞府', abodeSum * C2.abodeHp], ['聚财', caiHp], ['灵宠全', paF], ['仙缘', legF], ['灵根', rootH], ['法宝', treH], ['灵宠', petH], ['功法分摊', ts]]), final.hp),
       '',
       `<b>命中</b>（加法·不封顶）= ${hitParts.join(' + ')} = <b>${(final.hit * 100).toFixed(1)}%</b>`,
       `<b>闪避</b>（加法·不封顶）= ${dodgeParts.join(' + ')} = <b>${(final.dodge * 100).toFixed(1)}%</b>（战斗按 dodge/(1+dodge) 折算有效闪避，永不满 100% 无敌）`,
@@ -550,7 +550,6 @@ const Game = (function () {
     if (r > 0 || l > 0) items.push({ icon: '🧘', name: '境界', desc: `战力带 ×${band.toFixed(2)}（攻/防/血随大境界放大，不封顶）` });
     if (techSum > 0) items.push({ icon: '📜', name: '功法', desc: `攻 +${Math.round(techSum * C2.techAtk)} ，防/血 +${Math.round(techSum * C2.techAtk * C2.techShare)}（固定值）` });
     if (abodeSum > 0) items.push({ icon: '⛰️', name: '洞府', desc: `防 +${Math.round(abodeSum * C2.abodeDef)} ，血 +${Math.round(abodeSum * C2.abodeHp)}（固定值）` });
-    if (pillBonus > 0) items.push({ icon: '💊', name: '丹药(限时)', desc: `攻/防/血 +${Math.round(pillBonus * C2.pillK)}（固定值）` });
     if (legacy > 0) items.push({ icon: '🔁', name: '仙缘', desc: `攻/防/血 +${Math.round(legacy * C2.legacyCombat)}（固定值）` });
     if (petAll > 0) items.push({ icon: '🦄', name: '灵宠·獬豸', desc: `攻/防/血 +${Math.round(petAll * C2.petAllCombat)}（固定值）` });
     PETS.forEach(p => { const lv = state.pets[p.id] || 0; if (lv <= 0) return; const m = PET_COMBAT[p.id]; if (!m) return; const e = []; for (const k in m) e.push(`${ab(k)}+${Math.round(m[k] * lv)}`); if (e.length) items.push({ icon: p.icon, name: '灵宠·' + p.name, desc: e.join(' ') }); });
@@ -736,10 +735,11 @@ const Game = (function () {
   }
   function smeltTreasure(tid) {
     const t = TREASURES.find(x => x.id === tid); const own = state.treasures[tid];
-    if (!t || !own || own.count < 2) return false;
+    if (!t || !own || own.count < 1) return false;
+    if (state.equipped[t.slot] === tid) state.equipped[t.slot] = null;  // 熔掉已装备件时自动卸下
     own.count--; const gain = CONFIG.treasure.smeltMatPerQuality * t.quality;
     state.materials += gain;
-    pushLog(`🔥 熔炼${t.name}（盈余），得天材地宝 +${gain}`, t.icon); save(); emit('treasure'); return true;
+    pushLog(`🔥 熔炼${t.name}，得天材地宝 +${gain}`, t.icon); save(); emit('treasure'); return true;
   }
 
   /* ---------- 存档 / 读档 ---------- */
