@@ -66,12 +66,12 @@
   function buildBuffLine() {
     const s = Game.state;
     let html = '';
-    Game.PILLS.forEach(p => { const left = s.pills[p.id] || 0; if (left > 0) html += `<span class="pill-tag">${p.icon} ${p.name} ${Game.formatTime(left)}</span>`; });
+    Game.PILLS.forEach(p => { const left = s.pills[p.id] || 0; if (left > 0) html += `<span class="pill-tag" title="${p.desc}，剩余 ${Game.formatTime(left)}">${p.icon} ${p.name} ${Game.formatTime(left)}</span>`; });
     const tm = Game.techniqueMult(); const ab = Game.abodeBonus(); const pa = Game.petAllBonus();
-    if (tm > 1) html += `<span class="pill-tag">📜 功法 +${Math.round((tm - 1) * 100)}%</span>`;
-    if (ab > 0) html += `<span class="pill-tag">⛰️ 灵气 +${Math.round(ab * 100)}%</span>`;
-    if (pa > 0) html += `<span class="pill-tag">🦄 灵宠 +${Math.round(pa * 100)}%</span>`;
-    if (s.legacy > 0) html += `<span class="pill-tag">🔁 仙缘 +${Math.round(s.legacy * CONFIG.legacyPerPoint * 100)}%</span>`;
+    if (tm > 1) html += `<span class="pill-tag" title="功法总和：修炼速度 ×${tm.toFixed(2)}，战斗：攻×${tm.toFixed(2)} 防/血×${(1+CONFIG.combat.techShare*(tm-1)).toFixed(2)}">📜 功法 +${Math.round((tm - 1) * 100)}%</span>`;
+    if (ab > 0) html += `<span class="pill-tag" title="灵气浓度：修炼+${Math.round(ab*100)}%，战斗：防/血×${(1+ab*CONFIG.combat.abodeCombat).toFixed(2)}">⛰️ 灵气 +${Math.round(ab * 100)}%</span>`;
+    if (pa > 0) html += `<span class="pill-tag" title="獬豸全资源加成：修炼+${Math.round(pa*100)}%，战斗：攻/防/血×${(1+pa*CONFIG.combat.petAllCombat).toFixed(2)}">🦄 灵宠 +${Math.round(pa * 100)}%</span>`;
+    if (s.legacy > 0) html += `<span class="pill-tag" title="仙缘倍率：攻/防/血 ×${Game.legacyMult().toFixed(2)}">🔁 仙缘 +${Math.round(s.legacy * CONFIG.legacyPerPoint * 100)}%</span>`;
     return html || '<span style="color:var(--text-dim)">运转周天，静心修炼……</span>';
   }
 
@@ -354,6 +354,10 @@
           <span>命中 ${Math.round(st.hit * 100)}%</span><span>闪避 ${Math.round(st.dodge * 100)}%</span><span>暴击 ${Math.round(st.crit * 100)}%</span>
         </div>
         <div class="hint" style="margin-top:8px">攻/防/气血/命中/闪避/暴击 受功法、洞府、丹药、悟道、灵宠、灵根、仙缘、法宝共同影响。</div>
+        <details class="breakdown" style="margin-top:8px;font-size:12px;color:var(--text-dim)">
+          <summary>📊 各系统战斗属性贡献详情</summary>
+          <div style="padding:8px 0 4px 8px;line-height:1.7">${Game.combatBreakdown().map(i => `<div title="${i.desc}"><span>${i.icon} ${i.name}</span><span style="float:right;color:var(--text)">${i.desc}</span></div>`).join('')}</div>
+        </details>
       </div>
       <div class="map-tabs">${mapTabs}${towerTab}</div>
       ${body}`;
@@ -494,6 +498,15 @@
     view.innerHTML = `
       <div class="section-title">💎 法宝 <small>获取/装备/强化/熔炼，撑起战力</small></div>
       <div class="res-bar"><div class="res-chip mat"><div class="l">天材地宝</div><div class="v">🌿 ${Game.formatNum(s.materials)}</div></div><div class="res-chip"><div class="l">灵石</div><div class="v">💎 ${Game.formatNum(s.stone)}</div></div></div>
+      <div class="battle-meta"><details><summary>🧘 强化后战斗属性预览 (点击展开)</summary>
+        <div class="player-panel" style="margin-top:8px">
+          <div class="pp-head">🧘 自身战力 <b>${Game.formatNum(Game.combatStats().power)}</b></div>
+          <div class="pp-stats">
+            <span>攻 ${Game.combatStats().atk}</span><span>防 ${Game.combatStats().def}</span><span>气血 ${Game.combatStats().hp}</span>
+            <span>命中 ${Math.round(Game.combatStats().hit * 100)}%</span><span>闪避 ${Math.round(Game.combatStats().dodge * 100)}%</span><span>暴击 ${Math.round(Game.combatStats().crit * 100)}%</span>
+          </div>
+        </div></details>
+      </div>
       <div class="hint">🌿 <b>天材地宝</b>：强化法宝（每件耗 🌿+💎，随等级与品质递增）、喂养灵宠的必需素材；盈余法宝可<b>熔炼</b>返还天材地宝。掉落于战斗/秘境/奇遇，寻妖重复收服亦赠。</div>
       <div class="slot-row">${slotHtml}</div>
       <div class="section-title sub">法宝囊</div>

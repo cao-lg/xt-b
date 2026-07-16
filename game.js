@@ -491,6 +491,39 @@ const Game = (function () {
     return { atk: Math.floor(atk), def: Math.floor(def), hp: Math.floor(hp), hit, dodge, crit, power };
   }
 
+  // 战斗属性来源汇总（用于 UI 展示）
+  function combatBreakdown() {
+    const items = [];
+    const r = state.realmIndex, l = state.layer;
+    const tech = techniqueMult();
+    const abode = abodeBonus();
+    const pill = pillMult();
+    const lm = legacyMult();
+    const petAll = petAllBonus();
+    const il = state.insightLv || {};
+    const root = ROOTS.find(x => x.id === state.rootId);
+    function ab(s) { return s==='atk'?'攻':s==='def'?'防':s==='hp'?'气血':s==='hit'?'命中':s==='dodge'?'闪避':'暴击'; }
+    if (r>0||l>0) items.push({ icon:'🧘', name:'境界', desc:`基础 攻+${Math.floor((r+1)*6+l*1.2)} 防+${Math.floor((r+1)*3+l*0.6)} 血+${Math.floor(80+(r+1)*60+l*12)} 命中+${Math.round(r*CONFIG.combat.realmHit*100)}% 闪避+${Math.round(r*CONFIG.combat.realmDodge*100)}% 暴击+${Math.round(r*CONFIG.combat.realmCrit*100)}%` });
+    if (tech>1) items.push({ icon:'📜', name:'功法', desc:`攻×${tech.toFixed(2)} 防×${(1+CONFIG.combat.techShare*(tech-1)).toFixed(2)} 血×${(1+CONFIG.combat.techShare*(tech-1)).toFixed(2)}` });
+    if (abode>0) { const ab=1+abode*CONFIG.combat.abodeCombat; items.push({ icon:'⛰️', name:'洞府', desc:`防×${ab.toFixed(2)} 血×${ab.toFixed(2)}` }); }
+    if (pill>1) items.push({ icon:'💊', name:'丹药(限时)', desc:`攻×${pill.toFixed(2)} 防×${pill.toFixed(2)} 血×${pill.toFixed(2)}` });
+    if (lm>1) items.push({ icon:'🔁', name:'仙缘', desc:`攻×${lm.toFixed(2)} 防×${lm.toFixed(2)} 血×${lm.toFixed(2)}` });
+    if (petAll>0) items.push({ icon:'🦄', name:'灵宠·獬豸', desc:`攻/防/血×${(1+petAll*CONFIG.combat.petAllCombat).toFixed(2)}` });
+    PETS.forEach(p=>{ const lv=state.pets[p.id]||0; if(lv<=0)return; const m=PET_COMBAT[p.id]; if(!m)return; const e=[]; for(const k in m) e.push(`${ab(k)}+${(m[k]*lv).toFixed(1)}`); if(e.length) items.push({ icon:p.icon, name:'灵宠·'+p.name, desc:e.join(' ') }); });
+    const d=il.dao||0, j=il.jie||0, c=il.cai||0;
+    if(d>0) items.push({ icon:'☯️', name:'悟道·大道', desc:`攻×${(1+d*CONFIG.combat.insDaoAtk).toFixed(2)} 暴击+${(d*CONFIG.combat.insDaoCrit*100).toFixed(1)}%` });
+    if(j>0) items.push({ icon:'⚡', name:'悟道·渡劫', desc:`防×${(1+j*CONFIG.combat.insJieDef).toFixed(2)} 闪避+${(j*CONFIG.combat.insJieDodge*100).toFixed(1)}%` });
+    if(c>0) items.push({ icon:'💰', name:'悟道·聚财', desc:`血×${(1+c*CONFIG.combat.insCaiHp).toFixed(2)}` });
+    if(root){ const rc=ROOT_COMBAT[root.id]; if(rc){ const e=[]; for(const k in rc) e.push(`${ab(k)}+${(rc[k]*100).toFixed(0)}%`); items.push({ icon:root.icon, name:'灵根·'+root.name, desc:e.join(' ') }); } }
+    ['weapon','armor','trinket'].forEach(s=>{
+      const tid=state.equipped[s]; if(!tid)return;
+      const ts=treasureStats(tid); if(!ts)return;
+      const e=[]; for(const k in ts.attrs) e.push(`${ab(k)}+${k==='hit'||k==='dodge'||k==='crit'?Math.round(ts.attrs[k]*100)+'%':Math.round(ts.attrs[k])}`);
+      items.push({ icon:TREASURES.find(t=>t.id===tid).icon, name:'法宝·'+ts.name, desc:e.join(' ') });
+    });
+    return items;
+  }
+
   function canBattle() { return Date.now() >= state.battleCd; }
   function battleCooldownLeft() { return Math.max(0, Math.ceil((state.battleCd - Date.now()) / 1000)); }
   // 关卡解锁：首图默认开；同图需上一关已通关；非首图需上一张图 BOSS 已通关；且需满足境界要求
@@ -728,7 +761,7 @@ const Game = (function () {
     techniquePrice, abodePrice, seekCost, feedCost, insightPrice, legacyGain, canReincarnate, canExplore,
     techniqueMult, abodeBonus, pillMult, legacyMult, rootMult, petAllBonus, petOutPerSec, getTotalLayers,
     formatNum, formatSpeed, formatTime,
-    combatStats, currentSpeed, qualityMult, treasureStats, canBattle, battleCooldownLeft, isLevelUnlocked, fight, simulateCombat, towerEnemy, towerFight, softCap,
+    combatStats, currentSpeed, qualityMult, treasureStats, canBattle, battleCooldownLeft, isLevelUnlocked, fight, simulateCombat, towerEnemy, towerFight, softCap, combatBreakdown,
     hasTreasure, equipTreasure, unequip, enhanceCost, enhanceTreasure, smeltTreasure,
     get state() { return state; },
     get REALMS() { return REALMS; }, get ROOTS() { return ROOTS; }, get TECHNIQUES() { return TECHNIQUES; },
