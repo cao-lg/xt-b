@@ -14,8 +14,10 @@ const CONFIG = {
   layerCostGrowth: 1.50,   // 每小层突破成本 ×1.50
   realmCostGrowth: 3.50,   // 每大境界突破成本 ×3.50（高于速度复合，保证长线越来越难）
   majorBreakMult: 2.0,     // 大境界突破（第 9 层→下一境界）成本额外 ×2.0
-  speedCap: 30,            // 非转生加成（功法/洞府/丹药/悟性/灵宠/灵根）总乘子上限，防失控
-  legacyCap: 10,           // 仙缘（飞升转生）全局倍率上限，保证转生收益有界
+  // 说明：speedCap / legacyCap 已移除。
+  // 修炼速度改为「固定值加法为主 + 仅顶级比例」模型（见 TECHNIQUES / ABODES），
+  // 功法/洞府普通档加固定值（线性、不封顶），只有最高级（鸿蒙紫气诀 / 上古仙府）为比例倍率，
+  // 仙缘(legacyMult)也不封顶，但 legacyPerPoint 调小，保证长线数字不至于失控。
 
   /* 资源产出 */
   stoneRatio: 0.18,        // 灵石产出速度 = 修为速度 × 此比例
@@ -150,22 +152,29 @@ const ROOTS = [
   { id: 'earth', name: '厚土灵根', icon: '⛰️', desc: '全资源效率 +8%',    type: 'all',   mult: 0.08 }
 ];
 
-/* ---------- 功法（消耗灵石，可升级，永久乘法加成修炼速度） ---------- */
+/* ---------- 功法（消耗灵石，可升级，永久加成） ----------
+ * 字段说明：
+ *  - mult : 战斗权重（每级对 攻/防/血 的贡献系数，固定值模型用，见 combatStats），
+ *           保留旧值，战斗平衡不受影响。
+ *  - flat : 修炼固定值（修为/秒/级），普通档用，线性、不封顶。
+ *  - ratio: 修炼比例倍率（每级），仅【最高级·鸿蒙紫气诀】用。
+ * 设计原则（按需求）：功法普通档加固定值，只有最高级为比例倍率。 */
 const TECHNIQUES = [
-  { id: 'tuna',     name: '吐纳术',     desc: '修炼速度 +8%/级',   baseStone: 25,     priceGrowth: 1.50, mult: 0.08, max: 99, icon: '🌀' },
-  { id: 'yinqi',    name: '引气诀',     desc: '修炼速度 +12%/级',  baseStone: 220,    priceGrowth: 1.55, mult: 0.12, max: 99, icon: '🌬️' },
-  { id: 'zhoutian', name: '周天功',     desc: '修炼速度 +18%/级',  baseStone: 2400,   priceGrowth: 1.60, mult: 0.18, max: 99, icon: '🔄' },
-  { id: 'wuxing',   name: '五行诀',     desc: '修炼速度 +25%/级',  baseStone: 28000,  priceGrowth: 1.65, mult: 0.25, max: 99, icon: '☯️' },
-  { id: 'taiyi',    name: '太一真诀',   desc: '修炼速度 +40%/级',  baseStone: 360000, priceGrowth: 1.70, mult: 0.40, max: 99, icon: '🌟' },
-  { id: 'hongmeng', name: '鸿蒙紫气诀', desc: '修炼速度 +60%/级',  baseStone: 5200000,priceGrowth: 1.75, mult: 0.60, max: 99, icon: '🟣' }
+  { id: 'tuna',     name: '吐纳术',     desc: '修炼速度 +0.3/级（固定值）',  baseStone: 25,     priceGrowth: 1.50, mult: 0.08, flat: 0.3,  max: 99, icon: '🌀' },
+  { id: 'yinqi',    name: '引气诀',     desc: '修炼速度 +0.6/级（固定值）',  baseStone: 220,    priceGrowth: 1.55, mult: 0.12, flat: 0.6,  max: 99, icon: '🌬️' },
+  { id: 'zhoutian', name: '周天功',     desc: '修炼速度 +1.2/级（固定值）',  baseStone: 2400,   priceGrowth: 1.60, mult: 0.18, flat: 1.2,  max: 99, icon: '🔄' },
+  { id: 'wuxing',   name: '五行诀',     desc: '修炼速度 +2.2/级（固定值）',  baseStone: 28000,  priceGrowth: 1.65, mult: 0.25, flat: 2.2,  max: 99, icon: '☯️' },
+  { id: 'taiyi',    name: '太一真诀',   desc: '修炼速度 +3.5/级（固定值）',  baseStone: 360000, priceGrowth: 1.70, mult: 0.40, flat: 3.5,  max: 99, icon: '🌟' },
+  { id: 'hongmeng', name: '鸿蒙紫气诀', desc: '修炼速度 ×1.05/级（顶级·比例）', baseStone: 5200000, priceGrowth: 1.75, mult: 0.60, ratio: 0.05, max: 99, icon: '🟣' }
 ];
 
-/* ---------- 洞府 / 灵脉（消耗灵石，可升级，乘法加成「灵气浓度」） ---------- */
+/* ---------- 洞府 / 灵脉（消耗灵石，可升级，永久加成「灵气浓度」→ 修炼速度） ----------
+ * 同功法：mult=战斗权重(旧值)；flat=修炼固定值(普通档)；ratio=修炼比例(仅最高级·上古仙府)。 */
 const ABODES = [
-  { id: 'cave',    name: '荒野洞府', desc: '灵气浓度 +12%/级', baseStone: 60,    priceGrowth: 1.50, mult: 0.12, max: 99, icon: '⛰️' },
-  { id: 'lingmai', name: '地脉灵穴', desc: '灵气浓度 +18%/级', baseStone: 900,   priceGrowth: 1.55, mult: 0.18, max: 99, icon: '💎' },
-  { id: 'fudi',    name: '洞天福地', desc: '灵气浓度 +25%/级', baseStone: 14000, priceGrowth: 1.60, mult: 0.25, max: 99, icon: '🏞️' },
-  { id: 'xianfu',  name: '上古仙府', desc: '灵气浓度 +35%/级', baseStone: 240000, priceGrowth: 1.65, mult: 0.35, max: 99, icon: '🏯' }
+  { id: 'cave',    name: '荒野洞府', desc: '灵气浓度 +0.5/级（固定值）',  baseStone: 60,    priceGrowth: 1.50, mult: 0.12, flat: 0.5,  max: 99, icon: '⛰️' },
+  { id: 'lingmai', name: '地脉灵穴', desc: '灵气浓度 +1.0/级（固定值）',  baseStone: 900,   priceGrowth: 1.55, mult: 0.18, flat: 1.0,  max: 99, icon: '💎' },
+  { id: 'fudi',    name: '洞天福地', desc: '灵气浓度 +1.8/级（固定值）',  baseStone: 14000, priceGrowth: 1.60, mult: 0.25, flat: 1.8,  max: 99, icon: '🏞️' },
+  { id: 'xianfu',  name: '上古仙府', desc: '灵气浓度 ×1.04/级（顶级·比例）', baseStone: 240000, priceGrowth: 1.65, mult: 0.35, ratio: 0.04, max: 99, icon: '🏯' }
 ];
 
 /* ---------- 丹药（消耗灵石，限时 buff，乘法加成修炼速度） ---------- */

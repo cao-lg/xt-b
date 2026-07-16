@@ -59,15 +59,27 @@ const Game = (function () {
   /* ---------- 倍率体系 ---------- */
   function getTotalLayers() { return state.realmIndex * LAYERS_PER_REALM + state.layer; }
 
-  function techniqueMult() {
-    let m = 1;
-    TECHNIQUES.forEach(t => { const lv = state.techniques[t.id] || 0; if (lv > 0) m *= (1 + t.mult * lv); });
-    return m;
+  // 功法：普通档按固定值累加（修为/秒，不封顶）；仅「鸿蒙紫气诀」为比例倍率
+  function techniqueFlat() {
+    let f = 0;
+    TECHNIQUES.forEach(t => { if (t.flat) { const lv = state.techniques[t.id] || 0; if (lv > 0) f += t.flat * lv; } });
+    return f;
   }
-  function abodeBonus() {
-    let b = 0;
-    ABODES.forEach(a => { const lv = state.abodes[a.id] || 0; if (lv > 0) b += a.mult * lv; });
-    return b;
+  function techniqueTopRatio() {
+    let r = 1;
+    TECHNIQUES.forEach(t => { if (t.ratio) { const lv = state.techniques[t.id] || 0; if (lv > 0) r *= (1 + t.ratio * lv); } });
+    return r;
+  }
+  // 洞府：普通档按固定值累加；仅「上古仙府」为比例倍率
+  function abodeFlat() {
+    let f = 0;
+    ABODES.forEach(a => { if (a.flat) { const lv = state.abodes[a.id] || 0; if (lv > 0) f += a.flat * lv; } });
+    return f;
+  }
+  function abodeTopRatio() {
+    let r = 1;
+    ABODES.forEach(a => { if (a.ratio) { const lv = state.abodes[a.id] || 0; if (lv > 0) r *= (1 + a.ratio * lv); } });
+    return r;
   }
   function pillMult() {
     let m = 1;
@@ -96,17 +108,18 @@ const Game = (function () {
   function insightTribMult() { return (state.insightLv.jie || 0) * INSIGHTS.find(i => i.id === 'jie').mult; }
 
   // 综合修炼速度（修为/秒）
+  // 模型：基础(指数成长) + 功法/洞府固定值(线性·不封顶) ，再乘以 仅顶级比例 + 丹药/灵根/悟道/灵宠/仙缘
   function currentSpeed() {
-    let speed = CONFIG.baseSpeed;
-    speed *= Math.pow(CONFIG.growthPerLayer, state.layer);
-    speed *= Math.pow(CONFIG.realmSpeedMult, state.realmIndex);
-    const track = techniqueMult() * (1 + abodeBonus()) * pillMult() * rootMult('speed') * (1 + insightSpeedMult()) * (1 + petAllBonus());
-    speed *= Math.min(track, CONFIG.speedCap);            // 封顶非转生加成，避免乘数复利失控
-    speed *= Math.min(legacyMult(), CONFIG.legacyCap);    // 仙缘(转生)叠加上限
-    return speed;
+    const base = CONFIG.baseSpeed
+      * Math.pow(CONFIG.growthPerLayer, state.layer)
+      * Math.pow(CONFIG.realmSpeedMult, state.realmIndex);
+    const flat = techniqueFlat() + abodeFlat();                                  // 固定值加法（不封顶）
+    const ratio = techniqueTopRatio() * abodeTopRatio() * pillMult() * rootMult('speed')
+      * (1 + insightSpeedMult()) * (1 + petAllBonus()) * legacyMult();           // 仅顶级比例 + 其余比例源
+    return (base + flat) * ratio;
   }
   function stoneSpeed() {
-    return currentSpeed() * CONFIG.stoneRatio * rootMult('stone') * Math.min(legacyMult(), CONFIG.legacyCap) * (1 + insightStoneMult()) * (1 + petAllBonus());
+    return currentSpeed() * CONFIG.stoneRatio * rootMult('stone') * (1 + insightStoneMult()) * (1 + petAllBonus());
   }
 
   // 灵宠每秒产出（各类资源）
@@ -792,7 +805,7 @@ const Game = (function () {
     seekPet, feedPet, explore, comprehend, reincarnate, checkAchievements,
     currentSpeed, stoneSpeed, breakCost, canBreak, isMajorBreak, tribChance,
     techniquePrice, abodePrice, seekCost, feedCost, insightPrice, legacyGain, canReincarnate, canExplore,
-    techniqueMult, abodeBonus, pillMult, legacyMult, rootMult, petAllBonus, petOutPerSec, getTotalLayers,
+    techniqueFlat, techniqueTopRatio, abodeFlat, abodeTopRatio, pillMult, legacyMult, rootMult, petAllBonus, petOutPerSec, getTotalLayers,
     formatNum, formatSpeed, formatTime,
     combatStats, currentSpeed, qualityMult, treasureStats, canBattle, battleCooldownLeft, isLevelUnlocked, fight, simulateCombat, towerEnemy, towerFight, softCap, combatBreakdown, combatFormula,
     hasTreasure, equipTreasure, unequip, enhanceCost, enhanceTreasure, smeltTreasure,

@@ -96,11 +96,15 @@
     const s = Game.state;
     let html = '';
     Game.PILLS.forEach(p => { const left = s.pills[p.id] || 0; if (left > 0) html += `<span class="pill-tag" title="${p.desc}，剩余 ${Game.formatTime(left)}">${p.icon} ${p.name} ${Game.formatTime(left)}</span>`; });
-    const tm = Game.techniqueMult(); const ab = Game.abodeBonus(); const pa = Game.petAllBonus();
-    if (tm > 1) html += `<span class="pill-tag" title="功法总和：修炼速度 ×${tm.toFixed(2)}，战斗：攻×${tm.toFixed(2)} 防/血×${(1+CONFIG.combat.techShare*(tm-1)).toFixed(2)}">📜 功法 +${Math.round((tm - 1) * 100)}%</span>`;
-    if (ab > 0) html += `<span class="pill-tag" title="灵气浓度：修炼+${Math.round(ab*100)}%，战斗：防/血×${(1+ab*CONFIG.combat.abodeCombat).toFixed(2)}">⛰️ 灵气 +${Math.round(ab * 100)}%</span>`;
-    if (pa > 0) html += `<span class="pill-tag" title="獬豸全资源加成：修炼+${Math.round(pa*100)}%，战斗：攻/防/血×${(1+pa*CONFIG.combat.petAllCombat).toFixed(2)}">🦄 灵宠 +${Math.round(pa * 100)}%</span>`;
-    if (s.legacy > 0) html += `<span class="pill-tag" title="仙缘倍率：攻/防/血 ×${Game.legacyMult().toFixed(2)}">🔁 仙缘 +${Math.round(s.legacy * CONFIG.legacyPerPoint * 100)}%</span>`;
+    const tf = Game.techniqueFlat(), af = Game.abodeFlat(), pa = Game.petAllBonus();
+    const hm = Game.TECHNIQUES.find(t => t.id === 'hongmeng'), xf = Game.ABODES.find(a => a.id === 'xianfu');
+    const hmLv = s.techniques.hongmeng || 0, xfLv = s.abodes.xianfu || 0;
+    if (tf > 0) html += `<span class="pill-tag" title="功法（普通档）合计：修炼速度 +${tf.toFixed(1)} 修为/秒（固定值·不封顶）">📜 功法 +${tf.toFixed(1)}/秒</span>`;
+    if (hmLv > 0) html += `<span class="pill-tag" title="鸿蒙紫气诀（顶级）：修炼速度 ×${(1 + hm.ratio * hmLv).toFixed(2)}（比例倍率）">🟣 鸿蒙 ×${(1 + hm.ratio * hmLv).toFixed(2)}</span>`;
+    if (af > 0) html += `<span class="pill-tag" title="洞府（普通档）合计：灵气浓度 +${af.toFixed(1)} 修为/秒（固定值·不封顶）">⛰️ 洞府 +${af.toFixed(1)}/秒</span>`;
+    if (xfLv > 0) html += `<span class="pill-tag" title="上古仙府（顶级）：修炼速度 ×${(1 + xf.ratio * xfLv).toFixed(2)}（比例倍率）">🏯 仙府 ×${(1 + xf.ratio * xfLv).toFixed(2)}</span>`;
+    if (pa > 0) html += `<span class="pill-tag" title="獬豸全资源加成：修炼 +${Math.round(pa * 100)}%（战斗：攻/防/血 ×${(1 + pa * CONFIG.combat.petAllCombat).toFixed(2)}）">🦄 灵宠 +${Math.round(pa * 100)}%</span>`;
+    if (s.legacy > 0) html += `<span class="pill-tag" title="仙缘倍率（飞升转生，不封顶）：全局全效率 ×${Game.legacyMult().toFixed(2)}">🔁 仙缘 ×${Game.legacyMult().toFixed(2)}</span>`;
     return html || '<span style="color:var(--text-dim)">运转周天，静心修炼……</span>';
   }
 
@@ -135,24 +139,28 @@
     const s = Game.state;
     const cards = Game.TECHNIQUES.map(t => {
       const lv = s.techniques[t.id] || 0, maxed = lv >= t.max, price = Game.techniquePrice(t.id), afford = s.stone >= price && !maxed;
-      const bonus = lv > 0 ? `当前加成 +${Math.round(t.mult * lv * 100)}%` : '尚未修习';
+      const bonus = lv > 0
+        ? (t.flat ? `当前 +${(t.flat * lv).toFixed(1)} 修为/秒（固定值）` : `当前 ×${(1 + t.ratio * lv).toFixed(2)}（比例）`)
+        : '尚未修习';
       const btn = maxed ? `<button class="buy-btn maxed" disabled>圆满</button>`
         : `<button class="buy-btn" data-buy="technique" data-id="${t.id}" ${afford ? '' : 'disabled'}>修习<div class="price">${Game.formatNum(price)} 💎</div></button>`;
       return `<div class="card"><div class="icon">${t.icon}</div><div class="body"><div class="name">${t.name} <span class="lv">${lv}/${t.max} 层</span></div><div class="desc">${t.desc}</div><div class="sub">${bonus}</div></div>${btn}</div>`;
     }).join('');
-    view.innerHTML = `<div class="section-title">📜 功法 <small>消耗灵石，永久提升修炼速度</small></div><div class="list">${cards}</div>`;
+    view.innerHTML = `<div class="section-title">📜 功法 <small>消耗灵石：普通档加固定值，仅鸿蒙紫气诀为比例</small></div><div class="list">${cards}</div>`;
     bindBuy('technique');
   }
   function renderAbodes() {
     const s = Game.state;
     const cards = Game.ABODES.map(a => {
       const lv = s.abodes[a.id] || 0, maxed = lv >= a.max, price = Game.abodePrice(a.id), afford = s.stone >= price && !maxed;
-      const bonus = lv > 0 ? `灵气浓度 +${Math.round(a.mult * lv * 100)}%` : '未开拓';
+      const bonus = lv > 0
+        ? (a.flat ? `灵气浓度 +${(a.flat * lv).toFixed(1)}/秒（固定值）` : `灵气浓度 ×${(1 + a.ratio * lv).toFixed(2)}（比例）`)
+        : '未开拓';
       const btn = maxed ? `<button class="buy-btn maxed" disabled>圆满</button>`
         : `<button class="buy-btn" data-buy="abode" data-id="${a.id}" ${afford ? '' : 'disabled'}>拓建<div class="price">${Game.formatNum(price)} 💎</div></button>`;
       return `<div class="card"><div class="icon">${a.icon}</div><div class="body"><div class="name">${a.name} <span class="lv">${lv}/${a.max} 重</span></div><div class="desc">${a.desc}</div><div class="sub">${bonus}</div></div>${btn}</div>`;
     }).join('');
-    view.innerHTML = `<div class="section-title">⛰️ 洞府 <small>提升灵气浓度，乘法加成修炼</small></div><div class="list">${cards}</div>`;
+    view.innerHTML = `<div class="section-title">⛰️ 洞府 <small>提升灵气浓度：普通档加固定值，仅上古仙府为比例</small></div><div class="list">${cards}</div>`;
     bindBuy('abode');
   }
   function renderPills() {
