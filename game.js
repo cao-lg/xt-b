@@ -483,7 +483,7 @@ const Game = (function () {
     return { atk: Math.floor(atk), def: Math.floor(def), hp: Math.floor(hp), hit, dodge, crit, power };
   }
 
-  // 战斗属性计算过程（基础 × speedCap封顶后倍率 × 仙缘 + 加法 = 最终），用于 UI 校核
+  // 战斗属性计算过程（显示完整的攻/防/血/命中/闪避/暴击 计算链）
   function combatFormula() {
     const r = state.realmIndex, l = state.layer;
     const baseAtk = (r+1)*6 + l*1.2;
@@ -502,6 +502,7 @@ const Game = (function () {
     const root = ROOTS.find(x=>x.id===state.rootId);
     const rc = root ? ROOT_COMBAT[root.id] : null;
     const cappedLm = Math.min(lm, CONFIG.legacyCap);
+    const cap = CONFIG.speedCap;
     let trackAtk = tech*pill*petAll*insAtk;
     if (rc && rc.atk) trackAtk *= 1+rc.atk;
     let trackDef = techShare*abode*pill*petAll*insDef;
@@ -514,17 +515,61 @@ const Game = (function () {
     ['weapon','armor','trinket'].forEach(s=>{ const tid=state.equipped[s]; if(!tid)return; const a=treasureStats(tid).attrs;
       if(a.atk) atkAdd+=a.atk; if(a.def) defAdd+=a.def; if(a.hp) hpAdd+=a.hp; });
     const final = combatStats();
-    const cap = CONFIG.speedCap;
     function fmt(v){ return v>=100000 ? v.toExponential(1) : v.toFixed(2); }
     function line(name, base, track, add, fin) {
       const eff = Math.min(track, cap);
       const raw = track > eff ? ` (原始 ${fmt(track)} 已被 speedCap=${cap} 封顶)` : '';
       return `${name}：基础 ${Math.floor(base)} × 封顶倍率 ${eff.toFixed(2)}${raw} × 仙缘 ${cappedLm.toFixed(2)} + 加法 ${Math.floor(add)} = ${fin}`;
     }
+    // === 命中/闪避/暴击 计算链 ===
+    // 原始值 = base + 大境界 + 宠物 + 悟道 + 灵根 + 法宝(都是加法)，再软封顶
+    let rawHit = CONFIG.combat.baseHit + r*CONFIG.combat.realmHit;
+    let rawDodge = CONFIG.combat.baseDodge + r*CONFIG.combat.realmDodge;
+    let rawCrit = CONFIG.combat.baseCrit + r*CONFIG.combat.realmCrit;
+    const hitParts=[], dodgeParts=[], critParts=[];
+    function pAdd(arr, label, v) { if (v>0.0001) arr.push(`${label}+${(v*100).toFixed(1)}%`); }
+    // 宠物对命中/闪避/暴击的贡献（遍历所有灵宠）
+    let hitPet=0, dodgePet=0, critPet=0;
+    PETS.forEach(p=>{ const lv=state.pets[p.id]||0; if(lv<=0)return; const m=PET_COMBAT[p.id]; if(!m)return;
+      if(m.hit) hitPet+=m.hit*lv; if(m.dodge) dodgePet+=m.dodge*lv; if(m.crit) critPet+=m.crit*lv; });
+    // 法宝对命中/闪避/暴击的贡献
+    let hitTre=0, dodgeTre=0, critTre=0;
+    ['weapon','armor','trinket'].forEach(s=>{ const tid=state.equipped[s]; if(!tid)return; const a=treasureStats(tid).attrs;
+      if(a.hit) hitTre+=a.hit; if(a.dodge) dodgeTre+=a.dodge; if(a.crit) critTre+=a.crit; });
+    pAdd(hitParts, '基础', CONFIG.combat.baseHit);
+    if (r>0) pAdd(hitParts, '境界', r*CONFIG.combat.realmHit);
+    if (hitPet>0) pAdd(hitParts, '宠物', hitPet);
+    if (rc && rc.hit) pAdd(hitParts, `灵根·${root.name}`, rc.hit);
+    if (hitTre>0) pAdd(hitParts, '法宝', hitTre);
+    rawHit += hitPet + hitTre;
+    if (rc && rc.hit) rawHit += rc.hit;
+
+    pAdd(dodgeParts, '基础', CONFIG.combat.baseDodge);
+    if (r>0) pAdd(dodgeParts, '境界', r*CONFIG.combat.realmDodge);
+    if ((il.jie||0)>0) pAdd(dodgeParts, '悟道·渡劫', (il.jie||0)*CONFIG.combat.insJieDodge);
+    if (dodgePet>0) pAdd(dodgeParts, '宠物', dodgePet);
+    if (rc && rc.dodge) pAdd(dodgeParts, `灵根·${root.name}`, rc.dodge);
+    if (dodgeTre>0) pAdd(dodgeParts, '法宝', dodgeTre);
+    rawDodge += (il.jie||0)*CONFIG.combat.insJieDodge + dodgePet + dodgeTre;
+    if (rc && rc.dodge) rawDodge += rc.dodge;
+
+    pAdd(critParts, '基础', CONFIG.combat.baseCrit);
+    if (r>0) pAdd(critParts, '境界', r*CONFIG.combat.realmCrit);
+    if ((il.dao||0)>0) pAdd(critParts, '悟道·大道', (il.dao||0)*CONFIG.combat.insDaoCrit);
+    if (critPet>0) pAdd(critParts, '宠物', critPet);
+    if (rc && rc.crit) pAdd(critParts, `灵根·${root.name}`, rc.crit);
+    if (critTre>0) pAdd(critParts, '法宝', critTre);
+    rawCrit += (il.dao||0)*CONFIG.combat.insDaoCrit + critPet + critTre;
+    if (rc && rc.crit) rawCrit += rc.crit;
+
     return [
       line('攻', baseAtk, trackAtk, atkAdd, final.atk),
       line('防', baseDef, trackDef, defAdd, final.def),
-      line('血', baseHp, trackHp, hpAdd, final.hp)
+      line('血', baseHp, trackHp, hpAdd, final.hp),
+      '',
+      `<b>命中</b>：${hitParts.join(' + ')} = 原始 ${(rawHit*100).toFixed(1)}% → 软封顶(${CONFIG.combat.capHit}) = <b>${(final.hit*100).toFixed(1)}%</b>`,
+      `<b>闪避</b>：${dodgeParts.join(' + ')} = 原始 ${(rawDodge*100).toFixed(1)}% → 软封顶(${CONFIG.combat.capDodge}) = <b>${(final.dodge*100).toFixed(1)}%</b>`,
+      `<b>暴击</b>：${critParts.join(' + ')} = 原始 ${(rawCrit*100).toFixed(1)}% → 软封顶(${CONFIG.combat.capCrit}) = <b>${(final.crit*100).toFixed(1)}%</b>`
     ];
   }
 
