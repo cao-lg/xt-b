@@ -401,11 +401,12 @@ const Game = (function () {
   function softCap(raw, cap, k) { return cap * (1 - Math.exp(-raw / k)); }
 
   // 玩家战斗属性：境界 + 功法 + 洞府 + 丹药 + 悟道 + 灵宠 + 灵根 + 仙缘 + 法宝
+  // 关键：乘法链路（tech/pill/petAll/insight/root）与仙缘都套用 speedCap / legacyCap 软封顶，防止失控
   function combatStats() {
     const r = state.realmIndex, l = state.layer;
-    let atk = (r + 1) * 6 + l * 1.2;
-    let def = (r + 1) * 3 + l * 0.6;
-    let hp = 80 + (r + 1) * 60 + l * 12;
+    const baseAtk = (r + 1) * 6 + l * 1.2;
+    const baseDef = (r + 1) * 3 + l * 0.6;
+    const baseHp = 80 + (r + 1) * 60 + l * 12;
     let hit = CONFIG.combat.baseHit, dodge = CONFIG.combat.baseDodge, crit = CONFIG.combat.baseCrit;
 
     // 境界成长：命中/闪避/暴击随大境界提升
@@ -413,65 +414,56 @@ const Game = (function () {
     dodge += r * CONFIG.combat.realmDodge;
     crit += r * CONFIG.combat.realmCrit;
 
-    // 功法：主加攻，额外 25% 分摊给 def/hp
+    // 功法：主加攻，额外分摊给 def/hp
     const tech = techniqueMult();
-    atk *= tech;
-    def *= (1 + CONFIG.combat.techShare * (tech - 1));
-    hp *= (1 + CONFIG.combat.techShare * (tech - 1));
-
+    const techShare = 1 + CONFIG.combat.techShare * (tech - 1);
     // 洞府灵气 → def/hp
     const abode = 1 + abodeBonus() * CONFIG.combat.abodeCombat;
-    def *= abode;
-    hp *= abode;
-
-    // 丹药：限时全战斗属性加成
+    // 丹药
     const pill = pillMult();
-    atk *= pill; def *= pill; hp *= pill;
-
-    // 仙缘：全局加成
-    const lm = legacyMult();
-    atk *= lm; def *= lm; hp *= lm;
-
-    // 灵宠·獬豸 全资源加成 → 全战斗属性
+    // 灵宠·獬豸 全资源
     const petAll = 1 + petAllBonus() * CONFIG.combat.petAllCombat;
-    atk *= petAll; def *= petAll; hp *= petAll;
-
     // 悟道
     const il = state.insightLv || {};
-    atk *= 1 + (il.dao || 0) * CONFIG.combat.insDaoAtk;
-    crit += (il.dao || 0) * CONFIG.combat.insDaoCrit;
-    def *= 1 + (il.jie || 0) * CONFIG.combat.insJieDef;
-    dodge += (il.jie || 0) * CONFIG.combat.insJieDodge;
-    hp *= 1 + (il.cai || 0) * CONFIG.combat.insCaiHp;
+    const insAtk = 1 + (il.dao || 0) * CONFIG.combat.insDaoAtk;
+    const insDef = 1 + (il.jie || 0) * CONFIG.combat.insJieDef;
+    const insHp = 1 + (il.cai || 0) * CONFIG.combat.insCaiHp;
+    // 灵根
+    const root = ROOTS.find(x => x.id === state.rootId);
+    const rc = root ? ROOT_COMBAT[root.id] : null;
+    // 仙缘
+    const lm = legacyMult();
+    const cappedLm = Math.min(lm, CONFIG.legacyCap);
 
-    // 灵宠个体：火麟兽→攻、金蟾→气血、青鸟→防
+    // 各自乘法链路（套用 speedCap 上限），再乘以仙缘封顶
+    let trackAtk = tech * pill * petAll * insAtk;
+    if (rc && rc.atk) trackAtk *= 1 + rc.atk;
+    let atk = baseAtk * Math.min(trackAtk, CONFIG.speedCap) * cappedLm;
+
+    let trackDef = techShare * abode * pill * petAll * insDef;
+    if (rc && rc.def) trackDef *= 1 + rc.def;
+    let def = baseDef * Math.min(trackDef, CONFIG.speedCap) * cappedLm;
+
+    let trackHp = techShare * abode * pill * petAll * insHp;
+    if (rc && rc.hp) trackHp *= 1 + rc.hp;
+    let hp = baseHp * Math.min(trackHp, CONFIG.speedCap) * cappedLm;
+
+    // 灵宠个体加法
     PETS.forEach(p => {
       const lv = state.pets[p.id] || 0;
       if (lv <= 0) return;
       const map = PET_COMBAT[p.id];
       if (!map) return;
-      for (const k in map) {
-        if (k === 'hit') hit += map[k] * lv;
-        else if (k === 'dodge') dodge += map[k] * lv;
-        else if (k === 'crit') crit += map[k] * lv;
-        else if (k === 'atk') atk += map[k] * lv;
-        else if (k === 'def') def += map[k] * lv;
-        else if (k === 'hp') hp += map[k] * lv;
-      }
+      if (map.atk) atk += map.atk * lv;
+      if (map.def) def += map.def * lv;
+      if (map.hp) hp += map.hp * lv;
     });
 
-    // 灵根：按类型定位
-    const root = ROOTS.find(x => x.id === state.rootId);
-    if (root) {
-      const rc = ROOT_COMBAT[root.id];
-      if (rc) {
-        if (rc.atk) atk *= 1 + rc.atk;
-        if (rc.def) def *= 1 + rc.def;
-        if (rc.hp) hp *= 1 + rc.hp;
-        if (rc.hit) hit += rc.hit;
-        if (rc.dodge) dodge += rc.dodge;
-        if (rc.crit) crit += rc.crit;
-      }
+    // 灵根命中/闪避/暴击
+    if (rc) {
+      if (rc.hit) hit += rc.hit;
+      if (rc.dodge) dodge += rc.dodge;
+      if (rc.crit) crit += rc.crit;
     }
 
     // 已装备法宝
@@ -482,13 +474,58 @@ const Game = (function () {
       if (a.hit) hit += a.hit; if (a.dodge) dodge += a.dodge; if (a.crit) crit += a.crit;
     });
 
-    // 软上限：命中/闪避/暴击永远可见增长，但趋近 cap
+    // 软上限
     hit = softCap(hit, CONFIG.combat.capHit, CONFIG.combat.capK);
     dodge = softCap(dodge, CONFIG.combat.capDodge, CONFIG.combat.capK);
     crit = softCap(crit, CONFIG.combat.capCrit, CONFIG.combat.capK);
 
     const power = Math.floor(atk * 2 + def * 1.5 + hp * 0.25 + (hit + dodge + crit) * 120);
     return { atk: Math.floor(atk), def: Math.floor(def), hp: Math.floor(hp), hit, dodge, crit, power };
+  }
+
+  // 战斗属性计算过程（基础 × speedCap封顶后倍率 × 仙缘 + 加法 = 最终），用于 UI 校核
+  function combatFormula() {
+    const r = state.realmIndex, l = state.layer;
+    const baseAtk = (r+1)*6 + l*1.2;
+    const baseDef = (r+1)*3 + l*0.6;
+    const baseHp = 80+(r+1)*60+l*12;
+    const tech = techniqueMult();
+    const techShare = 1 + CONFIG.combat.techShare*(tech-1);
+    const abode = 1 + abodeBonus()*CONFIG.combat.abodeCombat;
+    const pill = pillMult();
+    const lm = legacyMult();
+    const petAll = 1 + petAllBonus()*CONFIG.combat.petAllCombat;
+    const il = state.insightLv || {};
+    const insAtk = 1 + (il.dao||0)*CONFIG.combat.insDaoAtk;
+    const insDef = 1 + (il.jie||0)*CONFIG.combat.insJieDef;
+    const insHp = 1 + (il.cai||0)*CONFIG.combat.insCaiHp;
+    const root = ROOTS.find(x=>x.id===state.rootId);
+    const rc = root ? ROOT_COMBAT[root.id] : null;
+    const cappedLm = Math.min(lm, CONFIG.legacyCap);
+    let trackAtk = tech*pill*petAll*insAtk;
+    if (rc && rc.atk) trackAtk *= 1+rc.atk;
+    let trackDef = techShare*abode*pill*petAll*insDef;
+    if (rc && rc.def) trackDef *= 1+rc.def;
+    let trackHp = techShare*abode*pill*petAll*insHp;
+    if (rc && rc.hp) trackHp *= 1+rc.hp;
+    let atkAdd=0, defAdd=0, hpAdd=0;
+    PETS.forEach(p=>{ const lv=state.pets[p.id]||0; if(lv<=0)return; const m=PET_COMBAT[p.id]; if(!m)return;
+      if(m.atk) atkAdd+=m.atk*lv; if(m.def) defAdd+=m.def*lv; if(m.hp) hpAdd+=m.hp*lv; });
+    ['weapon','armor','trinket'].forEach(s=>{ const tid=state.equipped[s]; if(!tid)return; const a=treasureStats(tid).attrs;
+      if(a.atk) atkAdd+=a.atk; if(a.def) defAdd+=a.def; if(a.hp) hpAdd+=a.hp; });
+    const final = combatStats();
+    const cap = CONFIG.speedCap;
+    function fmt(v){ return v>=100000 ? v.toExponential(1) : v.toFixed(2); }
+    function line(name, base, track, add, fin) {
+      const eff = Math.min(track, cap);
+      const raw = track > eff ? ` (原始 ${fmt(track)} 已被 speedCap=${cap} 封顶)` : '';
+      return `${name}：基础 ${Math.floor(base)} × 封顶倍率 ${eff.toFixed(2)}${raw} × 仙缘 ${cappedLm.toFixed(2)} + 加法 ${Math.floor(add)} = ${fin}`;
+    }
+    return [
+      line('攻', baseAtk, trackAtk, atkAdd, final.atk),
+      line('防', baseDef, trackDef, defAdd, final.def),
+      line('血', baseHp, trackHp, hpAdd, final.hp)
+    ];
   }
 
   // 战斗属性来源汇总（用于 UI 展示）
@@ -761,7 +798,7 @@ const Game = (function () {
     techniquePrice, abodePrice, seekCost, feedCost, insightPrice, legacyGain, canReincarnate, canExplore,
     techniqueMult, abodeBonus, pillMult, legacyMult, rootMult, petAllBonus, petOutPerSec, getTotalLayers,
     formatNum, formatSpeed, formatTime,
-    combatStats, currentSpeed, qualityMult, treasureStats, canBattle, battleCooldownLeft, isLevelUnlocked, fight, simulateCombat, towerEnemy, towerFight, softCap, combatBreakdown,
+    combatStats, currentSpeed, qualityMult, treasureStats, canBattle, battleCooldownLeft, isLevelUnlocked, fight, simulateCombat, towerEnemy, towerFight, softCap, combatBreakdown, combatFormula,
     hasTreasure, equipTreasure, unequip, enhanceCost, enhanceTreasure, smeltTreasure,
     get state() { return state; },
     get REALMS() { return REALMS; }, get ROOTS() { return ROOTS; }, get TECHNIQUES() { return TECHNIQUES; },

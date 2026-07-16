@@ -10,7 +10,36 @@
   const REALM_AVATAR = ['🧘', '🧘', '⚪', '👶', '🌌', '🌠', '🔗', '🚀', '⚡', '✨'];
   let currentTab = 'cultivate';
   let currentMap = 'yaolin';
+  let currentLevel = 0;
   let battleMode = 'map'; // 'map' | 'tower'
+
+  // 自动跳到最后通过的关卡：找到最后一个有进度的地图
+  function autoSelectLastCleared() {
+    const s = Game.state;
+    let lastMap = null;
+    for (let i = Game.MAPS.length - 1; i >= 0; i--) {
+      const m = Game.MAPS[i];
+      if (s.mapProgress[m.id] !== undefined) { lastMap = m; break; }
+    }
+    if (lastMap) {
+      currentMap = lastMap.id;
+      currentLevel = Math.max(0, s.mapProgress[lastMap.id] || 0);
+    }
+  }
+
+  // 难度评级（基于玩家战力与敌人推荐战力对比）
+  function difficultyRating(enemy, playerPower) {
+    const ep = Math.floor(enemy.atk * 2 + enemy.def * 1.5 + enemy.hp * 0.25);
+    if (playerPower <= 0) return { text: '?', cls: 'diff-unk' };
+    const ratio = playerPower / ep;
+    if (ratio >= 20) return { text: '碾', cls: 'diff-easy' };
+    if (ratio >= 8) return { text: '简', cls: 'diff-easy' };
+    if (ratio >= 3) return { text: '普', cls: 'diff-norm' };
+    if (ratio >= 1.5) return { text: '难', cls: 'diff-hard' };
+    if (ratio >= 0.8) return { text: '险', cls: 'diff-hard' };
+    if (ratio >= 0.4) return { text: '绝', cls: 'diff-dead' };
+    return { text: '死', cls: 'diff-dead' };
+  }
 
   /* ---------------- 工具 ---------------- */
   function relTime(t) {
@@ -297,6 +326,8 @@
   /* ---------------- 战斗（历练） ---------------- */
   function renderBattle() {
     const s = Game.state;
+    // 首次进入（或没手动选过）时跳到最后通关的关卡
+    if (!s._battleUserSelected) autoSelectLastCleared();
     const st = Game.combatStats();
     const cd = !Game.canBattle();
     const maps = Game.MAPS;
@@ -313,9 +344,11 @@
       const d = (CONFIG.combat.towerBase + next * CONFIG.combat.towerStep).toFixed(2);
       const preview = Game.towerEnemy(next);
       const xp = Math.floor((Game.currentSpeed ? Game.currentSpeed() : 0) * (preview.boss ? 24 : 8) * (CONFIG.combat.towerBase + next * CONFIG.combat.towerStep));
+      const ep = Math.floor(preview.atk * 2 + preview.def * 1.5 + preview.hp * 0.25);
+      const diff = difficultyRating(preview, st.power);
       body = `
         <div class="tower-view">
-          <div class="tower-info">当前最高层 <b>${s.towerFloor}</b> · 下一层 <b>${next}</b> · 难度 ×${d}</div>
+          <div class="tower-info">当前最高层 <b>${s.towerFloor}</b> · 下一层 <b>${next}</b> · 难度 ×${d} · 推荐战力 <b>${Game.formatNum(ep)}</b> · 难度 <span class="${diff.cls}">${diff.text}</span></div>
           <div class="level-row">
             <div class="level-idx">🗼</div>
             <div class="level-body">
@@ -331,15 +364,18 @@
       const levels = map.levels.map((lv, i) => {
         const unlocked = Game.isLevelUnlocked(map.id, i);
         const cleared = s.mapProgress[map.id] !== undefined && s.mapProgress[map.id] >= i;
+        const isCurrent = i === currentLevel;
         const lockText = (map.realmReq !== undefined && s.realmIndex < map.realmReq) ? '需' + Game.REALMS[map.realmReq].name : '🔒 未解锁';
         const btn = unlocked
           ? `<button class="buy-btn fight-btn" data-fight="${map.id}:${i}" ${cd ? 'disabled' : ''}>${cleared ? '再战' : '挑战'}</button>`
           : `<button class="buy-btn" disabled>${lockText}</button>`;
-        return `<div class="level-row ${cleared ? 'cleared' : ''} ${unlocked ? '' : 'locked'}">
+        const ep = Math.floor(lv.atk * 2 + lv.def * 1.5 + lv.hp * 0.25);
+        const diff = difficultyRating(lv, st.power);
+        return `<div class="level-row ${cleared ? 'cleared' : ''} ${unlocked ? '' : 'locked'} ${isCurrent ? 'current' : ''}">
           <div class="level-idx">${i + 1}</div>
           <div class="level-body">
-            <div class="name">${lv.icon} ${lv.name} ${lv.boss ? '<span class="boss-tag">BOSS</span>' : ''} ${cleared ? '<span class="cleared-tag">已通关</span>' : ''}</div>
-            <div class="enemy-stats">攻${lv.atk} 防${lv.def} 气血${lv.hp} 命中${Math.round(lv.hit * 100)}% 闪避${Math.round(lv.dodge * 100)}% 暴击${Math.round(lv.crit * 100)}%</div>
+            <div class="name">${lv.icon} ${lv.name} ${lv.boss ? '<span class="boss-tag">BOSS</span>' : ''} ${cleared ? '<span class="cleared-tag">已通关</span>' : ''} <span class="${diff.cls}" title="推荐战力 ${Game.formatNum(ep)} / 你的战力 ${Game.formatNum(st.power)}">难度 ${diff.text}</span></div>
+            <div class="enemy-stats">攻${lv.atk} 防${lv.def} 气血${lv.hp} 命中${Math.round(lv.hit * 100)}% 闪避${Math.round(lv.dodge * 100)}% 暴击${Math.round(lv.crit * 100)}% · 推荐战力 ${Game.formatNum(ep)}</div>
             <div class="reward-line">奖励 灵石${Game.formatNum(lv.reward.stone[0])}~${Game.formatNum(lv.reward.stone[1])} · 🌿${lv.reward.mat[0]}~${lv.reward.mat[1]} · 修为 ≈ ${Game.formatNum(Math.floor((Game.currentSpeed ? Game.currentSpeed() : 0) * (lv.boss ? 18 : 6)))}${lv.drop && lv.drop.chance ? ` · 法宝掉落${Math.round(lv.drop.chance * 100)}%` : ''}</div>
           </div>${btn}</div>`;
       }).join('');
@@ -356,22 +392,26 @@
         <div class="hint" style="margin-top:8px">攻/防/气血/命中/闪避/暴击 受功法、洞府、丹药、悟道、灵宠、灵根、仙缘、法宝共同影响。</div>
         <details class="breakdown" style="margin-top:8px;font-size:12px;color:var(--text-dim)">
           <summary>📊 各系统战斗属性贡献详情</summary>
-          <div style="padding:8px 0 4px 8px;line-height:1.7">${Game.combatBreakdown().map(i => `<div title="${i.desc}"><span>${i.icon} ${i.name}</span><span style="float:right;color:var(--text)">${i.desc}</span></div>`).join('')}</div>
+          <div style="padding:8px 0 4px 8px;line-height:1.7;color:var(--gold-soft)">${Game.combatFormula().map(l=>`<div>${l}</div>`).join('')}</div>
+          <div style="padding:4px 0 4px 8px;line-height:1.7;border-top:1px dashed rgba(120,140,190,0.2);margin-top:6px">${Game.combatBreakdown().map(i => `<div title="${i.desc}"><span>${i.icon} ${i.name}</span><span style="float:right;color:var(--text)">${i.desc}</span></div>`).join('')}</div>
         </details>
       </div>
       <div class="map-tabs">${mapTabs}${towerTab}</div>
       ${body}`;
-    view.querySelectorAll('[data-map]').forEach(b => b.addEventListener('click', () => { if (!b.disabled) { battleMode = 'map'; currentMap = b.dataset.map; renderBattle(); } }));
-    view.querySelectorAll('[data-mode="tower"]').forEach(b => b.addEventListener('click', () => { battleMode = 'tower'; renderBattle(); }));
+    view.querySelectorAll('[data-map]').forEach(b => b.addEventListener('click', () => { if (!b.disabled) { battleMode = 'map'; currentMap = b.dataset.map; currentLevel = 0; Game.state._battleUserSelected = true; renderBattle(); } }));
+    view.querySelectorAll('[data-mode="tower"]').forEach(b => b.addEventListener('click', () => { battleMode = 'tower'; Game.state._battleUserSelected = true; renderBattle(); }));
     view.querySelectorAll('[data-fight]').forEach(b => b.addEventListener('click', () => {
       const [mid, idx] = b.dataset.fight.split(':');
-      const r = Game.fight(mid, parseInt(idx, 10));
+      currentLevel = parseInt(idx, 10);
+      Game.state._battleUserSelected = true;
+      const r = Game.fight(mid, currentLevel);
       if (!r) return;
       if (r.error === 'locked') { toast('关卡尚未解锁'); return; }
       if (r.error === 'cd') { toast('调息中，稍后再战'); return; }
       showCombat(r); renderBattle();
     }));
     view.querySelectorAll('[data-tower]').forEach(b => b.addEventListener('click', () => {
+      Game.state._battleUserSelected = true;
       const floor = parseInt(b.dataset.tower, 10);
       const r = Game.towerFight(floor);
       if (!r) return;
@@ -379,6 +419,11 @@
       if (r.error === 'cd') { toast('调息中，稍后再战'); return; }
       showCombat(r); renderBattle();
     }));
+    // 滚到最后通过的关卡
+    setTimeout(() => {
+      const cur = view.querySelector('.level-row.current');
+      if (cur) cur.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }, 50);
   }
   // 取玩家等级最高的功法作为「本命功法」，决定施法光环色
   const TECH_ELEMENT = { tuna: '#6fcf97', yinqi: '#56ccf2', zhoutian: '#aab7ff', wuxing: '#f2c94c', taiyi: '#f2994a', hongmeng: '#bb6bd9' };
