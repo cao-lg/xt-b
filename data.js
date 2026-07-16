@@ -10,10 +10,10 @@ const CONFIG = {
   baseSpeed: 2.0,          // 基础修炼速度（修为/秒），炼气一层时
   growthPerLayer: 1.08,    // 每完成 1 个小层，修炼速度 ×1.08
   realmSpeedMult: 1.5,     // 每跨越 1 个大境界，基础速度 ×1.5
-  baseCost: 120,           // 第 0 层突破所需修为（基准）
-  layerCostGrowth: 1.50,   // 每小层突破成本 ×1.50
-  realmCostGrowth: 3.50,   // 每大境界突破成本 ×3.50（高于速度复合，保证长线越来越难）
-  majorBreakMult: 2.0,     // 大境界突破（第 9 层→下一境界）成本额外 ×2.0
+  baseCost: 400,           // 第 0 层突破所需修为（基准）；调高以匹配不封顶后的修炼速度，避免破境过快
+  layerCostGrowth: 1.65,   // 每小层突破成本 ×1.65
+  realmCostGrowth: 4.50,   // 每大境界突破成本 ×4.50（接近速度复合，保证长线进度不会几秒一层）
+  majorBreakMult: 2.5,     // 大境界突破（第 9 层→下一境界）成本额外 ×2.5
   // 说明：speedCap / legacyCap 已移除。
   // 修炼速度改为「固定值加法为主 + 仅顶级比例」模型（见 TECHNIQUES / ABODES），
   // 功法/洞府普通档加固定值（线性、不封顶），只有最高级（鸿蒙紫气诀 / 上古仙府）为比例倍率，
@@ -84,7 +84,7 @@ const CONFIG = {
     techShare: 0.55,      // 功法额外分摊给 防/血 的比例
     abodeDef: 16,         // 洞府灵气 → 防（abodeSum × abodeDef）
     abodeHp: 34,          // 洞府灵气 → 血（abodeSum × abodeHp）
-    pillK: 220,           // 丹药临时 buff → 全属性（(pillMult-1) × pillK）
+    pillK: 35,            // 丹药临时 buff → 全属性（(pillMult-1) × pillK）；调小，避免丹药战斗加成碾压（原 220 在低境过高）
     petAllCombat: 90,     // 灵宠·獬豸 全资源 → 全属性（petAllBonus × petAllCombat）
     legacyCombat: 70,     // 仙缘 → 全属性固定值（legacy × legacyCombat）
     // 悟道：仅「大道」为比例倍率；「渡劫/聚财」为固定值
