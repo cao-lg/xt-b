@@ -37,6 +37,7 @@ const Game = (function () {
       battleCd: 0,           // 战斗冷却到期时间戳
       battles: 0,            // 累计出战次数
       bossKills: 0,          // 累计 BOSS 击杀数
+      towerFloor: 0,         // 无尽试炼塔当前最高层
       achievements: {},
       log: [],
       lastSave: now,
@@ -396,38 +397,107 @@ const Game = (function () {
     return { id: tid, name: t.name, icon: t.icon, slot: t.slot, quality: t.quality, level: lv, attrs: out };
   }
   // 玩家战斗属性：境界 + 功法 + 仙缘 + 灵根 + 法宝
+  // 渐近软上限：raw 越大越接近 cap，但始终有收益，不会“卡死”
+  function softCap(raw, cap, k) { return cap * (1 - Math.exp(-raw / k)); }
+
+  // 玩家战斗属性：境界 + 功法 + 洞府 + 丹药 + 悟道 + 灵宠 + 灵根 + 仙缘 + 法宝
   function combatStats() {
     const r = state.realmIndex, l = state.layer;
     let atk = (r + 1) * 6 + l * 1.2;
     let def = (r + 1) * 3 + l * 0.6;
     let hp = 80 + (r + 1) * 60 + l * 12;
     let hit = CONFIG.combat.baseHit, dodge = CONFIG.combat.baseDodge, crit = CONFIG.combat.baseCrit;
-    atk += (techniqueMult() - 1) * 6;                       // 功法小幅加成攻击
-    const lm = legacyMult(); atk *= lm; def *= lm; hp *= lm; // 仙缘全局加成
+
+    // 境界成长：命中/闪避/暴击随大境界提升
+    hit += r * CONFIG.combat.realmHit;
+    dodge += r * CONFIG.combat.realmDodge;
+    crit += r * CONFIG.combat.realmCrit;
+
+    // 功法：主加攻，额外 25% 分摊给 def/hp
+    const tech = techniqueMult();
+    atk *= tech;
+    def *= (1 + CONFIG.combat.techShare * (tech - 1));
+    hp *= (1 + CONFIG.combat.techShare * (tech - 1));
+
+    // 洞府灵气 → def/hp
+    const abode = 1 + abodeBonus() * CONFIG.combat.abodeCombat;
+    def *= abode;
+    hp *= abode;
+
+    // 丹药：限时全战斗属性加成
+    const pill = pillMult();
+    atk *= pill; def *= pill; hp *= pill;
+
+    // 仙缘：全局加成
+    const lm = legacyMult();
+    atk *= lm; def *= lm; hp *= lm;
+
+    // 灵宠·獬豸 全资源加成 → 全战斗属性
+    const petAll = 1 + petAllBonus() * CONFIG.combat.petAllCombat;
+    atk *= petAll; def *= petAll; hp *= petAll;
+
+    // 悟道
+    const il = state.insightLv || {};
+    atk *= 1 + (il.dao || 0) * CONFIG.combat.insDaoAtk;
+    crit += (il.dao || 0) * CONFIG.combat.insDaoCrit;
+    def *= 1 + (il.jie || 0) * CONFIG.combat.insJieDef;
+    dodge += (il.jie || 0) * CONFIG.combat.insJieDodge;
+    hp *= 1 + (il.cai || 0) * CONFIG.combat.insCaiHp;
+
+    // 灵宠个体：火麟兽→攻、金蟾→气血、青鸟→防
+    PETS.forEach(p => {
+      const lv = state.pets[p.id] || 0;
+      if (lv <= 0) return;
+      const map = PET_COMBAT[p.id];
+      if (!map) return;
+      for (const k in map) {
+        if (k === 'hit') hit += map[k] * lv;
+        else if (k === 'dodge') dodge += map[k] * lv;
+        else if (k === 'crit') crit += map[k] * lv;
+        else if (k === 'atk') atk += map[k] * lv;
+        else if (k === 'def') def += map[k] * lv;
+        else if (k === 'hp') hp += map[k] * lv;
+      }
+    });
+
+    // 灵根：按类型定位
     const root = ROOTS.find(x => x.id === state.rootId);
     if (root) {
-      if (root.type === 'speed') atk *= 1.1;
-      else if (root.type === 'stone') def *= 1.1;
-      else if (root.type === 'trib') crit += 0.03;
-      else if (root.type === 'pill') hp *= 1.1;
-      else if (root.type === 'all') { atk *= 1.05; def *= 1.05; hp *= 1.05; }
+      const rc = ROOT_COMBAT[root.id];
+      if (rc) {
+        if (rc.atk) atk *= 1 + rc.atk;
+        if (rc.def) def *= 1 + rc.def;
+        if (rc.hp) hp *= 1 + rc.hp;
+        if (rc.hit) hit += rc.hit;
+        if (rc.dodge) dodge += rc.dodge;
+        if (rc.crit) crit += rc.crit;
+      }
     }
+
+    // 已装备法宝
     ['weapon', 'armor', 'trinket'].forEach(slot => {
       const tid = state.equipped[slot]; if (!tid) return;
       const a = treasureStats(tid).attrs;
       if (a.atk) atk += a.atk; if (a.def) def += a.def; if (a.hp) hp += a.hp;
       if (a.hit) hit += a.hit; if (a.dodge) dodge += a.dodge; if (a.crit) crit += a.crit;
     });
-    hit = Math.min(0.99, hit); dodge = Math.min(0.75, dodge); crit = Math.min(0.9, crit);
+
+    // 软上限：命中/闪避/暴击永远可见增长，但趋近 cap
+    hit = softCap(hit, CONFIG.combat.capHit, CONFIG.combat.capK);
+    dodge = softCap(dodge, CONFIG.combat.capDodge, CONFIG.combat.capK);
+    crit = softCap(crit, CONFIG.combat.capCrit, CONFIG.combat.capK);
+
     const power = Math.floor(atk * 2 + def * 1.5 + hp * 0.25 + (hit + dodge + crit) * 120);
     return { atk: Math.floor(atk), def: Math.floor(def), hp: Math.floor(hp), hit, dodge, crit, power };
   }
 
   function canBattle() { return Date.now() >= state.battleCd; }
   function battleCooldownLeft() { return Math.max(0, Math.ceil((state.battleCd - Date.now()) / 1000)); }
-  // 关卡解锁：首图默认开；同图需上一关已通关；非首图需上一张图 BOSS 已通关
+  // 关卡解锁：首图默认开；同图需上一关已通关；非首图需上一张图 BOSS 已通关；且需满足境界要求
   function isLevelUnlocked(mapId, idx) {
+    const map = MAPS.find(m => m.id === mapId); if (!map) return false;
     const mi = MAPS.findIndex(m => m.id === mapId);
+    if (map.realmReq !== undefined && state.realmIndex < map.realmReq) return false;
     if (mi > 0) { const prev = MAPS[mi - 1]; if (state.mapProgress[prev.id] === undefined || state.mapProgress[prev.id] < prev.levels.length - 1) return false; }
     if (idx === 0) return true;
     const cleared = state.mapProgress[mapId];
@@ -491,6 +561,68 @@ const Game = (function () {
     }
     lv._mapId = mapId;
     save(); emit('battle', { res, reward, drop, level: lv, mapId, idx, win: res.win });
+    return { res, reward, drop, win: res.win, level: lv };
+  }
+
+  // ---------- 无尽试炼塔 ----------
+  function towerEnemy(floor) {
+    const p = combatStats();
+    const d = CONFIG.combat.towerBase + floor * CONFIG.combat.towerStep;
+    const isBoss = floor % 10 === 0;
+    const icons = ['👁️','🌑','☠️','🔥','❄️','⚡','🌪️','💀','🐉','👹'];
+    const icon = isBoss ? '👑' : icons[(floor - 1) % icons.length];
+    return {
+      name: '试炼塔第 ' + floor + ' 层' + (isBoss ? '·守关者' : ''),
+      icon: icon,
+      boss: isBoss,
+      atk: Math.floor(p.atk * d),
+      def: Math.floor(p.def * d),
+      hp: Math.floor(p.hp * d),
+      hit: softCap(p.hit * d, CONFIG.combat.capHit, CONFIG.combat.capK),
+      dodge: softCap(p.dodge * d, CONFIG.combat.capDodge, CONFIG.combat.capK),
+      crit: softCap(p.crit * d, CONFIG.combat.capCrit, CONFIG.combat.capK),
+      reward: {
+        stone: [Math.floor(p.power * d * 0.2), Math.floor(p.power * d * 0.5)],
+        mat: [Math.floor(floor * 0.3) + 1, Math.floor(floor * 0.5) + 3],
+        xp: [1, 1]  // xp 由 towerFight 按当前速度动态计算
+      },
+      drop: { chance: 0.25 + Math.min(0.25, floor * 0.01), pool: TREASURES.map(t => t.id) }
+    };
+  }
+  function towerFight(floor) {
+    if (!canBattle()) return { error: 'cd' };
+    if (floor > state.towerFloor + 1) return { error: 'locked' };
+    state.battleCd = Date.now() + CONFIG.combat.battleCd * 1000;
+    state.battles++;
+    const lv = towerEnemy(floor);
+    lv._mapId = 'tower';
+    const res = simulateCombat(lv);
+    let reward = null, drop = null;
+    if (res.win) {
+      const stone = Math.floor(randInt(lv.reward.stone[0], lv.reward.stone[1]) * 0.45);
+      const mat = randInt(lv.reward.mat[0], lv.reward.mat[1]);
+      const d = CONFIG.combat.towerBase + floor * CONFIG.combat.towerStep;
+      const xp = Math.floor(currentSpeed() * (lv.boss ? 24 : 8) * d);
+      state.stone += stone; state.materials += mat; state.xp += xp; state.totalXp += xp;
+      reward = { stone, mat, xp };
+      if (floor > state.towerFloor) state.towerFloor = floor;
+      if (lv.boss) state.bossKills++;
+      if (Math.random() < (lv.drop.chance || 0) && lv.drop.pool && lv.drop.pool.length) {
+        const tid = lv.drop.pool[Math.floor(Math.random() * lv.drop.pool.length)];
+        const t = TREASURES.find(x => x.id === tid);
+        if (t) {
+          if (!state.treasures[tid]) state.treasures[tid] = { count: 0, level: 0 };
+          state.treasures[tid].count++;
+          drop = { id: tid, name: t.name, icon: t.icon, quality: t.quality, first: state.treasures[tid].count === 1 };
+          checkAchievements();
+        }
+      }
+      checkAchievements();
+      pushLog(`🗼 试炼塔第 ${floor} 层胜！灵石+${formatNum(stone)} 🌿+${mat} 修为+${formatNum(xp)}${drop ? '，得法宝' + drop.icon + drop.name : ''}`, lv.icon);
+    } else {
+      pushLog(`🗼 试炼塔第 ${floor} 层败，还需磨砺。`, lv.icon);
+    }
+    save(); emit('battle', { res, reward, drop, level: lv, mapId: 'tower', idx: floor, win: res.win });
     return { res, reward, drop, win: res.win, level: lv };
   }
 
@@ -596,7 +728,7 @@ const Game = (function () {
     techniquePrice, abodePrice, seekCost, feedCost, insightPrice, legacyGain, canReincarnate, canExplore,
     techniqueMult, abodeBonus, pillMult, legacyMult, rootMult, petAllBonus, petOutPerSec, getTotalLayers,
     formatNum, formatSpeed, formatTime,
-    combatStats, currentSpeed, qualityMult, treasureStats, canBattle, battleCooldownLeft, isLevelUnlocked, fight, simulateCombat,
+    combatStats, currentSpeed, qualityMult, treasureStats, canBattle, battleCooldownLeft, isLevelUnlocked, fight, simulateCombat, towerEnemy, towerFight, softCap,
     hasTreasure, equipTreasure, unequip, enhanceCost, enhanceTreasure, smeltTreasure,
     get state() { return state; },
     get REALMS() { return REALMS; }, get ROOTS() { return ROOTS; }, get TECHNIQUES() { return TECHNIQUES; },

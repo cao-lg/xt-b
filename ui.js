@@ -10,6 +10,7 @@
   const REALM_AVATAR = ['🧘', '🧘', '⚪', '👶', '🌌', '🌠', '🔗', '🚀', '⚡', '✨'];
   let currentTab = 'cultivate';
   let currentMap = 'yaolin';
+  let battleMode = 'map'; // 'map' | 'tower'
 
   /* ---------------- 工具 ---------------- */
   function relTime(t) {
@@ -302,24 +303,48 @@
     const mapTabs = maps.map(m => {
       const unlocked = isMapUnlocked(m.id);
       const cleared = s.mapProgress[m.id] !== undefined && s.mapProgress[m.id] >= m.levels.length - 1;
-      return `<button class="map-tab ${m.id === currentMap ? 'active' : ''} ${unlocked ? '' : 'locked'}" data-map="${m.id}" ${unlocked ? '' : 'disabled'}>${unlocked ? m.icon : '🔒'} ${m.name}${cleared ? ' ✓' : ''}</button>`;
+      return `<button class="map-tab ${battleMode === 'map' && m.id === currentMap ? 'active' : ''} ${unlocked ? '' : 'locked'}" data-map="${m.id}" ${unlocked ? '' : 'disabled'}>${unlocked ? m.icon : '🔒'} ${m.name}${cleared ? ' ✓' : ''}</button>`;
     }).join('');
-    const map = maps.find(m => m.id === currentMap);
-    const levels = map.levels.map((lv, i) => {
-      const unlocked = Game.isLevelUnlocked(map.id, i);
-      const cleared = s.mapProgress[map.id] !== undefined && s.mapProgress[map.id] >= i;
-      const btn = unlocked
-        ? `<button class="buy-btn fight-btn" data-fight="${map.id}:${i}" ${cd ? 'disabled' : ''}>${cleared ? '再战' : '挑战'}</button>`
-        : `<button class="buy-btn" disabled>🔒 未解锁</button>`;
-      return `<div class="level-row ${cleared ? 'cleared' : ''} ${unlocked ? '' : 'locked'}">
-        <div class="level-idx">${i + 1}</div>
-        <div class="level-body">
-          <div class="name">${lv.icon} ${lv.name} ${lv.boss ? '<span class="boss-tag">BOSS</span>' : ''} ${cleared ? '<span class="cleared-tag">已通关</span>' : ''}</div>
-          <div class="enemy-stats">攻${lv.atk} 防${lv.def} 气血${lv.hp} 命中${Math.round(lv.hit * 100)}% 闪避${Math.round(lv.dodge * 100)}% 暴击${Math.round(lv.crit * 100)}%</div>
-          <div class="reward-line">奖励 灵石${Game.formatNum(lv.reward.stone[0])}~${Game.formatNum(lv.reward.stone[1])} · 🌿${lv.reward.mat[0]}~${lv.reward.mat[1]} · 修为 ≈ ${Game.formatNum(Math.floor((Game.currentSpeed?Game.currentSpeed():0) * (lv.boss?18:6)))}${lv.drop && lv.drop.chance ? ` · 法宝掉落${Math.round(lv.drop.chance * 100)}%` : ''}</div>
-        </div>${btn}</div>`;
-    }).join('');
+    const towerTab = `<button class="map-tab ${battleMode === 'tower' ? 'active' : ''}" data-mode="tower">🗼 无尽塔</button>`;
     const cdText = cd ? `<div class="cd-text">⏳ 调息中… 还需 ${Game.battleCooldownLeft()} 秒</div>` : '';
+    let body = '';
+    if (battleMode === 'tower') {
+      const next = s.towerFloor + 1;
+      const d = (CONFIG.combat.towerBase + next * CONFIG.combat.towerStep).toFixed(2);
+      const preview = Game.towerEnemy(next);
+      const xp = Math.floor((Game.currentSpeed ? Game.currentSpeed() : 0) * (preview.boss ? 24 : 8) * (CONFIG.combat.towerBase + next * CONFIG.combat.towerStep));
+      body = `
+        <div class="tower-view">
+          <div class="tower-info">当前最高层 <b>${s.towerFloor}</b> · 下一层 <b>${next}</b> · 难度 ×${d}</div>
+          <div class="level-row">
+            <div class="level-idx">🗼</div>
+            <div class="level-body">
+              <div class="name">${preview.icon} ${preview.name} ${preview.boss ? '<span class="boss-tag">BOSS</span>' : ''}</div>
+              <div class="enemy-stats">攻${preview.atk} 防${preview.def} 气血${preview.hp} 命中${Math.round(preview.hit * 100)}% 闪避${Math.round(preview.dodge * 100)}% 暴击${Math.round(preview.crit * 100)}%</div>
+              <div class="reward-line">奖励 灵石${Game.formatNum(preview.reward.stone[0])}~${Game.formatNum(preview.reward.stone[1])} · 🌿${preview.reward.mat[0]}~${preview.reward.mat[1]} · 修为 ≈ ${Game.formatNum(xp)} · 法宝掉落${Math.round(preview.drop.chance * 100)}%</div>
+            </div>
+            <button class="buy-btn fight-btn" data-tower="${next}" ${cd ? 'disabled' : ''}>挑战</button>
+          </div>
+        </div>`;
+    } else {
+      const map = maps.find(m => m.id === currentMap);
+      const levels = map.levels.map((lv, i) => {
+        const unlocked = Game.isLevelUnlocked(map.id, i);
+        const cleared = s.mapProgress[map.id] !== undefined && s.mapProgress[map.id] >= i;
+        const lockText = (map.realmReq !== undefined && s.realmIndex < map.realmReq) ? '需' + Game.REALMS[map.realmReq].name : '🔒 未解锁';
+        const btn = unlocked
+          ? `<button class="buy-btn fight-btn" data-fight="${map.id}:${i}" ${cd ? 'disabled' : ''}>${cleared ? '再战' : '挑战'}</button>`
+          : `<button class="buy-btn" disabled>${lockText}</button>`;
+        return `<div class="level-row ${cleared ? 'cleared' : ''} ${unlocked ? '' : 'locked'}">
+          <div class="level-idx">${i + 1}</div>
+          <div class="level-body">
+            <div class="name">${lv.icon} ${lv.name} ${lv.boss ? '<span class="boss-tag">BOSS</span>' : ''} ${cleared ? '<span class="cleared-tag">已通关</span>' : ''}</div>
+            <div class="enemy-stats">攻${lv.atk} 防${lv.def} 气血${lv.hp} 命中${Math.round(lv.hit * 100)}% 闪避${Math.round(lv.dodge * 100)}% 暴击${Math.round(lv.crit * 100)}%</div>
+            <div class="reward-line">奖励 灵石${Game.formatNum(lv.reward.stone[0])}~${Game.formatNum(lv.reward.stone[1])} · 🌿${lv.reward.mat[0]}~${lv.reward.mat[1]} · 修为 ≈ ${Game.formatNum(Math.floor((Game.currentSpeed ? Game.currentSpeed() : 0) * (lv.boss ? 18 : 6)))}${lv.drop && lv.drop.chance ? ` · 法宝掉落${Math.round(lv.drop.chance * 100)}%` : ''}</div>
+          </div>${btn}</div>`;
+      }).join('');
+      body = `<div class="map-desc">${map.desc}</div>${cdText}<div class="level-path">${levels}</div>`;
+    }
     view.innerHTML = `
       <div class="section-title">⚔️ 历练 · 战斗 <small>回合制对战，命中/闪避/暴击皆随机</small></div>
       <div class="player-panel">
@@ -328,17 +353,25 @@
           <span>攻 ${st.atk}</span><span>防 ${st.def}</span><span>气血 ${st.hp}</span>
           <span>命中 ${Math.round(st.hit * 100)}%</span><span>闪避 ${Math.round(st.dodge * 100)}%</span><span>暴击 ${Math.round(st.crit * 100)}%</span>
         </div>
+        <div class="hint" style="margin-top:8px">攻/防/气血/命中/闪避/暴击 受功法、洞府、丹药、悟道、灵宠、灵根、仙缘、法宝共同影响。</div>
       </div>
-      <div class="map-tabs">${mapTabs}</div>
-      <div class="map-desc">${map.desc}</div>
-      ${cdText}
-      <div class="level-path">${levels}</div>`;
-    view.querySelectorAll('[data-map]').forEach(b => b.addEventListener('click', () => { if (!b.disabled) { currentMap = b.dataset.map; renderBattle(); } }));
+      <div class="map-tabs">${mapTabs}${towerTab}</div>
+      ${body}`;
+    view.querySelectorAll('[data-map]').forEach(b => b.addEventListener('click', () => { if (!b.disabled) { battleMode = 'map'; currentMap = b.dataset.map; renderBattle(); } }));
+    view.querySelectorAll('[data-mode="tower"]').forEach(b => b.addEventListener('click', () => { battleMode = 'tower'; renderBattle(); }));
     view.querySelectorAll('[data-fight]').forEach(b => b.addEventListener('click', () => {
       const [mid, idx] = b.dataset.fight.split(':');
       const r = Game.fight(mid, parseInt(idx, 10));
       if (!r) return;
       if (r.error === 'locked') { toast('关卡尚未解锁'); return; }
+      if (r.error === 'cd') { toast('调息中，稍后再战'); return; }
+      showCombat(r); renderBattle();
+    }));
+    view.querySelectorAll('[data-tower]').forEach(b => b.addEventListener('click', () => {
+      const floor = parseInt(b.dataset.tower, 10);
+      const r = Game.towerFight(floor);
+      if (!r) return;
+      if (r.error === 'locked') { toast('塔层尚未解锁'); return; }
       if (r.error === 'cd') { toast('调息中，稍后再战'); return; }
       showCombat(r); renderBattle();
     }));
