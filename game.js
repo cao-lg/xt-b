@@ -108,15 +108,17 @@ const Game = (function () {
   function insightTribMult() { return (state.insightLv.jie || 0) * INSIGHTS.find(i => i.id === 'jie').mult; }
 
   // 综合修炼速度（修为/秒）
-  // 模型：基础(指数成长) + 功法/洞府固定值(线性·不封顶) ，再乘以 仅顶级比例 + 丹药/灵根/悟道/灵宠/仙缘
+  // 模型：基础(层内成长) + 功法/洞府固定值(线性·不封顶) ，整体乘 修炼带(境界比例缩放) ，
+  //       再乘 仅顶级比例 + 丹药/灵根/悟道/灵宠/仙缘。固定值也随境界享受比例提升（与战斗战力带一致）。
   function currentSpeed() {
-    const base = CONFIG.baseSpeed
-      * Math.pow(CONFIG.growthPerLayer, state.layer)
-      * Math.pow(CONFIG.realmSpeedMult, state.realmIndex);
+    const base = CONFIG.baseSpeed * Math.pow(CONFIG.growthPerLayer, state.layer);
     const flat = techniqueFlat() + abodeFlat();                                  // 固定值加法（不封顶）
     const ratio = techniqueTopRatio() * abodeTopRatio() * pillMult() * rootMult('speed')
       * (1 + insightSpeedMult()) * (1 + petAllBonus()) * legacyMult();           // 仅顶级比例 + 其余比例源
-    return (base + flat) * ratio;
+    const band = CONFIG.cultBandBase
+      * Math.pow(CONFIG.cultBandMult, state.realmIndex)
+      * (1 + state.layer * CONFIG.cultBandLayer);                                // 修炼带：固定值也随境界享受比例提升
+    return (base + flat) * ratio * band;
   }
   function stoneSpeed() {
     return currentSpeed() * CONFIG.stoneRatio * rootMult('stone') * (1 + insightStoneMult()) * (1 + petAllBonus());
@@ -733,13 +735,18 @@ const Game = (function () {
     if (own.level >= CONFIG.treasure.maxLevel) checkAchievements();
     pushLog(`🔨 ${t.name}强化至 ${own.level} 级`, t.icon); save(); emit('treasure'); return true;
   }
+  // 熔炼：已装备件永不卸下；其余（多余）件一次性全部熔炼为天材地宝
   function smeltTreasure(tid) {
     const t = TREASURES.find(x => x.id === tid); const own = state.treasures[tid];
-    if (!t || !own || own.count < 1) return false;
-    if (state.equipped[t.slot] === tid) state.equipped[t.slot] = null;  // 熔掉已装备件时自动卸下
-    own.count--; const gain = CONFIG.treasure.smeltMatPerQuality * t.quality;
+    if (!t || !own || own.count <= 0) return false;
+    const equipped = state.equipped[t.slot] === tid;
+    const keep = equipped ? 1 : 0;          // 已装备则保留 1 件，其余皆为多余
+    const melt = own.count - keep;
+    if (melt <= 0) return false;            // 没有多余可熔（仅装备的 1 件）
+    own.count -= melt;
+    const gain = CONFIG.treasure.smeltMatPerQuality * t.quality * melt;
     state.materials += gain;
-    pushLog(`🔥 熔炼${t.name}，得天材地宝 +${gain}`, t.icon); save(); emit('treasure'); return true;
+    pushLog(`🔥 熔炼${t.name}（多余 ${melt} 件），得天材地宝 +${gain}`, t.icon); save(); emit('treasure'); return true;
   }
 
   /* ---------- 存档 / 读档 ---------- */

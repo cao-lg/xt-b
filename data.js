@@ -8,12 +8,16 @@
 const CONFIG = {
   /* 修炼速度与突破成本 */
   baseSpeed: 2.0,          // 基础修炼速度（修为/秒），炼气一层时
-  growthPerLayer: 1.08,    // 每完成 1 个小层，修炼速度 ×1.08
-  realmSpeedMult: 1.5,     // 每跨越 1 个大境界，基础速度 ×1.5
-  baseCost: 400,           // 第 0 层突破所需修为（基准）；调高以匹配不封顶后的修炼速度，避免破境过快
-  layerCostGrowth: 1.65,   // 每小层突破成本 ×1.65
-  realmCostGrowth: 4.50,   // 每大境界突破成本 ×4.50（接近速度复合，保证长线进度不会几秒一层）
-  majorBreakMult: 2.5,     // 大境界突破（第 9 层→下一境界）成本额外 ×2.5
+  growthPerLayer: 1.08,    // 每完成 1 个小层，基础速度 ×1.08（仅层内成长）
+  realmSpeedMult: 1.0,     // 已并入下方「修炼带」(cultBand) 统一做境界缩放，避免重复乘境界
+  // 修炼带：把「基础 + 固定值」整体按境界缩放（功法/洞府固定值也由此享受比例提升，与战斗战力带一致）
+  cultBandBase: 1,         // 修炼带基数
+  cultBandMult: 1.5,       // 每大境界 修炼带 ×1.5
+  cultBandLayer: 0.04,     // 每小层 修炼带 +4%
+  baseCost: 900,           // 第 0 层突破所需修为（基准）；继续调高以进一步放缓破境
+  layerCostGrowth: 2.10,   // 每小层突破成本 ×2.10
+  realmCostGrowth: 9.00,   // 每大境界突破成本 ×9.00（明显快于速度复合，长线每层都需可观积累）
+  majorBreakMult: 3.2,     // 大境界突破（第 9 层→下一境界）成本额外 ×3.2
   // 说明：speedCap / legacyCap 已移除。
   // 修炼速度改为「固定值加法为主 + 仅顶级比例」模型（见 TECHNIQUES / ABODES），
   // 功法/洞府普通档加固定值（线性、不封顶），只有最高级（鸿蒙紫气诀 / 上古仙府）为比例倍率，
@@ -160,20 +164,20 @@ const ROOTS = [
  *  - ratio: 修炼比例倍率（每级），仅【最高级·鸿蒙紫气诀】用。
  * 设计原则（按需求）：功法普通档加固定值，只有最高级为比例倍率。 */
 const TECHNIQUES = [
-  { id: 'tuna',     name: '吐纳术',     desc: '修炼速度 +0.3/级（固定值）',  baseStone: 25,     priceGrowth: 1.50, mult: 0.08, flat: 0.3,  max: 99, icon: '🌀' },
-  { id: 'yinqi',    name: '引气诀',     desc: '修炼速度 +0.6/级（固定值）',  baseStone: 220,    priceGrowth: 1.55, mult: 0.12, flat: 0.6,  max: 99, icon: '🌬️' },
-  { id: 'zhoutian', name: '周天功',     desc: '修炼速度 +1.2/级（固定值）',  baseStone: 2400,   priceGrowth: 1.60, mult: 0.18, flat: 1.2,  max: 99, icon: '🔄' },
-  { id: 'wuxing',   name: '五行诀',     desc: '修炼速度 +2.2/级（固定值）',  baseStone: 28000,  priceGrowth: 1.65, mult: 0.25, flat: 2.2,  max: 99, icon: '☯️' },
-  { id: 'taiyi',    name: '太一真诀',   desc: '修炼速度 +3.5/级（固定值）',  baseStone: 360000, priceGrowth: 1.70, mult: 0.40, flat: 3.5,  max: 99, icon: '🌟' },
+  { id: 'tuna',     name: '吐纳术',     desc: '修炼速度 +0.15/级（固定值）', baseStone: 25,     priceGrowth: 1.50, mult: 0.08, flat: 0.15, max: 99, icon: '🌀' },
+  { id: 'yinqi',    name: '引气诀',     desc: '修炼速度 +0.30/级（固定值）', baseStone: 220,    priceGrowth: 1.55, mult: 0.12, flat: 0.30, max: 99, icon: '🌬️' },
+  { id: 'zhoutian', name: '周天功',     desc: '修炼速度 +0.60/级（固定值）', baseStone: 2400,   priceGrowth: 1.60, mult: 0.18, flat: 0.60, max: 99, icon: '🔄' },
+  { id: 'wuxing',   name: '五行诀',     desc: '修炼速度 +1.10/级（固定值）', baseStone: 28000,  priceGrowth: 1.65, mult: 0.25, flat: 1.10, max: 99, icon: '☯️' },
+  { id: 'taiyi',    name: '太一真诀',   desc: '修炼速度 +1.80/级（固定值）', baseStone: 360000, priceGrowth: 1.70, mult: 0.40, flat: 1.80, max: 99, icon: '🌟' },
   { id: 'hongmeng', name: '鸿蒙紫气诀', desc: '修炼速度 ×1.05/级（顶级·比例）', baseStone: 5200000, priceGrowth: 1.75, mult: 0.60, ratio: 0.05, max: 99, icon: '🟣' }
 ];
 
 /* ---------- 洞府 / 灵脉（消耗灵石，可升级，永久加成「灵气浓度」→ 修炼速度） ----------
  * 同功法：mult=战斗权重(旧值)；flat=修炼固定值(普通档)；ratio=修炼比例(仅最高级·上古仙府)。 */
 const ABODES = [
-  { id: 'cave',    name: '荒野洞府', desc: '灵气浓度 +0.5/级（固定值）',  baseStone: 60,    priceGrowth: 1.50, mult: 0.12, flat: 0.5,  max: 99, icon: '⛰️' },
-  { id: 'lingmai', name: '地脉灵穴', desc: '灵气浓度 +1.0/级（固定值）',  baseStone: 900,   priceGrowth: 1.55, mult: 0.18, flat: 1.0,  max: 99, icon: '💎' },
-  { id: 'fudi',    name: '洞天福地', desc: '灵气浓度 +1.8/级（固定值）',  baseStone: 14000, priceGrowth: 1.60, mult: 0.25, flat: 1.8,  max: 99, icon: '🏞️' },
+  { id: 'cave',    name: '荒野洞府', desc: '灵气浓度 +0.25/级（固定值）', baseStone: 60,    priceGrowth: 1.50, mult: 0.12, flat: 0.25, max: 99, icon: '⛰️' },
+  { id: 'lingmai', name: '地脉灵穴', desc: '灵气浓度 +0.50/级（固定值）', baseStone: 900,   priceGrowth: 1.55, mult: 0.18, flat: 0.50, max: 99, icon: '💎' },
+  { id: 'fudi',    name: '洞天福地', desc: '灵气浓度 +0.90/级（固定值）', baseStone: 14000, priceGrowth: 1.60, mult: 0.25, flat: 0.90, max: 99, icon: '🏞️' },
   { id: 'xianfu',  name: '上古仙府', desc: '灵气浓度 ×1.04/级（顶级·比例）', baseStone: 240000, priceGrowth: 1.65, mult: 0.35, ratio: 0.04, max: 99, icon: '🏯' }
 ];
 
