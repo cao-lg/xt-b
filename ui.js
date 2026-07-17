@@ -533,14 +533,16 @@
       const maxed = own.level >= CONFIG.treasure.maxLevel;
       const enhAfford = !maxed && s.materials >= cost.mat && s.stone >= cost.stone;
       const equipped = s.equipped[t.slot] === t.id;
-      const keep = equipped ? 1 : 0;
-      const surplus = own.count - keep;           // 多余件（已装备的 1 件保留，不熔）
+      // 与 game.js 保持一致：仅剩 1 件时无论如何保留，绝不直接删掉唯一法宝
+      const keep = own.count <= 1 ? own.count : (equipped ? 1 : 0);
+      const surplus = own.count - keep;           // 多余件（仅剩 1 件时 surplus=0，不熔）
       const smeltAfford = surplus > 0;
       const enhBtn = maxed ? `<button class="buy-btn maxed" disabled>圆满</button>`
         : `<button class="buy-btn" data-enh="${t.id}" ${enhAfford ? '' : 'disabled'}>强化<div class="price">${cost.mat}🌿 ${Game.formatNum(cost.stone)}💎</div></button>`;
       const eqBtn = equipped ? `<button class="buy-btn eq" data-unequip="${t.slot}">卸下</button>`
         : `<button class="buy-btn" data-equip="${t.id}">装备</button>`;
-      const smeltBtn = smeltAfford ? `<button class="buy-btn smelt" data-smelt="${t.id}">熔炼多余(${surplus})<div class="price">+${CONFIG.treasure.smeltMatPerQuality * t.quality * surplus}🌿</div></button>` : '';
+      const smeltLabel = equipped ? `熔炼多余(${surplus})` : `熔炼(${surplus})`;
+      const smeltBtn = smeltAfford ? `<button class="buy-btn smelt" data-smelt="${t.id}">${smeltLabel}<div class="price">+${CONFIG.treasure.smeltMatPerQuality * t.quality * surplus}🌿</div></button>` : '';
       return `<div class="tcard">
         <div class="ti" style="color:${qColor(t.quality)}">${t.icon}</div>
         <div class="tn">${t.name} <span class="q" style="color:${qColor(t.quality)}">${qName(t.quality)}</span></div>
@@ -569,7 +571,7 @@
     view.querySelectorAll('[data-equip]').forEach(b => b.addEventListener('click', () => { if (Game.equipTreasure(b.dataset.equip)) renderTreasure(); else toast('无法装备'); }));
     view.querySelectorAll('[data-unequip]').forEach(b => b.addEventListener('click', () => { Game.unequip(b.dataset.unequip); renderTreasure(); }));
     view.querySelectorAll('[data-enh]').forEach(b => b.addEventListener('click', () => { if (Game.enhanceTreasure(b.dataset.enh)) renderTreasure(); else toast('材料或灵石不足'); }));
-    view.querySelectorAll('[data-smelt]').forEach(b => b.addEventListener('click', () => { if (Game.smeltTreasure(b.dataset.smelt)) renderTreasure(); else toast('没有多余法宝可熔炼（已装备的不会卸下）'); }));
+    view.querySelectorAll('[data-smelt]').forEach(b => b.addEventListener('click', () => { if (Game.smeltTreasure(b.dataset.smelt)) renderTreasure(); else toast('仅剩 1 件，已为你保留（不会误熔唯一法宝）'); }));
   }
 
   /* ---------------- 购买委托 ---------------- */

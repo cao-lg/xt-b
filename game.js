@@ -740,13 +740,14 @@ const Game = (function () {
     const t = TREASURES.find(x => x.id === tid); const own = state.treasures[tid];
     if (!t || !own || own.count <= 0) return false;
     const equipped = state.equipped[t.slot] === tid;
-    const keep = equipped ? 1 : 0;          // 已装备则保留 1 件，其余皆为多余
+    // 保护最后 1 件：当仅持有 1 件时（无论是否装备）一律保留，绝不直接删掉唯一法宝
+    const keep = own.count <= 1 ? own.count : (equipped ? 1 : 0);
     const melt = own.count - keep;
-    if (melt <= 0) return false;            // 没有多余可熔（仅装备的 1 件）
+    if (melt <= 0) return false;            // 仅剩 1 件，已为你保留，不熔
     own.count -= melt;
     const gain = CONFIG.treasure.smeltMatPerQuality * t.quality * melt;
     state.materials += gain;
-    pushLog(`🔥 熔炼${t.name}（多余 ${melt} 件），得天材地宝 +${gain}`, t.icon); save(); emit('treasure'); return true;
+    pushLog(`🔥 熔炼${t.name}（${melt} 件），得天材地宝 +${gain}`, t.icon); save(); emit('treasure'); return true;
   }
 
   /* ---------- 存档 / 读档 ---------- */
