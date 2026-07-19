@@ -720,12 +720,9 @@
         </details>
       </div>
       <div class="map-tabs">${mapTabs}${towerTab}</div>
-      ${body}
-      ${renderSheatheSword()}`;
+      ${body}`;
     view.querySelectorAll('[data-map]').forEach(b => b.addEventListener('click', () => { if (!b.disabled) { battleMode = 'map'; currentMap = b.dataset.map; currentLevel = 0; Game.state._battleUserSelected = true; renderBattle(); } }));
     view.querySelectorAll('[data-mode="tower"]').forEach(b => b.addEventListener('click', () => { battleMode = 'tower'; Game.state._battleUserSelected = true; renderBattle(); }));
-    const sheatheBtn = $('#btn-sheathe');
-    if (sheatheBtn) sheatheBtn.addEventListener('click', function() { this.remove(); _bbPending = false; showBlindBox(); });
     view.querySelectorAll('[data-fight]').forEach(b => b.addEventListener('click', () => {
       const [mid, idx] = b.dataset.fight.split(':');
       currentLevel = parseInt(idx, 10);
@@ -799,7 +796,10 @@
       '<div class="combat-log">'+lines+more+'</div>'+
       '<div class="combat-reward" style="display:none">'+rewardHtml+'</div>'+
       '<button class="btn" id="cb-ok" style="display:none">收剑</button>', 'combat');
-    $('#cb-ok').addEventListener('click',function(){closeModal(m)});
+    $('#cb-ok').addEventListener('click',function(){
+      if (r.win) { closeModal(m); setTimeout(() => showBlindBox(), 200); }
+      else { closeModal(m); }
+    });
     playBattle(res,lv,m,aura,techEl);
     return m;
   }
@@ -1081,18 +1081,9 @@
   Game.on('battle', (d) => {
     if (d.win) {
       FX.floatText('胜！', { kind: 'good', y: window.innerHeight * 0.38, size: 30 });
-      _bbPending = true;
-      // 延迟一帧重绘战斗tab，出现「收剑」按钮在内容区
-      setTimeout(() => { if (currentTab === 'battle') renderCurrent(); }, 100);
+      // 盲盒由战斗弹窗的「收剑」按钮触发（showCombat 内 cb-ok）
     } else { FX.flash('#ff6b6b'); FX.shake(1.6); }
   });
-
-  // 收剑按钮（在战斗tab内容区底部，点击弹盲盒）
-  let _bbPending = false;
-  function renderSheatheSword() {
-    if (!_bbPending) return '';
-    return `<button class="sheathe-btn-inline" id="btn-sheathe">⚔️ 点击收剑 · 领取战利品</button>`;
-  }
 
   let _bbResolve = null;
   let _bbResource = null;
@@ -1124,7 +1115,7 @@
         showBlindBox();
       }));
       m.querySelectorAll('.bb-btn-cancel').forEach(btn => btn.addEventListener('click', () => {
-        closeModal(m); _bbResource = null; _bbPending = false; _bbResolve = null;
+        closeModal(m); _bbResource = null; _bbResolve = null;
       }));
       _bbResolve = m;
       return;
@@ -1156,7 +1147,7 @@
       if (_bbResource === 'mat' && betAmt > s.materials) return;
       _bbResolve = null; closeModal(m);
       showBlindBoxRoll(_bbResource, betAmt);
-      _bbResource = null; _bbPending = false;
+      _bbResource = null;
     }));
     m.querySelectorAll('.bb-btn-cancel').forEach(btn => btn.addEventListener('click', () => {
       _bbResource = null; _bbResolve = null; closeModal(m);

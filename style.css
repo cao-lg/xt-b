@@ -312,7 +312,7 @@ html, body {
 .blind-box .bb-bet-amt { font-size: 14px; font-weight: 900; color: var(--gold-soft); }
 .blind-box .bb-bet-pct { font-size: 11px; color: var(--text-dim); }
 
-/* 收剑按钮（战斗tab内容区底部） */
+/* 收剑按钮（已迁移到战斗弹窗#cb-ok，本规则保留兼容） */
 .sheathe-btn-inline {
   display: block; width: 100%; margin-top: 12px; padding: 14px;
   background: linear-gradient(135deg, rgba(255,215,111,0.18), rgba(255,160,40,0.12));
