@@ -75,26 +75,17 @@ const Game = (function () {
     TECHNIQUES.forEach(t => { if (t.flat) { const lv = state.techniques[t.id] || 0; if (lv > 0) f += t.flat * lv; } });
     return f;
   }
-  function techniqueTopRatio() {
-    let r = 1;
-    TECHNIQUES.forEach(t => { if (t.ratio) { const lv = state.techniques[t.id] || 0; if (lv > 0) r *= (1 + t.ratio * lv); } });
-    return r;
-  }
-  // 洞府：普通档按固定值累加；仅「上古仙府」为比例倍率
+  // 洞府：全部按固定值累加（已去除顶级比例倍率，避免乘法乘积爆炸）
   function abodeFlat() {
     let f = 0;
     ABODES.forEach(a => { if (a.flat) { const lv = state.abodes[a.id] || 0; if (lv > 0) f += a.flat * lv; } });
     return f;
   }
-  function abodeTopRatio() {
-    let r = 1;
-    ABODES.forEach(a => { if (a.ratio) { const lv = state.abodes[a.id] || 0; if (lv > 0) r *= (1 + a.ratio * lv); } });
-    return r;
-  }
-  function pillMult() {
-    let m = 1;
-    PILLS.forEach(p => { const left = state.pills[p.id] || 0; if (left > 0) m *= (1 + p.mult); });
-    return m * rootMult('pill');
+  // 丹药：临时 flat 修为加成（不乘任何比例；state.pills[id] = 剩余有效秒数）
+  function pillFlat() {
+    let f = 0;
+    PILLS.forEach(p => { if (p.flat && (state.pills[p.id] || 0) > 0) f += p.flat; });
+    return f;
   }
   // 仙缘全局倍率
   function legacyMult() { return 1 + state.legacy * CONFIG.legacyPerPoint; }
@@ -136,23 +127,24 @@ const Game = (function () {
     return g.id === 'all' ? g.mult : 1;      // 「万物滋长」boost 全资源（修为/灵石/材料/灵宠产出）
   }
 
-  // 修炼核心速度（不含天降机缘，便于 stoneSpeed / 灵宠 / 瞬时爆发复用，避免重复乘）
+  // 修炼核心（享受「天道」境界缩放 + 灵根/悟道/仙缘/宠物/宝光 比例乘区；不含玩家购买的固定值）
   function coreSpeed() {
     const base = CONFIG.baseSpeed * Math.pow(CONFIG.growthPerLayer, state.layer);
-    const flat = techniqueFlat() + abodeFlat();                                  // 固定值加法（不封顶）
-    const ratio = techniqueTopRatio() * abodeTopRatio() * pillMult() * rootMult('speed')
-      * (1 + insightSpeedMult()) * (1 + petAllBonus()) * legacyMult();           // 仅顶级比例 + 其余比例源
     const band = CONFIG.cultBandBase
       * Math.pow(CONFIG.cultBandMult, state.realmIndex)
-      * (1 + state.layer * CONFIG.cultBandLayer);                                // 修炼带：固定值也随境界享受比例提升
-    return (base + flat) * ratio * band;
+      * (1 + state.layer * CONFIG.cultBandLayer);                                // 修炼带：境界缩放（天道）
+    const speedRatio = rootMult('speed') * (1 + insightSpeedMult());             // 灵根选择 / 悟道（保留比例）
+    const globalMult = legacyMult() * blessMult('xiuwei') * (1 + petAllBonus()); // 转生 / 仙缘殿 / 灵宠全资源（保留比例）
+    const golden = goldenSpeedMult() * goldenAllMult();                          // 天降机缘临时比例
+    return base * band * speedRatio * globalMult * golden;
   }
-  // 综合修炼速度（修为/秒）= 核心速度 × 天降机缘（speed 仅修为 / all 全资源）
-  function currentSpeed() {
-    return coreSpeed() * goldenSpeedMult() * goldenAllMult() * blessMult('xiuwei');
-  }
+  // 玩家购买的固定加成（功法/洞府/丹药 flat），加在最后，不乘任何比例（满足「固定值不享受比例加成，除非天道」）
+  function purchasedFlat() { return techniqueFlat() + abodeFlat() + pillFlat(); }
+  // 综合修炼速度（修为/秒）= 天道核心 + 玩家固定值
+  function currentSpeed() { return coreSpeed() + purchasedFlat(); }
   function stoneSpeed() {
-    return coreSpeed() * CONFIG.stoneRatio * rootMult('stone') * (1 + insightStoneMult()) * (1 + petAllBonus()) * goldenAllMult();
+    const cp = coreSpeed();
+    return cp * CONFIG.stoneRatio * rootMult('stone') * (1 + insightStoneMult()) + purchasedFlat() * CONFIG.stoneRatio;
   }
 
   // 灵宠每秒产出（各类资源）
@@ -564,7 +556,7 @@ const Game = (function () {
     // 各养成系统的「训练强度」汇总
     const techSum = TECHNIQUES.reduce((s, t) => s + (state.techniques[t.id] || 0) * t.mult, 0);
     const abodeSum = ABODES.reduce((s, a) => s + (state.abodes[a.id] || 0) * a.mult, 0);
-    const pillBonus = pillMult() - 1;
+    const pillBonus = 0; // 丹药改为纯修为速度道具，不再加成战斗
     const petAll = petAllBonus();
     const il = state.insightLv || {};
     const legacy = state.legacy || 0;
@@ -629,7 +621,7 @@ const Game = (function () {
     const band = C2.bandBase * Math.pow(C2.bandMult, r) * (1 + l * C2.bandLayer);
     const techSum = TECHNIQUES.reduce((s, t) => s + (state.techniques[t.id] || 0) * t.mult, 0);
     const abodeSum = ABODES.reduce((s, a) => s + (state.abodes[a.id] || 0) * a.mult, 0);
-    const pillBonus = pillMult() - 1;
+    const pillBonus = 0; // 丹药改为纯修为速度道具，不再加成战斗
     const petAll = petAllBonus();
     const il = state.insightLv || {};
     const legacy = state.legacy || 0;
@@ -683,7 +675,7 @@ const Game = (function () {
     const C2 = CONFIG.combat;
     const techSum = TECHNIQUES.reduce((s, t) => s + (state.techniques[t.id] || 0) * t.mult, 0);
     const abodeSum = ABODES.reduce((s, a) => s + (state.abodes[a.id] || 0) * a.mult, 0);
-    const pillBonus = pillMult() - 1;
+    const pillBonus = 0; // 丹药改为纯修为速度道具，不再加成战斗
     const petAll = petAllBonus();
     const il = state.insightLv || {};
     const legacy = state.legacy || 0;
@@ -1013,7 +1005,7 @@ const Game = (function () {
     seekPet, feedPet, explore, comprehend, reincarnate, checkAchievements,
     currentSpeed, stoneSpeed, breakCost, canBreak, isMajorBreak, tribChance,
     techniquePrice, abodePrice, seekCost, feedCost, insightPrice, legacyGain, canReincarnate, canExplore,
-    techniqueFlat, techniqueTopRatio, abodeFlat, abodeTopRatio, pillMult, legacyMult, rootMult, petAllBonus, petOutPerSec, getTotalLayers,
+    techniqueFlat, abodeFlat, pillFlat, purchasedFlat, legacyMult, rootMult, petAllBonus, petOutPerSec, getTotalLayers,
     blessMult, blessCost, buyBlessing, towerTitle,
     formatNum, formatSpeed, formatTime,
     combatStats, currentSpeed, qualityMult, treasureStats, canBattle, battleCooldownLeft, isLevelUnlocked, fight, simulateCombat, towerEnemy, towerFight, softCap, combatBreakdown, combatFormula,

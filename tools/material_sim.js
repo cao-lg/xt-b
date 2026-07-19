@@ -218,7 +218,7 @@ let CONFIG_BATTLE_CD = 6, CONFIG_TREASURE_MAX = 20, CONFIG_AWAKEN_MAX = 3, CONFI
 let CONFIG_CHECKIN = [];
 function simProgression(rootId, seed, maxT, opts) {
   opts = opts || {};
-  const speedBoost = opts.speedBoost !== false;    // 默认 true：避劫丹常驻 → 修炼速度 ×4（仅速度，与必成解耦）
+  const speedBoost = opts.speedBoost !== false;    // 默认 true：避劫丹常驻 → 修炼速度 +flat（限时常驻，与必成解耦；v5 丹药已改固定值）
   const guarantee  = opts.guarantee !== false;      // 默认 true：大境界必成（试炼/平衡基线）；false → 真实掷骰
   const mercy = opts.mercy || null;                // 保底：{ guarantee: N } 连续失败 N 次后下次必成
   seedRNG(seed);
@@ -247,7 +247,7 @@ function simProgression(rootId, seed, maxT, opts) {
   }
   recRealm();
 
-  // 渡劫逻辑：speedBoost 仅控制 ×4 速度；guarantee 控制必成；二者解耦以便隔离「失败」本身的节奏影响
+  // 渡劫逻辑：speedBoost 仅控制 bijie 的 flat 速度加成；guarantee 控制必成；二者解耦以便隔离「失败」本身的节奏影响
   function tryBreak() {
     if (!g.isMajorBreak()) { g.doBreak(); return; }
     if (guarantee) { const old = s.pills.bijie; s.pills.bijie = 1e9; g.doBreak(); s.pills.bijie = old; return; }
@@ -416,7 +416,7 @@ function fmt(sec) { if (!isFinite(sec)) return '∞'; sec = Math.floor(sec); con
 function fmtN(n) { if (n >= 1e8) return (n / 1e8).toFixed(2) + '亿'; if (n >= 1e4) return (n / 1e4).toFixed(2) + '万'; return Math.round(n).toString(); }
 
 function main() {
-  const SEEDS = Number(process.env.SEEDS || 12), MAXT = 45 * 86400, TRIALS = 100;
+  const SEEDS = Number(process.env.SEEDS || 12), MAXT = Number(process.env.MAXT || 220) * 86400, TRIALS = 100;
   const realmNames = ['炼气', '筑基', '金丹', '元婴', '化神', '炼虚', '合体', '大乘', '渡劫', '真仙'];
   const R = [];
   const log = (s) => { R.push(s); console.log(s); };

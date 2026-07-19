@@ -7,7 +7,7 @@
 /* ---------- 全局数值参数（已为 v2 重平衡） ---------- */
 const CONFIG = {
   /* 修炼速度与突破成本 */
-  baseSpeed: 2.0,          // 基础修炼速度（修为/秒），炼气一层时
+  baseSpeed: 0.5,          // 基础修炼速度（修为/秒），炼气一层时（v5 下调：纯修炼锚定 ~1~2 年，养成系统压缩到可玩）
   growthPerLayer: 1.08,    // 每完成 1 个小层，基础速度 ×1.08（仅层内成长）
   realmSpeedMult: 1.0,     // 已并入下方「修炼带」(cultBand) 统一做境界缩放，避免重复乘境界
   // 修炼带：把「基础 + 固定值」整体按境界缩放（功法/洞府固定值也由此享受比例提升，与战斗战力带一致）
@@ -19,9 +19,9 @@ const CONFIG = {
   realmCostGrowth: 3.2,    // 每大境界突破成本 ×3.2（v3 重平衡：由 9.00 大幅下调——原值使成本增速远超速度增速，导致元婴之后永久卡死、游戏不可通关；现与修炼带(×2.2)/功法洞府再投资/仙缘复合匹配）
   majorBreakMult: 2.5,     // 大境界突破（第 9 层→下一境界）成本额外 ×2.5（v3 由 3.2 下调，留出余量）
   // 说明：speedCap / legacyCap 已移除。
-  // 修炼速度改为「固定值加法为主 + 仅顶级比例」模型（见 TECHNIQUES / ABODES），
-  // 功法/洞府普通档加固定值（线性、不封顶），只有最高级（鸿蒙紫气诀 / 上古仙府）为比例倍率，
-  // 仙缘(legacyMult)也不封顶，但 legacyPerPoint 调小，保证长线数字不至于失控。
+  // 修炼速度模型（v5 重构）：coreSpeed = base×band×比例乘区(灵根/悟道/仙缘/宠物/宝光)，
+  // 玩家购买的功法/洞府/丹药改为【固定值加法】且【加在乘法链之后、不乘任何比例】（除非天道境界缩放），
+  // 从而消除原「比例项乘法乘积」在后期的爆炸；仙缘(legacyMult)转生乘区保留不封顶。
 
   /* 资源产出 */
   stoneRatio: 0.18,        // 灵石产出速度 = 修为速度 × 此比例
@@ -205,29 +205,29 @@ const ROOTS = [
  *  - ratio: 修炼比例倍率（每级），仅【最高级·鸿蒙紫气诀】用。
  * 设计原则（按需求）：功法普通档加固定值，只有最高级为比例倍率。 */
 const TECHNIQUES = [
-  { id: 'tuna',     name: '吐纳术',     desc: '修炼速度 +0.15/级（固定值）', baseStone: 25,     priceGrowth: 1.50, mult: 0.08, flat: 0.15, max: 99, icon: '🌀' },
-  { id: 'yinqi',    name: '引气诀',     desc: '修炼速度 +0.30/级（固定值）', baseStone: 220,    priceGrowth: 1.55, mult: 0.12, flat: 0.30, max: 99, icon: '🌬️' },
-  { id: 'zhoutian', name: '周天功',     desc: '修炼速度 +0.60/级（固定值）', baseStone: 2400,   priceGrowth: 1.60, mult: 0.18, flat: 0.60, max: 99, icon: '🔄' },
-  { id: 'wuxing',   name: '五行诀',     desc: '修炼速度 +1.10/级（固定值）', baseStone: 28000,  priceGrowth: 1.65, mult: 0.25, flat: 1.10, max: 99, icon: '☯️' },
-  { id: 'taiyi',    name: '太一真诀',   desc: '修炼速度 +1.80/级（固定值）', baseStone: 360000, priceGrowth: 1.70, mult: 0.40, flat: 1.80, max: 99, icon: '🌟' },
-  { id: 'hongmeng', name: '鸿蒙紫气诀', desc: '修炼速度 ×1.05/级（顶级·比例）', baseStone: 5200000, priceGrowth: 1.75, mult: 0.60, ratio: 0.05, max: 99, icon: '🟣' }
+  { id: 'tuna',     name: '吐纳术',     desc: '修炼速度 +0.60/级（固定值）', baseStone: 25,     priceGrowth: 1.50, mult: 0.08, flat: 0.60, max: 99, icon: '🌀' },
+  { id: 'yinqi',    name: '引气诀',     desc: '修炼速度 +1.20/级（固定值）', baseStone: 220,    priceGrowth: 1.55, mult: 0.12, flat: 1.20, max: 99, icon: '🌬️' },
+  { id: 'zhoutian', name: '周天功',     desc: '修炼速度 +2.40/级（固定值）', baseStone: 2400,   priceGrowth: 1.60, mult: 0.18, flat: 2.40, max: 99, icon: '🔄' },
+  { id: 'wuxing',   name: '五行诀',     desc: '修炼速度 +4.40/级（固定值）', baseStone: 28000,  priceGrowth: 1.65, mult: 0.25, flat: 4.40, max: 99, icon: '☯️' },
+  { id: 'taiyi',    name: '太一真诀',   desc: '修炼速度 +7.20/级（固定值）', baseStone: 360000, priceGrowth: 1.70, mult: 0.40, flat: 7.20, max: 99, icon: '🌟' },
+  { id: 'hongmeng', name: '鸿蒙紫气诀', desc: '修炼速度 +16.00/级（固定值·顶级）', baseStone: 5200000, priceGrowth: 1.75, mult: 0.60, flat: 16.00, max: 99, icon: '🟣' }
 ];
 
-/* ---------- 洞府 / 灵脉（消耗灵石，可升级，永久加成「灵气浓度」→ 修炼速度） ----------
- * 同功法：mult=战斗权重(旧值)；flat=修炼固定值(普通档)；ratio=修炼比例(仅最高级·上古仙府)。 */
+/* ---------- 洞府 / 灵脉（消耗灵石，可升级，永久加成「灵气浓度」→ 修炼速度·固定值） ---------- */
 const ABODES = [
-  { id: 'cave',    name: '荒野洞府', desc: '灵气浓度 +0.25/级（固定值）', baseStone: 60,    priceGrowth: 1.50, mult: 0.12, flat: 0.25, max: 99, icon: '⛰️' },
-  { id: 'lingmai', name: '地脉灵穴', desc: '灵气浓度 +0.50/级（固定值）', baseStone: 900,   priceGrowth: 1.55, mult: 0.18, flat: 0.50, max: 99, icon: '💎' },
-  { id: 'fudi',    name: '洞天福地', desc: '灵气浓度 +0.90/级（固定值）', baseStone: 14000, priceGrowth: 1.60, mult: 0.25, flat: 0.90, max: 99, icon: '🏞️' },
-  { id: 'xianfu',  name: '上古仙府', desc: '灵气浓度 ×1.04/级（顶级·比例）', baseStone: 240000, priceGrowth: 1.65, mult: 0.35, ratio: 0.04, max: 99, icon: '🏯' }
+  { id: 'cave',    name: '荒野洞府', desc: '灵气浓度 +1.00/级（固定值）', baseStone: 60,    priceGrowth: 1.50, mult: 0.12, flat: 1.00, max: 99, icon: '⛰️' },
+  { id: 'lingmai', name: '地脉灵穴', desc: '灵气浓度 +2.00/级（固定值）', baseStone: 900,   priceGrowth: 1.55, mult: 0.18, flat: 2.00, max: 99, icon: '💎' },
+  { id: 'fudi',    name: '洞天福地', desc: '灵气浓度 +3.60/级（固定值）', baseStone: 14000, priceGrowth: 1.60, mult: 0.25, flat: 3.60, max: 99, icon: '🏞️' },
+  { id: 'xianfu',  name: '上古仙府', desc: '灵气浓度 +8.00/级（固定值·顶级）', baseStone: 240000, priceGrowth: 1.65, mult: 0.35, flat: 8.00, max: 99, icon: '🏯' }
 ];
 
-/* ---------- 丹药（消耗灵石，限时 buff，乘法加成修炼速度） ---------- */
+/* ---------- 丹药（消耗灵石，限时冲刺 buff，固定值加成修炼速度，不乘任何比例） ----------
+ * flat = 修炼速度固定加成(修为/秒)；duration = 有效秒数（限时冲刺，非长驻）；safe = 渡劫必成 */
 const PILLS = [
-  { id: 'juqi',     name: '聚气丹',     desc: '4 时辰内修炼速度 ×2',  baseStone: 300,    duration: 14400, mult: 1.0, icon: '💊' },
-  { id: 'jinyuan',  name: '金元丹',     desc: '4 时辰内修炼速度 ×3',  baseStone: 3200,   duration: 14400, mult: 2.0, icon: '🟠' },
-  { id: 'bijie',    name: '避劫丹',     desc: '12 时辰内修炼速度 ×4，渡劫必成', baseStone: 36000,  duration: 43200, mult: 3.0, safe: true, icon: '🟡' },
-  { id: 'jiuzhuan', name: '九转金丹',   desc: '12 时辰内修炼速度 ×6', baseStone: 420000, duration: 43200, mult: 5.0, icon: '🔆' }
+  { id: 'juqi',     name: '聚气丹',     desc: '60 秒内修炼速度 +0.5/秒',  baseStone: 300,    duration: 60,   flat: 0.5,  icon: '💊' },
+  { id: 'jinyuan',  name: '金元丹',     desc: '90 秒内修炼速度 +1.5/秒',  baseStone: 3200,   duration: 90,   flat: 1.5,  icon: '🟠' },
+  { id: 'bijie',    name: '避劫丹',     desc: '120 秒内修炼速度 +3/秒，渡劫必成', baseStone: 36000,  duration: 120,  flat: 3.0,  safe: true, icon: '🟡' },
+  { id: 'jiuzhuan', name: '九转金丹',   desc: '180 秒内修炼速度 +6/秒',  baseStone: 420000, duration: 180,  flat: 6.0,  icon: '🔆' }
 ];
 
 /* ---------- 灵宠（寻妖→喂养→自动产出） ---------- */

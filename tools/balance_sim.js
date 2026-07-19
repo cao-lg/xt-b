@@ -120,6 +120,22 @@ function simEconomy(rootId, seed, maxT) {
   return { realmEnterT, cycleTimes, finalT: t };
 }
 
+/* ---------- A2. 纯修炼锚（不买功法/洞府/丹药、legacy=0、不吃丹药） ---------- */
+function pureCultivate(rootId) {
+  const g = makeGame(); const s = g.state; g.setRoot(rootId);
+  let t = 0, guard = 0;
+  while (s.realmIndex < 9 && guard < 4000000) {
+    guard++;
+    if (g.canBreak()) { g.doBreak(); continue; }
+    const sp = g.currentSpeed(), xr = sp + g.petOutPerSec('xp');
+    const tB = (g.breakCost() - s.xp) / xr;
+    const dt = Math.min(tB, 3600);
+    s.xp += sp * dt; s.totalXp += sp * dt; s.stone += g.stoneSpeed() * dt;
+    t += dt;
+  }
+  return t;
+}
+
 /* ---------- B. ROI 边际分析（快照法） ---------- */
 function buildState(opts) {
   const g = makeGame(); const s = g.state;
@@ -167,7 +183,7 @@ function snapAtRealm(rootId, seed, target) {
   seedRNG(seed);
   const g = makeGame(); const s = g.state; g.setRoot(rootId); s.pills.bijie = 1e9;
   let t = 0, guard = 0, reached = false;
-  while (t < 60 * 86400 && guard < 1500000) {
+  while (t < 220 * 86400 && guard < 4000000) {
     guard++;
     if (g.canBreak()) { g.doBreak(); if (s.realmIndex === target) { reached = true; break; } if (s.realmIndex === 9 && g.canReincarnate()) break; continue; }
     const sp = g.currentSpeed(), sr = g.stoneSpeed(), xr = sp + g.petOutPerSec('xp');
@@ -217,7 +233,7 @@ function fmtN(n) { if (n >= 1e8) return (n / 1e8).toFixed(2) + '亿+'; if (n >= 
 
 /* ---------- 主流程 ---------- */
 function main() {
-  const SEEDS = 12, MAXT = 45 * 86400, TRIALS = 100;
+  const SEEDS = 12, MAXT = 220 * 86400, TRIALS = 100;
   const realmNames = ['炼气', '筑基', '金丹', '元婴', '化神', '炼虚', '合体', '大乘', '渡劫', '真仙'];
   const R = [];
   const log = (s) => { R.push(s); console.log(s); };
@@ -226,6 +242,11 @@ function main() {
   log(' 放置修仙 · 平衡模拟报告' + (Object.keys(OVERRIDES).length ? ' (假设推演 OVERRIDE=' + JSON.stringify(OVERRIDES) + ')' : ''));
   log(' 种子数=' + SEEDS + '  最大时长=' + fmt(MAXT) + '  战斗试炼=' + TRIALS + '次');
   log('============================================================');
+
+  // A0. 纯修炼锚（理论下限：零购买、无丹药、legacy=0）
+  log('\n########## A0. 纯修炼锚（零购买·无丹药·legacy=0）##########');
+  log('  纯修炼(wood) 到真仙: ' + fmt(pureCultivate('wood')));
+  log('  纯修炼(earth) 到真仙: ' + fmt(pureCultivate('earth')));
 
   // A
   log('\n########## A. 时间驱动成长 / 破境节奏 (首轮回) ##########');

@@ -139,13 +139,14 @@
     const s = Game.state;
     let html = '';
     Game.PILLS.forEach(p => { const left = s.pills[p.id] || 0; if (left > 0) html += `<span class="pill-tag" title="${p.desc}，剩余 ${Game.formatTime(left)}">${p.icon} ${p.name} ${Game.formatTime(left)}</span>`; });
-    const tf = Game.techniqueFlat(), af = Game.abodeFlat(), pa = Game.petAllBonus();
-    const hm = Game.TECHNIQUES.find(t => t.id === 'hongmeng'), xf = Game.ABODES.find(a => a.id === 'xianfu');
+    const tf = Game.techniqueFlat(), af = Game.abodeFlat(), pf = Game.pillFlat(), pa = Game.petAllBonus();
     const hmLv = s.techniques.hongmeng || 0, xfLv = s.abodes.xianfu || 0;
+    const hmFlat = hmLv > 0 ? (Game.TECHNIQUES.find(t=>t.id==='hongmeng').flat || 0) * hmLv : 0;
+    const xfFlat = xfLv > 0 ? (Game.ABODES.find(a=>a.id==='xianfu').flat || 0) * xfLv : 0;
     if (tf > 0) html += `<span class="pill-tag" title="功法（普通档）合计：修炼速度 +${tf.toFixed(1)} 修为/秒（固定值·不封顶）">📜 功法 +${tf.toFixed(1)}/秒</span>`;
-    if (hmLv > 0) html += `<span class="pill-tag" title="鸿蒙紫气诀（顶级）：修炼速度 ×${(1 + hm.ratio * hmLv).toFixed(2)}（比例倍率）">🟣 鸿蒙 ×${(1 + hm.ratio * hmLv).toFixed(2)}</span>`;
+    if (hmLv > 0) html += `<span class="pill-tag" title="鸿蒙紫气诀（顶级）：修炼速度 +${hmFlat.toFixed(1)} 修为/秒（固定值·不封顶）">🟣 鸿蒙 +${hmFlat.toFixed(1)}/秒</span>`;
     if (af > 0) html += `<span class="pill-tag" title="洞府（普通档）合计：灵气浓度 +${af.toFixed(1)} 修为/秒（固定值·不封顶）">⛰️ 洞府 +${af.toFixed(1)}/秒</span>`;
-    if (xfLv > 0) html += `<span class="pill-tag" title="上古仙府（顶级）：修炼速度 ×${(1 + xf.ratio * xfLv).toFixed(2)}（比例倍率）">🏯 仙府 ×${(1 + xf.ratio * xfLv).toFixed(2)}</span>`;
+    if (xfLv > 0) html += `<span class="pill-tag" title="上古仙府（顶级）：修炼速度 +${xfFlat.toFixed(1)} 修为/秒（固定值·不封顶）">🏯 仙府 +${xfFlat.toFixed(1)}/秒</span>`;
     if (pa > 0) html += `<span class="pill-tag" title="獬豸全资源加成：修炼 +${Math.round(pa * 100)}%（战斗：攻/防/血 ×${(1 + pa * CONFIG.combat.petAllCombat).toFixed(2)}）">🦄 灵宠 +${Math.round(pa * 100)}%</span>`;
     if (s.legacy > 0) html += `<span class="pill-tag" title="仙缘倍率（飞升转生，不封顶）：全局全效率 ×${Game.legacyMult().toFixed(2)}">🔁 仙缘 ×${Game.legacyMult().toFixed(2)}</span>`;
     const g = Game.goldenActive && Game.goldenActive();
@@ -198,7 +199,7 @@
         : `<button class="buy-btn" data-buy="technique" data-id="${t.id}" ${afford ? '' : 'disabled'}>修习<div class="price">${Game.formatNum(price)} 💎</div></button>`;
       return `<div class="card"><div class="icon">${t.icon}</div><div class="body"><div class="name">${t.name} <span class="lv">${lv}/${t.max} 层</span></div><div class="desc">${t.desc}</div><div class="sub">${bonus}</div></div>${btn}</div>`;
     }).join('');
-    view.innerHTML = `<div class="section-title">📜 功法 <small>消耗灵石：普通档加固定值，仅鸿蒙紫气诀为比例</small></div><div class="list">${cards}</div>`;
+    view.innerHTML = `<div class="section-title">📜 功法 <small>消耗灵石提升修炼速度（所有功法加固定值，不享受境界缩放）</small></div><div class="list">${cards}</div>`;
     bindBuy('technique');
   }
   function renderAbodes() {
@@ -212,7 +213,7 @@
         : `<button class="buy-btn" data-buy="abode" data-id="${a.id}" ${afford ? '' : 'disabled'}>拓建<div class="price">${Game.formatNum(price)} 💎</div></button>`;
       return `<div class="card"><div class="icon">${a.icon}</div><div class="body"><div class="name">${a.name} <span class="lv">${lv}/${a.max} 重</span></div><div class="desc">${a.desc}</div><div class="sub">${bonus}</div></div>${btn}</div>`;
     }).join('');
-    view.innerHTML = `<div class="section-title">⛰️ 洞府 <small>提升灵气浓度：普通档加固定值，仅上古仙府为比例</small></div><div class="list">${cards}</div>`;
+    view.innerHTML = `<div class="section-title">⛰️ 洞府 <small>提升灵气浓度（所有洞府加固定值，不享受境界缩放）</small></div><div class="list">${cards}</div>`;
     bindBuy('abode');
   }
   function renderPills() {
