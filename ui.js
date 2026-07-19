@@ -709,9 +709,12 @@
         </details>
       </div>
       <div class="map-tabs">${mapTabs}${towerTab}</div>
-      ${body}`;
+      ${body}
+      ${renderSheatheSword()}`;
     view.querySelectorAll('[data-map]').forEach(b => b.addEventListener('click', () => { if (!b.disabled) { battleMode = 'map'; currentMap = b.dataset.map; currentLevel = 0; Game.state._battleUserSelected = true; renderBattle(); } }));
     view.querySelectorAll('[data-mode="tower"]').forEach(b => b.addEventListener('click', () => { battleMode = 'tower'; Game.state._battleUserSelected = true; renderBattle(); }));
+    const sheatheBtn = $('#btn-sheathe');
+    if (sheatheBtn) sheatheBtn.addEventListener('click', () => { _bbPending = false; showBlindBox(); });
     view.querySelectorAll('[data-fight]').forEach(b => b.addEventListener('click', () => {
       const [mid, idx] = b.dataset.fight.split(':');
       currentLevel = parseInt(idx, 10);
@@ -1067,29 +1070,17 @@
   Game.on('battle', (d) => {
     if (d.win) {
       FX.floatText('胜！', { kind: 'good', y: window.innerHeight * 0.38, size: 30 });
-      // 显示「收剑」按钮，点击后才弹盲盒（避免画面重叠）
-      showSheatheSword();
+      _bbPending = true;
+      // 延迟一帧重绘战斗tab，出现「收剑」按钮在内容区
+      setTimeout(() => { if (currentTab === 'battle') renderCurrent(); }, 100);
     } else { FX.flash('#ff6b6b'); FX.shake(1.6); }
   });
 
-  // 收剑按钮（战斗胜利后浮层，点击弹盲盒）
+  // 收剑按钮（在战斗tab内容区底部，点击弹盲盒）
   let _bbPending = false;
-  let _sheatheEl = null;
-  function showSheatheSword() {
-    if (_sheatheEl) return;
-    _bbPending = false;
-    const el = document.createElement('div');
-    el.className = 'sheathe-btn';
-    el.innerHTML = '⚔️ 点击收剑 · 领取战利品';
-    el.addEventListener('click', () => {
-      el.remove(); _sheatheEl = null;
-      _bbPending = true;
-      showBlindBox();
-    });
-    document.body.appendChild(el);
-    _sheatheEl = el;
-    // 10秒后自动消失（玩家脱离战斗界面）
-    setTimeout(() => { if (_sheatheEl === el) { el.remove(); _sheatheEl = null; } }, 10000);
+  function renderSheatheSword() {
+    if (!_bbPending) return '';
+    return `<button class="sheathe-btn-inline" id="btn-sheathe">⚔️ 点击收剑 · 领取战利品</button>`;
   }
 
   let _bbResolve = null;
@@ -1117,11 +1108,12 @@
       `);
       m.querySelectorAll('.bb-btn').forEach(btn => btn.addEventListener('click', () => {
         _bbResource = btn.dataset.bb;
+        _bbResolve = null; // 释放锁，允许下一步
         closeModal(m);
-        showBlindBox(); // 进入下一步：选投注额
+        showBlindBox();
       }));
       m.querySelectorAll('.bb-btn-cancel').forEach(btn => btn.addEventListener('click', () => {
-        closeModal(m); _bbResource = null; _bbPending = false;
+        closeModal(m); _bbResource = null; _bbPending = false; _bbResolve = null;
       }));
       _bbResolve = m;
       return;
@@ -1129,14 +1121,12 @@
     // 选投注额
     const rName = _bbResource === 'xp' ? '修为' : _bbResource === 'stone' ? '灵石' : '天材地宝';
     const bets = Game.blindBoxBets(_bbResource);
-    const maxBet = bets[3] || 1;
     const betBtns = bets.map((amt, i) => {
       const aff = amt > 0 && (_bbResource === 'xp' || amt <= (_bbResource === 'stone' ? s.stone : s.materials));
-      const mult = 1 + (_bbResource === 'xp' ? 0 : 0); // just reference
       return `<button class="bb-bet-btn" data-bet="${i}" ${aff ? '' : 'disabled'}>
         <span class="bb-bet-label">${BB_BET_LABELS[i]}</span>
         <span class="bb-bet-amt">${_bbResource === 'xp' ? Game.formatSpeed(amt) : Game.formatNum(amt)}</span>
-        <span class="bb-bet-pct">(${Math.round(amt / Math.max(1, maxBet) * 100)}%)</span>
+        <span class="bb-bet-pct">(${Math.round(amt / Math.max(1, bets[3]) * 100)}%)</span>
       </button>`;
     }).join('');
     const m = modal(`
@@ -1151,16 +1141,15 @@
       const idx = parseInt(btn.dataset.bet);
       const betAmt = bets[idx];
       if (betAmt <= 0) return;
-      // 扣本金（灵石/材料）
       if (_bbResource === 'stone' && betAmt > s.stone) return;
       if (_bbResource === 'mat' && betAmt > s.materials) return;
-      closeModal(m);
-      // 开奖动画
+      _bbResolve = null; closeModal(m);
       showBlindBoxRoll(_bbResource, betAmt);
       _bbResource = null; _bbPending = false;
     }));
     m.querySelectorAll('.bb-btn-cancel').forEach(btn => btn.addEventListener('click', () => {
-      closeModal(m); _bbResource = null; showBlindBox(); // 回到选资源
+      _bbResource = null; _bbResolve = null; closeModal(m);
+      setTimeout(() => showBlindBox(), 50); // 回到选资源
     }));
     _bbResolve = m;
   }

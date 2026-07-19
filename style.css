@@ -311,17 +311,15 @@ html, body {
 .blind-box .bb-bet-amt { font-size: 14px; font-weight: 900; color: var(--gold-soft); }
 .blind-box .bb-bet-pct { font-size: 11px; color: var(--text-dim); }
 
-/* 收剑按钮（战斗胜利后浮层） */
-.sheathe-btn {
-  position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%); z-index: 80;
+/* 收剑按钮（战斗tab内容区底部） */
+.sheathe-btn-inline {
+  display: block; width: 100%; margin-top: 12px; padding: 14px;
   background: linear-gradient(135deg, rgba(255,215,111,0.18), rgba(255,160,40,0.12));
   border: 2px solid rgba(255,215,111,0.5); border-radius: 14px;
-  padding: 12px 28px; color: #ffe9a8; font-size: 16px; font-weight: 800;
+  color: #ffe9a8; font-size: 16px; font-weight: 800; text-align: center;
   cursor: pointer; animation: sheathePulse 1.2s ease-in-out infinite;
-  text-shadow: 0 1px 6px rgba(0,0,0,0.6); white-space: nowrap;
-  transition: all .15s;
 }
-.sheathe-btn:hover { background: rgba(255,215,111,0.25); border-color: #ffd76f; transform: translateX(-50%) scale(1.04); }
+.sheathe-btn-inline:hover { background: rgba(255,215,111,0.25); border-color: #ffd76f; }
 @keyframes sheathePulse { 0%,100% { box-shadow: 0 0 12px rgba(255,200,80,.4); } 50% { box-shadow: 0 0 24px rgba(255,200,80,.7); } }
 
 .explore-area { text-align: center; margin: 10px 0; }
