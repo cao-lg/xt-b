@@ -391,11 +391,13 @@
 
   /* ---------------- 秘境（爽文故事「凡人逆天录」） ---------------- */
   let _selectedRisk = 1; // 0=低,1=中,2=高,3=极限
+  let _selectedChoice = 1; // 0~2 对应策略
   function renderSecret() {
     const s = Game.state;
     const cd = !Game.canExplore();
     const cdText = cd ? `<div class="cd-text">秘境冷却中……</div>` : '';
     const selectedRisk = _selectedRisk;
+    const selectedChoice = _selectedChoice;
 
     // 找出当前可探索的章节（境界达标 + 故事未完成）
     const unlocked = Game.SECRET_REALMS.filter(r => s.realmIndex >= r.realmReq);
@@ -411,16 +413,36 @@
 
     // 收益预览
     const riskLabels = ['低·10%', '中·100%', '高·200%', '极限·300%'];
-    const riskMult = (1 + (chapter ? (chapter.riskRange[0] + (selectedRisk/3)*(chapter.riskRange[1]-chapter.riskRange[0])) : 0.1));
+    const baseLoss = chapter ? (chapter.riskRange[0] + (selectedRisk/3)*(chapter.riskRange[1]-chapter.riskRange[0])) : 0.1;
+    const riskMult = 1 + baseLoss;
     const rMultStr = riskMult.toFixed(1) + '×';
 
     // 风险选项按钮
     const riskBtns = [0,1,2,3].map(i => {
-      const pct = [10, 100, 200, 300];
       const mult = (1 + (chapter ? (chapter.riskRange[0] + (i/3)*(chapter.riskRange[1]-chapter.riskRange[0])) : 0.1)).toFixed(1);
       const sel = i === selectedRisk ? 'sel' : '';
       return `<button class="risk-btn ${sel}" data-risk="${i}">${riskLabels[i]}<span class="mult">×${mult}</span></button>`;
     }).join('');
+
+    // 策略选择
+    let choiceHtml = '';
+    if (chapter && chapter.choices) {
+      const choiceBtns = chapter.choices.map((c, i) => {
+        const sel = i === selectedChoice ? 'sel' : '';
+        const cr = (1 + baseLoss) * c.rewardMult;
+        return `<button class="choice-btn ${sel}" data-choice="${i}">
+          <span class="cb-label">${c.text}</span>
+          <span class="cb-desc">${c.desc}</span>
+          <span class="cb-mult">×${cr.toFixed(1)}</span>
+        </button>`;
+      }).join('');
+      choiceHtml = `
+        <div class="choice-selector">
+          <div class="choice-label">🎯 探索策略</div>
+          <div class="choice-btns">${choiceBtns}</div>
+        </div>
+      `;
+    }
 
     let storyHtml = '';
     if (chapter) {
@@ -445,7 +467,7 @@
     const exploreBtn = chapter
       ? `<button class="buy-btn explore-btn" data-explore="${chapter.id}" ${aff && !cd ? '' : 'disabled'}>
           探索「${chapter.name}」
-          <div class="price">${Game.formatNum(chapter.cost)} 💎 · ×${rMultStr}</div>
+          <div class="price">${Game.formatNum(chapter.cost)} 💎 ×${rMultStr}</div>
         </button>`
       : '';
 
@@ -459,9 +481,10 @@
     }).join('');
 
     view.innerHTML = `
-      <div class="section-title">🗺️ 秘境历练 <small>爽文故事「凡人逆天录」·选择风险强度探索修炼</small></div>
+      <div class="section-title">🗺️ 秘境历练 <small>爽文故事「凡人逆天录」·选择策略与风险</small></div>
       ${cdText}
       ${storyHtml}
+      ${choiceHtml}
       <div class="risk-selector">
         <div class="risk-label">⚡ 风险强度（倍率 ×${rMultStr}）</div>
         <div class="risk-btns">${riskBtns}</div>
@@ -479,8 +502,12 @@
       _selectedRisk = parseInt(b.dataset.risk);
       renderCurrent();
     }));
+    view.querySelectorAll('[data-choice]').forEach(b => b.addEventListener('click', () => {
+      _selectedChoice = parseInt(b.dataset.choice);
+      renderCurrent();
+    }));
     view.querySelectorAll('[data-explore]').forEach(b => b.addEventListener('click', () => {
-      const ok = Game.explore(b.dataset.explore, selectedRisk);
+      const ok = Game.explore(b.dataset.explore, _selectedRisk, _selectedChoice);
       if (ok) renderCurrent(); else toast('灵石不足或冷却中');
     }));
   }
@@ -1038,9 +1065,65 @@
     if (currentTab === 'treasure') renderTreasure();
   });
   Game.on('battle', (d) => {
-    if (d.win) { FX.floatText('胜！', { kind: 'good', y: window.innerHeight * 0.38, size: 30 }); }
-    else { FX.flash('#ff6b6b'); FX.shake(1.6); }
+    if (d.win) {
+      FX.floatText('胜！', { kind: 'good', y: window.innerHeight * 0.38, size: 30 });
+      // 战斗盲盒：延迟弹出让 FX 先播完
+      setTimeout(() => showBlindBox(), 400);
+    } else { FX.flash('#ff6b6b'); FX.shake(1.6); }
   });
+
+  let _bbResolve = null;
+  function showBlindBox() {
+    if (_bbResolve) return; // 已有打开的盲盒
+    const hasBuff = Game.goldenActive() != null;
+    const buffTip = hasBuff ? '<div class="bb-buff">✨ 天降祥瑞 · 高倍率概率提升！</div>' : '';
+    const m = modal(`
+      <div class="blind-box">
+        <div class="bb-title">🎰 战利品盲盒</div>
+        <div class="bb-desc">选一种资源投注，获得 1~10 倍！</div>
+        ${buffTip}
+        <div class="bb-btns">
+          <button class="bb-btn" data-bb="xp">📜 修为</button>
+          <button class="bb-btn" data-bb="stone">💎 灵石</button>
+          <button class="bb-btn" data-bb="mat">🌿 天材地宝</button>
+        </div>
+        <div class="bb-result" hidden>
+          <div class="bb-rolling">🎲 开奖中……</div>
+          <div class="bb-number"></div>
+          <div class="bb-amount"></div>
+        </div>
+      </div>
+    `);
+    _bbResolve = true;
+    m.querySelectorAll('.bb-btn').forEach(btn => btn.addEventListener('click', () => {
+      const type = btn.dataset.bb;
+      // 禁用按钮 + 显示滚动效果
+      m.querySelectorAll('.bb-btn').forEach(b => b.disabled = true);
+      const resultEl = m.querySelector('.bb-result');
+      resultEl.hidden = false;
+      const rollEl = m.querySelector('.bb-rolling');
+      const numEl = m.querySelector('.bb-number');
+      const amtEl = m.querySelector('.bb-amount');
+      // 快速滚动数字动画
+      let i = 0;
+      const ival = setInterval(() => {
+        i = Math.floor(Math.random() * 10) + 1;
+        numEl.textContent = '×' + i;
+      }, 80);
+      const result = Game.rollBlindBox(type);
+      setTimeout(() => {
+        clearInterval(ival);
+        const rName = type === 'xp' ? '修为' : type === 'stone' ? '灵石' : '天材地宝';
+        rollEl.textContent = `🎉 ${rName} ×${result.mult}！`;
+        numEl.textContent = `×${result.mult}`;
+        numEl.style.color = result.mult >= 8 ? 'var(--gold-soft)' : result.mult >= 5 ? '#7fd1c1' : '#ffe9a8';
+        result.mult;
+        amtEl.textContent = result.resource === 'xp' ? Game.formatSpeed(result.amount) : Game.formatNum(result.amount);
+        FX.confetti(result.mult >= 8 ? ['#ffd76f','#ff9f9f','#c79fff'] : ['#ffd76f']);
+        setTimeout(() => { closeModal(m); _bbResolve = null; }, 2000);
+      }, 600 + Math.random() * 400);
+    }));
+  }
   Game.on('pet', () => { if (currentTab === 'pet') renderCurrent(); });
   Game.on('explore', () => { if (currentTab === 'secret') renderCurrent(); });
   Game.on('insight', () => { if (currentTab === 'insight') renderCurrent(); });

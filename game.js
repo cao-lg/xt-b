@@ -70,16 +70,22 @@ const Game = (function () {
   /* ---------- 倍率体系 ---------- */
   function getTotalLayers() { return state.realmIndex * LAYERS_PER_REALM + state.layer; }
 
-  // 功法：普通档按固定值累加（修为/秒，不封顶）；仅「鸿蒙紫气诀」为比例倍率
+  // 功法：按固定值累加（修为/秒，不封顶）；鸿蒙紫气诀每级给所有功法 +2% 效率
   function techniqueFlat() {
     let f = 0;
     TECHNIQUES.forEach(t => { if (t.flat) { const lv = state.techniques[t.id] || 0; if (lv > 0) f += t.flat * lv; } });
+    const hm = state.techniques.hongmeng || 0;
+    const hmBuff = TECHNIQUES.find(t => t.id === 'hongmeng');
+    if (hm > 0 && hmBuff && hmBuff.seriesBuff) f *= (1 + hm * hmBuff.seriesBuff);
     return f;
   }
-  // 洞府：全部按固定值累加（已去除顶级比例倍率，避免乘法乘积爆炸）
+  // 洞府：按固定值累加；上古仙府每级给所有洞府 +2% 效率
   function abodeFlat() {
     let f = 0;
     ABODES.forEach(a => { if (a.flat) { const lv = state.abodes[a.id] || 0; if (lv > 0) f += a.flat * lv; } });
+    const xf = state.abodes.xianfu || 0;
+    const xfBuff = ABODES.find(a => a.id === 'xianfu');
+    if (xf > 0 && xfBuff && xfBuff.seriesBuff) f *= (1 + xf * xfBuff.seriesBuff);
     return f;
   }
   // 丹药：临时 flat 修为加成（不乘任何比例；state.pills[id] = 剩余有效秒数）
@@ -372,39 +378,45 @@ const Game = (function () {
     save(); emit('pet'); return true;
   }
 
-  /* ---------- 秘境历练（爽文秘境·可选中风险强度） ---------- */
+  /* ---------- 秘境历练（爽文秘境·策略选择+风险强度） ---------- */
   function canExplore() { return Date.now() >= state.realmCd; }
   // riskLevel: 0=低(10%), 1=中(100%), 2=高(200%), 3=极限(300%)
-  function explore(realmId, riskLevel) {
+  // choiceIndex: 选择 branches 中的策略（0~2）
+  function explore(realmId, riskLevel, choiceIndex) {
     const r = SECRET_REALMS.find(x => x.id === realmId);
     if (!r) return false;
     if (state.stone < r.cost) return false;
     if (!canExplore()) return false;
-    if (riskLevel === undefined) riskLevel = 1; // 默认中风险
+    if (riskLevel === undefined) riskLevel = 1;
 
-    // 计算风险强度和收益倍率
-    const lossPct = r.riskRange[0] + (riskLevel / 3) * (r.riskRange[1] - r.riskRange[0]); // 0~1 → 0.1~3.0
-    const rewardMult = 1 + lossPct; // 10%→×1.1, 100%→×2, 200%→×3, 300%→×4
+    // 策略选择
+    const choice = (r.choices && r.choices[choiceIndex]) || null;
+    const cRisk = choice ? choice.riskMult : 1.0;
+    const cReward = choice ? choice.rewardMult : 1.0;
+
+    // 基础风险强度（风险强度滑块）× 策略系数
+    const baseLoss = r.riskRange[0] + (riskLevel / 3) * (r.riskRange[1] - r.riskRange[0]);
+    const lossPct = baseLoss * cRisk;
+    const rewardMult = (1 + baseLoss) * cReward;
+    const actualRisk = Math.min(0.95, r.riskChance * cRisk);
 
     state.stone -= r.cost; state.exploreCount++;
     state.realmCd = Date.now() + CONFIG.realmCooldown * 1000;
 
     const spd = currentSpeed();
     const xp = Math.floor(spd * randInt(r.xpSeconds[0], r.xpSeconds[1]) * rewardMult);
-    const stone = Math.floor(randInt(r.stone[0], r.stone[1]) * rewardMult * 0.25);
-    const mat = Math.floor(randInt(r.mat[0], r.mat[1]) * rewardMult);
+    const stone = Math.floor(randInt(r.stone[0], r.stone[1]) * rewardMult * (choice && choice.stoneUp ? choice.stoneUp : 0.25));
+    const mat = Math.floor(randInt(r.mat[0], r.mat[1]) * rewardMult * (choice && choice.matUp ? choice.matUp : 1));
 
     const roll = Math.random();
-    if (roll < r.riskChance) {
+    if (roll < actualRisk) {
       // —— 失败 ——
       let lossMsg;
       if (r.riskType === 'xpPct' || lossPct <= 1.0) {
-        // 按比例损失修为（上限为当前层全部修为）
         const loss = Math.min(state.xp, Math.floor(state.xp * lossPct));
         state.xp -= loss;
         lossMsg = `修为损失 ${formatNum(loss)}（${(lossPct*100).toFixed(0)}%）`;
       } else {
-        // 超 100% 损失：清空当前层修为 + 额外掉层
         const loss = state.xp;
         state.xp = 0;
         const dropLayers = Math.min(Math.round(lossPct - 1), state.layer);
@@ -416,16 +428,16 @@ const Game = (function () {
       // —— 成功 ——
       state.xp += xp; state.totalXp += xp; state.stone += stone; state.materials += mat;
       let parts = [`修为+${formatNum(xp)}`, `灵石+${formatNum(stone)}`, `天材地宝+${mat}`];
-      // 悟性奖励
-      if (Math.random() < (r.insightChance || 0)) {
+      // 悟性（策略可加成）
+      const insChance = (r.insightChance || 0) + (choice ? (choice.insightUp || 0) : 0);
+      if (Math.random() < insChance) {
         state.insight += (r.insightGain || 1);
         parts.push(`悟性+${r.insightGain || 1}`);
       }
-      // 主角机缘（极低概率突破1层）
+      // 主角机缘（策略可加成）
       let fortune = false;
-      if (Math.random() < (r.fortuneChance || 0)) {
-        fortune = true;
-        triggerFortune(r);
+      const fortChance = (r.fortuneChance || 0) + (choice ? (choice.fortuneUp || 0) : 0);
+      if (Math.random() < fortChance) {
       }
       // 推进故事进度
       const prog = state.storyProgress[r.id] || 0;
@@ -868,6 +880,36 @@ const Game = (function () {
     return { res, reward, drop, win: res.win, level: lv };
   }
 
+  // 战斗盲盒：胜利后触发，选资源类型投注 1~10 倍
+  const BOX_TYPES = ['xp', 'stone', 'mat'];
+  function rollBlindBox(resourceType) {
+    if (!BOX_TYPES.includes(resourceType)) return null;
+    // 天降祥瑞时，高倍率概率提升
+    const hasBuff = !!(state.goldenBuff && Date.now() < state.goldenBuff.until);
+    // 加权随机：num=1~10，buff 时 6~10 权重翻倍
+    const weights = [1,1,1,1,1,1,1,1,1,1]; // 10 weights for 1..10
+    if (hasBuff) for (let i = 5; i < 10; i++) weights[i] *= 2; // 6~10 权重×2
+    const totalW = weights.reduce((a,b)=>a+b,0);
+    let r = Math.random() * totalW;
+    let mult = 1;
+    for (let i = 0; i < 10; i++) { r -= weights[i]; if (r <= 0) { mult = i + 1; break; } }
+    // 计算数量
+    let amount = 0;
+    if (resourceType === 'xp') {
+      amount = Math.floor(currentSpeed() * 60 * mult); // ≈ 1分钟修炼 × 倍数
+    } else if (resourceType === 'stone') {
+      amount = Math.floor(stoneSpeed() * 60 * mult);
+    } else if (resourceType === 'mat') {
+      amount = Math.floor(mult * (1 + Math.random() * 3));
+    }
+    // 应用收益
+    if (resourceType === 'xp') { state.xp += amount; state.totalXp += amount; }
+    else if (resourceType === 'stone') state.stone += amount;
+    else if (resourceType === 'mat') state.materials += amount;
+    pushLog(`🎰 盲盒：${resourceType==='xp'?'修为':resourceType==='stone'?'灵石':'天材地宝'} ×${mult} = ${formatNum(amount)}${hasBuff ? '（天降祥瑞）' : ''}`, '🎲');
+    return { resource: resourceType, mult, amount, hasBuff };
+  }
+
   // ---------- 无尽试炼塔 ----------
   function towerEnemy(floor) {
     const p = combatStats();
@@ -1100,7 +1142,7 @@ const Game = (function () {
     formatNum, formatSpeed, formatTime,
     combatStats, currentSpeed, qualityMult, treasureStats, canBattle, battleCooldownLeft, isLevelUnlocked, fight, simulateCombat, towerEnemy, towerFight, softCap, combatBreakdown, combatFormula,
     hasTreasure, equipTreasure, unequip, enhanceCost, enhanceTreasure, smeltTreasure, awakenTreasure, awakenCost,
-    applyGolden, goldenActive,
+    applyGolden, goldenActive, rollBlindBox,
     checkIn, hasCheckedInToday, nextCheckInReward,
     get state() { return state; },
     get REALMS() { return REALMS; }, get ROOTS() { return ROOTS; }, get TECHNIQUES() { return TECHNIQUES; },

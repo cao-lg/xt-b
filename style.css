@@ -268,7 +268,34 @@ html, body {
 .risk-btn.sel { border-color: #ffd76f; background: rgba(255,215,111,0.12); color: #ffe9a8; font-weight: 700; }
 .risk-btn .mult { display: block; font-size: 14px; font-weight: 900; color: var(--gold-soft); margin-top: 2px; }
 
-.explore-area { text-align: center; margin: 10px 0; }
+/* ---------------- 秘境·策略选择 ---------------- */
+.choice-selector { margin: 10px 0; padding: 10px; background: rgba(0,0,0,0.25); border-radius: 10px; }
+.choice-label { font-size: 13px; font-weight: 700; color: var(--gold-soft); margin-bottom: 8px; }
+.choice-btns { display: flex; flex-direction: column; gap: 6px; }
+.choice-btn {
+  display: flex; align-items: center; gap: 8px; padding: 10px 12px;
+  border: 1px solid var(--border); border-radius: 8px; background: rgba(0,0,0,0.2);
+  cursor: pointer; transition: all .15s; text-align: left;
+}
+.choice-btn:hover { border-color: var(--gold-soft); background: rgba(255,215,111,0.06); }
+.choice-btn.sel { border-color: #7fd1c1; background: rgba(127,209,193,0.1); }
+.choice-btn .cb-label { font-size: 13px; font-weight: 700; color: var(--text); min-width: 100px; }
+.choice-btn .cb-desc { flex: 1; font-size: 11px; color: var(--text-dim); }
+.choice-btn .cb-mult { font-size: 14px; font-weight: 900; color: var(--gold-soft); white-space: nowrap; }
+
+/* ---------------- 战斗盲盒 ---------------- */
+.blind-box { text-align: center; min-width: 260px; }
+.blind-box .bb-title { font-size: 20px; font-weight: 900; color: var(--gold-soft); margin-bottom: 6px; }
+.blind-box .bb-desc { font-size: 13px; color: var(--text-dim); margin-bottom: 10px; }
+.blind-box .bb-buff { font-size: 12px; color: #c79aff; margin-bottom: 8px; font-weight: 700; }
+.blind-box .bb-btns { display: flex; gap: 8px; justify-content: center; margin-bottom: 10px; }
+.blind-box .bb-btn { padding: 10px 16px; border: 1px solid var(--border); border-radius: 10px; background: rgba(0,0,0,0.3); color: var(--text); cursor: pointer; font-size: 14px; transition: all .15s; }
+.blind-box .bb-btn:hover { border-color: var(--gold-soft); background: rgba(255,215,111,0.1); }
+.blind-box .bb-btn:disabled { opacity: .3; cursor: default; }
+.blind-box .bb-result { padding: 10px 0; }
+.blind-box .bb-rolling { font-size: 14px; color: var(--text-dim); }
+.blind-box .bb-number { font-size: 48px; font-weight: 900; color: var(--gold-soft); margin: 8px 0; }
+.blind-box .bb-amount { font-size: 16px; color: var(--jade); }.explore-area { text-align: center; margin: 10px 0; }
 .explore-btn { width: 100%; padding: 12px; font-size: 15px !important; }
 
 .chapter-list { margin: 6px 0; }

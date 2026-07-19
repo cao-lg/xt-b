@@ -210,7 +210,7 @@ const TECHNIQUES = [
   { id: 'zhoutian', name: '周天功',     desc: '修炼速度 +2.40/级（固定值）', baseStone: 2400,   priceGrowth: 1.60, mult: 0.18, flat: 2.40, max: 99, icon: '🔄' },
   { id: 'wuxing',   name: '五行诀',     desc: '修炼速度 +4.40/级（固定值）', baseStone: 28000,  priceGrowth: 1.65, mult: 0.25, flat: 4.40, max: 99, icon: '☯️' },
   { id: 'taiyi',    name: '太一真诀',   desc: '修炼速度 +7.20/级（固定值）', baseStone: 360000, priceGrowth: 1.70, mult: 0.40, flat: 7.20, max: 99, icon: '🌟' },
-  { id: 'hongmeng', name: '鸿蒙紫气诀', desc: '修炼速度 +16.00/级（固定值·顶级）', baseStone: 5200000, priceGrowth: 1.75, mult: 0.60, flat: 16.00, max: 99, icon: '🟣' }
+  { id: 'hongmeng', name: '鸿蒙紫气诀', desc: '修炼速度 +16.00/级（固定值·顶级），所有功法效率 +2%/级', baseStone: 5200000, priceGrowth: 1.75, mult: 0.60, flat: 16.00, seriesBuff: 0.02, max: 99, icon: '🟣' }
 ];
 
 /* ---------- 洞府 / 灵脉（消耗灵石，可升级，永久加成「灵气浓度」→ 修炼速度·固定值） ---------- */
@@ -218,16 +218,16 @@ const ABODES = [
   { id: 'cave',    name: '荒野洞府', desc: '灵气浓度 +1.00/级（固定值）', baseStone: 60,    priceGrowth: 1.50, mult: 0.12, flat: 1.00, max: 99, icon: '⛰️' },
   { id: 'lingmai', name: '地脉灵穴', desc: '灵气浓度 +2.00/级（固定值）', baseStone: 900,   priceGrowth: 1.55, mult: 0.18, flat: 2.00, max: 99, icon: '💎' },
   { id: 'fudi',    name: '洞天福地', desc: '灵气浓度 +3.60/级（固定值）', baseStone: 14000, priceGrowth: 1.60, mult: 0.25, flat: 3.60, max: 99, icon: '🏞️' },
-  { id: 'xianfu',  name: '上古仙府', desc: '灵气浓度 +8.00/级（固定值·顶级）', baseStone: 240000, priceGrowth: 1.65, mult: 0.35, flat: 8.00, max: 99, icon: '🏯' }
+  { id: 'xianfu',  name: '上古仙府', desc: '灵气浓度 +8.00/级（固定值·顶级），所有洞府效率 +2%/级', baseStone: 240000, priceGrowth: 1.65, mult: 0.35, flat: 8.00, seriesBuff: 0.02, max: 99, icon: '🏯' }
 ];
 
 /* ---------- 丹药（消耗灵石，限时冲刺 buff，固定值加成修炼速度，不乘任何比例） ----------
- * flat = 修炼速度固定加成(修为/秒)；duration = 有效秒数（限时冲刺，非长驻）；safe = 渡劫必成 */
+ * flat = 修炼速度固定加成(修为/秒)；duration = 有效秒数；safe = 渡劫必成 */
 const PILLS = [
-  { id: 'juqi',     name: '聚气丹',     desc: '60 秒内修炼速度 +0.5/秒',  baseStone: 300,    duration: 60,   flat: 0.5,  icon: '💊' },
-  { id: 'jinyuan',  name: '金元丹',     desc: '90 秒内修炼速度 +1.5/秒',  baseStone: 3200,   duration: 90,   flat: 1.5,  icon: '🟠' },
-  { id: 'bijie',    name: '避劫丹',     desc: '120 秒内修炼速度 +3/秒，渡劫必成', baseStone: 36000,  duration: 120,  flat: 3.0,  safe: true, icon: '🟡' },
-  { id: 'jiuzhuan', name: '九转金丹',   desc: '180 秒内修炼速度 +6/秒',  baseStone: 420000, duration: 180,  flat: 6.0,  icon: '🔆' }
+  { id: 'juqi',     name: '聚气丹',     desc: '2 时辰内修炼速度 +0.5/秒',  baseStone: 300,    duration: 7200, flat: 0.5,  icon: '💊' },
+  { id: 'jinyuan',  name: '金元丹',     desc: '2 时辰内修炼速度 +1.5/秒',  baseStone: 3200,   duration: 7200, flat: 1.5,  icon: '🟠' },
+  { id: 'bijie',    name: '避劫丹',     desc: '2 时辰内修炼速度 +3/秒，渡劫必成', baseStone: 36000,  duration: 7200, flat: 3.0,  safe: true, icon: '🟡' },
+  { id: 'jiuzhuan', name: '九转金丹',   desc: '2 时辰内修炼速度 +6/秒',  baseStone: 420000, duration: 7200, flat: 6.0,  icon: '🔆' }
 ];
 
 /* ---------- 灵宠（寻妖→喂养→自动产出） ---------- */
@@ -235,13 +235,13 @@ const PETS = [
   { id: 'qilin',    name: '火麟兽', icon: '🐲', desc: '自动产出修为',      produce: { type: 'xp',   base: 1.5 },   max: 80, weight: 3 },
   { id: 'jinchan',  name: '招财金蟾', icon: '🐸', desc: '自动产出灵石',      produce: { type: 'stone',base: 0.25 },  max: 80, weight: 3 },
   { id: 'qingniao', name: '采灵青鸟', icon: '🐦', desc: '自动产出天材地宝',  produce: { type: 'mat',  base: 0.06 },  max: 80, weight: 2 },
-  { id: 'xiezhi',   name: '祥瑞獬豸', icon: '🦄', desc: '全资源加成（封顶）',    produce: { type: 'all',  base: 0.04 },  max: 80, weight: 1 }
+  { id: 'xiezhi',   name: '祥瑞獬豸', icon: '🦄', desc: '全资源加成（每级+6%，封顶）',    produce: { type: 'all',  base: 0.06 },  max: 80, weight: 1 }
 ];
 
 /* ---------- 秘境历练（爽文故事线「凡人逆天录」，共 5 章，覆盖全游戏流程） ----------
- *  每章含 4~5 段故事，玩家选风险强度后探索，探索成功推进剧情。
- *  收益随境界缩放（currentSpeed × xpSeconds），玩家可选惩罚强度 10%~300%。
- *  0.5% 概率触发「主角机缘」→ 免费突破 1 小层。 */
+ *  每章含 4~5 段故事 + 分支选择（choices）；玩家选风险强度+探索策略，
+ *  不同策略影响收益/风险倍率。收益随境界缩放（currentSpeed × xpSeconds）。
+ *  0.3%~0.8% 概率触发「主角机缘」→ 免费突破 1 小层。 */
 const SECRET_REALMS = [
   {
     id: 'chapter1', name: '第一章·剑崖奇遇', icon: '🗡️',
@@ -257,6 +257,11 @@ const SECRET_REALMS = [
       '第二道剑痕承载着一式剑招「斩命」——斩断的不是敌人，而是自己的命运枷锁。你盘膝参悟，体内灵气随之共振。',
       '第三道剑痕是残缺的，但你看到了那凡人少年成长为青年的身影——他站在天劫之下，以凡人之躯逆天而行。你的道心为之震颤。',
       '完整的「逆命剑诀」在你心中成型！你不由自主地挥出一剑，剑芒划破长空，崖壁上的剑痕尽数共鸣！',
+    ],
+    choices: [
+      { text: '🛡️ 稳扎稳打·细悟剑意', desc: '风险略降，收益稳定', riskMult: 0.8, rewardMult: 1.0, insightUp: 0.05 },
+      { text: '⚔️ 锋芒毕露·全力参悟', desc: '标准收益，风险正常', riskMult: 1.0, rewardMult: 1.2, insightUp: 0.03 },
+      { text: '🔥 剑走偏锋·直取核心', desc: '高收益高风险，可能触发机缘', riskMult: 1.5, rewardMult: 1.8, fortuneUp: 0.01 },
     ],
     successMsg: '🗡️ 剑意入体！你悟出一式剑意，修为精进。',
     failMsg: '💥 剑意反噬！你被震退数丈，气息紊乱。',
@@ -276,6 +281,11 @@ const SECRET_REALMS = [
       '决赛！你面对的是上一届冠军——金丹后期，掌握地阶功法。全场无人看好你。但你闭上眼睛，想起了剑崖上那个逆天而战的背影。',
       '一剑！仅仅一剑！你的「斩命」突破了境界壁垒，斩破了对手的护体真罡。全场死寂，然后爆发出震天的喝彩！你赢了。',
     ],
+    choices: [
+      { text: '🛡️ 稳扎稳打·一招一式', desc: '稳赢，收益均衡', riskMult: 0.8, rewardMult: 1.0, matUp: 1 },
+      { text: '⚔️ 全力出手·碾压对手', desc: '标准战法，灵石更多', riskMult: 1.0, rewardMult: 1.3, stoneUp: 1.5 },
+      { text: '🔥 以命相搏·越级挑战', desc: '高风险！可能秒杀对手拿大奖', riskMult: 1.6, rewardMult: 2.0, fortuneUp: 0.008 },
+    ],
     successMsg: '🏟️ 宗门震动！你声名鹊起，资源滚滚而来。',
     failMsg: '💥 你被对手击中要害，败下阵来，修为受损。',
   },
@@ -293,6 +303,11 @@ const SECRET_REALMS = [
       '深渊之下是迷宫般的甬道。你听到了前方的打斗声——有人为了一株万年灵药在厮杀。你绕道而行，凭直觉走向了一条无人问津的岔路。',
       '岔路的尽头是一间石室。石室内没有灵药、没有法宝——只有一面镜子。镜中映出的是你自己，但那不是现在的你……是那个可能成为的你。',
       '你伸手触镜，无数记忆涌入脑海——你看到了自己未来可能的无数命运。这就是仙尊真正的遗藏：不是外物，而是一眼看透道途本源的能力。',
+    ],
+    choices: [
+      { text: '🕵️ 暗中观察·伺机而动', desc: '安全第一，材料为主', riskMult: 0.7, rewardMult: 0.9, matUp: 2 },
+      { text: '⚡ 直奔核心·抢夺至宝', desc: '标准收益，灵石+修为', riskMult: 1.0, rewardMult: 1.2 },
+      { text: '🌌 探索隐藏区域', desc: '高风险！可能发现隐藏机缘', riskMult: 1.7, rewardMult: 2.2, fortuneUp: 0.012, insightUp: 0.06 },
     ],
     successMsg: '💎 你参透了镜中玄机，修为与眼界并进！',
     failMsg: '💥 镜像反噬！你的心神险些被吸入镜中，挣扎退出后元气大伤。',
@@ -312,6 +327,11 @@ const SECRET_REALMS = [
       '战斗持续了七天七夜。你的「逆命」一式终于施展出来——不是斩向敌人，而是斩向你自己的命运！那一刻，你超越了天道的束缚。',
       '天选之子跪了下来。不是认输，是被你的道所震撼。他说了一句话：「凡人之躯，比肩神明……不，比神明更耀眼。」你突破了最后的瓶颈。',
     ],
+    choices: [
+      { text: '🧘 提升心境·稳固道基', desc: '稳扎稳打，悟性+修为', riskMult: 0.8, rewardMult: 1.0, insightUp: 0.06 },
+      { text: '⚔️ 正面迎战·以力证道', desc: '硬碰硬，收益均衡', riskMult: 1.0, rewardMult: 1.3 },
+      { text: '🔥 以弱胜强·绝地反击', desc: '置之死地而后生，超高收益', riskMult: 1.8, rewardMult: 2.5, fortuneUp: 0.015 },
+    ],
     successMsg: '⚔️ 你战胜了宿敌，仙路再无阻碍！',
     failMsg: '💥 天选之子的力量远超预料，你负伤败退，境界动摇。',
   },
@@ -330,6 +350,11 @@ const SECRET_REALMS = [
       '「逆命剑诀·最终式——凡人逆天！」这一剑汇聚了你一生的意志。不是斩天，是斩断天对人的枷锁。天道化身露出了震惊的表情。',
       '枷锁崩碎！天道化身的躯体炸裂成无数光点，散落在天地之间。阳光重新照在大地上——这一次，照在了所有人身上，不再有高低贵贱之分。',
       '你站在群山之巅，天道的碎片在你身边飘落。这片天地，从此有了一个新的名字——「凡人界」。而你，是它的守护者。也是第一个以凡人之躯证道真仙的传奇。',
+    ],
+    choices: [
+      { text: '🛡️ 坚守本心·稳如磐石', desc: '稳扎稳打，道心稳固', riskMult: 0.8, rewardMult: 1.0, insightUp: 0.08 },
+      { text: '⚡ 全力一击·不留余地', desc: '标准战法，修为+灵石', riskMult: 1.0, rewardMult: 1.4 },
+      { text: '🌌 逆命而行·超越天道', desc: '极致风险！可能直接证道', riskMult: 2.0, rewardMult: 3.0, fortuneUp: 0.02 },
     ],
     successMsg: '🌌 你赢了。天地之间，回荡着你的名字。',
     failMsg: '💥 天道化身太强了……你被打落凡尘，修为大损。',
