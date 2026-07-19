@@ -111,6 +111,45 @@ const CONFIG = {
     enhanceStoneBase: 160,// 强化基础灵石消耗
     enhanceGrowth: 1.55,  // 强化成本增长
     smeltMatPerQuality: 6 // 熔炼每件(按品质)返还天材地宝
+  },
+
+  /* ---- 新增：反馈/爽点/生命周期系统（纯表现+限时增益，不破坏战力模型） ---- */
+  // 天降机缘（Golden Buff）：脉冲随机事件，屏上出现可点击宝光，点击得临时增益
+  golden: {
+    minInterval: 150, maxInterval: 320,   // 两次机缘最小/最大间隔（秒）
+    pity: 480,                            // 保底：距上次超过此秒数必出
+    orbLife: 16,                          // 宝光在屏可点击时长（秒）
+    buffs: [
+      { id: 'speed', name: '灵机迸发', desc: '修炼速度 ×5', mult: 5, dur: 30, color: 'rgba(127,209,193,0.92)' },
+      { id: 'all',   name: '万物滋长', desc: '全资源 ×2',   mult: 2, dur: 60, color: 'rgba(255,215,111,0.94)', scope: 'all' },
+      { id: 'burst', name: '天降洪福', desc: '瞬时修为爆发', burst: 60, color: 'rgba(199,154,255,0.94)' }
+    ]
+  },
+  // 法宝觉醒（词缀）：满级后可觉醒，按「本法宝基数百分比」或加性百分比赋予词缀（条数封顶）
+  awaken: {
+    costBase: 150, costGrowth: 1.85, maxAffixes: 3,
+    affixes: [
+      { type: 'atk',   kind: 'pct', min: 0.08, max: 0.18, name: '锋锐' },
+      { type: 'def',   kind: 'pct', min: 0.08, max: 0.18, name: '坚壁' },
+      { type: 'hp',    kind: 'pct', min: 0.08, max: 0.18, name: '生生' },
+      { type: 'crit',  kind: 'add', min: 0.02, max: 0.04, name: '会心' },
+      { type: 'dodge', kind: 'add', min: 0.02, max: 0.04, name: '逍遥' },
+      { type: 'hit',   kind: 'add', min: 0.015,max: 0.03, name: '必中' }
+    ]
+  },
+  // 手动「运转周天」combo / 暴击（仅影响手动单次收益，不动自动 pacing）
+  combo: { window: 3.0, perStack: 0.02, max: 3.0, critChance: 0.15, critMult: 3.0 },
+  // 每日签到（7 日递增循环）
+  checkIn: {
+    rewards: [
+      { stone: 200,   mat: 5 },
+      { stone: 400,   mat: 10 },
+      { stone: 800,   mat: 20 },
+      { stone: 1500,  mat: 35 },
+      { stone: 3000,  mat: 60 },
+      { stone: 6000,  mat: 100 },
+      { stone: 12000, mat: 200 }
+    ]
   }
 };
 

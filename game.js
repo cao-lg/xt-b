@@ -45,7 +45,13 @@ const Game = (function () {
       startTime: now,
       totalXp: 0,
       breaks: 0,
-      sfx: false             // 战斗音效开关（默认关闭）
+      sfx: false,            // 战斗音效开关（默认关闭）
+      /* ---- 反馈/爽点/生命周期（新增，纯表现+限时增益，不持久化 combo） ---- */
+      goldenBuff: null,      // 天降机缘·当前生效的临时增益 {id,name,desc,mult,until,scope,color}
+      nextGoldenAt: now + randInt(CONFIG.golden.minInterval, CONFIG.golden.maxInterval) * 1000, // 下次机缘出现时间
+      lastGoldenAt: now,
+      checkInDate: '',       // 上次签到日期（YYYY-MM-DD）
+      checkInStreak: 0       // 连续签到天数
     };
   }
 
@@ -107,10 +113,20 @@ const Game = (function () {
   function insightStoneMult() { return (state.insightLv.cai || 0) * INSIGHTS.find(i => i.id === 'cai').mult; }
   function insightTribMult() { return (state.insightLv.jie || 0) * INSIGHTS.find(i => i.id === 'jie').mult; }
 
-  // 综合修炼速度（修为/秒）
-  // 模型：基础(层内成长) + 功法/洞府固定值(线性·不封顶) ，整体乘 修炼带(境界比例缩放) ，
-  //       再乘 仅顶级比例 + 丹药/灵根/悟道/灵宠/仙缘。固定值也随境界享受比例提升（与战斗战力带一致）。
-  function currentSpeed() {
+  // 天降机缘（golden buff）临时增益倍率：仅作用于对应资源，到期返回 1
+  function goldenSpeedMult() {
+    const g = state.goldenBuff;
+    if (!g || Date.now() >= g.until) return 1;
+    return g.id === 'speed' ? g.mult : 1;   // 「灵机迸发」仅 boost 修炼速度（修为）
+  }
+  function goldenAllMult() {
+    const g = state.goldenBuff;
+    if (!g || Date.now() >= g.until) return 1;
+    return g.id === 'all' ? g.mult : 1;      // 「万物滋长」boost 全资源（修为/灵石/材料/灵宠产出）
+  }
+
+  // 修炼核心速度（不含天降机缘，便于 stoneSpeed / 灵宠 / 瞬时爆发复用，避免重复乘）
+  function coreSpeed() {
     const base = CONFIG.baseSpeed * Math.pow(CONFIG.growthPerLayer, state.layer);
     const flat = techniqueFlat() + abodeFlat();                                  // 固定值加法（不封顶）
     const ratio = techniqueTopRatio() * abodeTopRatio() * pillMult() * rootMult('speed')
@@ -120,8 +136,12 @@ const Game = (function () {
       * (1 + state.layer * CONFIG.cultBandLayer);                                // 修炼带：固定值也随境界享受比例提升
     return (base + flat) * ratio * band;
   }
+  // 综合修炼速度（修为/秒）= 核心速度 × 天降机缘（speed 仅修为 / all 全资源）
+  function currentSpeed() {
+    return coreSpeed() * goldenSpeedMult() * goldenAllMult();
+  }
   function stoneSpeed() {
-    return currentSpeed() * CONFIG.stoneRatio * rootMult('stone') * (1 + insightStoneMult()) * (1 + petAllBonus());
+    return coreSpeed() * CONFIG.stoneRatio * rootMult('stone') * (1 + insightStoneMult()) * (1 + petAllBonus()) * goldenAllMult();
   }
 
   // 灵宠每秒产出（各类资源）
@@ -133,7 +153,7 @@ const Game = (function () {
       if (type === 'all') return; // 全资源加成已在公式内
       sum += p.produce.base * lv;
     });
-    return sum * legacyMult() * (1 + petAllBonus());
+    return sum * legacyMult() * (1 + petAllBonus()) * goldenAllMult();
   }
 
   // 渡劫成功率
@@ -160,11 +180,18 @@ const Game = (function () {
   /* ---------- 格式化 ---------- */
   function formatNum(n) {
     if (!isFinite(n)) return '∞';
-    if (n < 10000) return Math.floor(n).toLocaleString('zh-CN');
+    const neg = n < 0; n = Math.abs(n);
+    if (n < 10000) return (neg ? '-' : '') + Math.floor(n).toLocaleString('zh-CN');
     const units = ['', '万', '亿', '兆', '京', '垓', '秭'];
     let u = 0, v = n;
     while (v >= 10000 && u < units.length - 1) { v /= 10000; u++; }
-    return v.toFixed(2) + units[u];
+    if (v >= 10000) {
+      // 超出「秭」量级：改用科学计数法（如 1.23e12），避免溢出为 ∞
+      const exp = Math.floor(Math.log10(n));
+      const mant = (n / Math.pow(10, exp)).toFixed(2);
+      return (neg ? '-' : '') + mant + 'e' + exp;
+    }
+    return (neg ? '-' : '') + v.toFixed(2) + units[u];
   }
   function formatSpeed(n) { return n < 10000 ? n.toFixed(1) : formatNum(n); }
   function formatTime(sec) {
@@ -206,6 +233,10 @@ const Game = (function () {
 
     if (now >= state.nextEventAt) { triggerEvent(); state.nextEventAt = now + randInt(CONFIG.eventMinSec, CONFIG.eventMaxSec) * 1000; }
 
+    // 天降机缘：宝光出现 + 临时增益到期自动清除
+    if (state.goldenBuff && now >= state.goldenBuff.until) { state.goldenBuff = null; emit('golden', { expired: true }); }
+    if (now >= (state.nextGoldenAt || 0)) spawnGolden();
+
     emit('tick', { dt, speed: spd, gain });
   }
 
@@ -218,7 +249,7 @@ const Game = (function () {
       state.layer++;
       checkAchievements();
       pushLog(`破境至${REALMS[state.realmIndex].name}第${CHINESE_LAYER[state.layer]}层`, '⚡');
-      save(); emit('break', { major: false });
+      save(); emit('break', { major: false, realm: REALMS[state.realmIndex].name, layer: CHINESE_LAYER[state.layer] });
       return true;
     }
     // 大境界：渡劫判定
@@ -248,7 +279,7 @@ const Game = (function () {
     if (lv >= t.max) return false;
     const price = techniquePrice(id); if (state.stone < price) return false;
     state.stone -= price; state.techniques[id] = lv + 1;
-    pushLog(`修习${t.name}至第${state.techniques[id]}层`, t.icon); save(); emit('buy'); return true;
+    pushLog(`修习${t.name}至第${state.techniques[id]}层`, t.icon); save(); emit('buy', { id, type: 'technique', maxed: state.techniques[id] >= t.max, name: t.name, lv: state.techniques[id] }); return true;
   }
   function abodePrice(id) { const a = ABODES.find(x => x.id === id); return a.baseStone * Math.pow(a.priceGrowth, state.abodes[id] || 0); }
   function buyAbode(id) {
@@ -256,7 +287,7 @@ const Game = (function () {
     if (lv >= a.max) return false;
     const price = abodePrice(id); if (state.stone < price) return false;
     state.stone -= price; state.abodes[id] = lv + 1;
-    pushLog(`${a.name}拓至第${state.abodes[id]}重`, a.icon); save(); emit('buy'); return true;
+    pushLog(`${a.name}拓至第${state.abodes[id]}重`, a.icon); save(); emit('buy', { id, type: 'abode', maxed: state.abodes[id] >= a.max, name: a.name, lv: state.abodes[id] }); return true;
   }
   function takePill(id) {
     const p = PILLS.find(x => x.id === id);
@@ -369,6 +400,60 @@ const Game = (function () {
     emit('event', ev);
   }
 
+  /* ---------- 天降机缘（Golden Buff） ---------- */
+  function goldenActive() {
+    return (state.goldenBuff && Date.now() < state.goldenBuff.until) ? state.goldenBuff : null;
+  }
+  function spawnGolden() {
+    const cfg = CONFIG.golden; const now = Date.now();
+    const buff = cfg.buffs[Math.floor(Math.random() * cfg.buffs.length)];
+    let next = now + randInt(cfg.minInterval, cfg.maxInterval) * 1000;
+    const last = state.lastGoldenAt || now;
+    const cap = last + cfg.pity * 1000;          // 保底：距上次出场不超过 pity 秒
+    if (next > cap) next = cap;
+    state.lastGoldenAt = now; state.nextGoldenAt = next;
+    emit('golden', { spawn: true, buff, life: cfg.orbLife });
+  }
+  // 玩家点击宝光时调用：限时增益写入 state.goldenBuff 并即时生效；burst 为瞬时修为爆发
+  function applyGolden(buffId) {
+    const cfg = CONFIG.golden; const buff = cfg.buffs.find(b => b.id === buffId);
+    if (!buff) return false;
+    const now = Date.now();
+    if (buff.burst) {
+      const g = Math.floor(currentSpeed() * buff.burst);   // 瞬时修为爆发 = 当前速度 × burst 秒
+      state.xp += g; state.totalXp += g;
+      pushLog(`🌟 天降洪福！瞬时修为 +${formatNum(g)}`, '✨');
+      save(); emit('golden', { applied: true, buff, gain: g }); return true;
+    }
+    state.goldenBuff = { id: buff.id, name: buff.name, desc: buff.desc, mult: buff.mult, dur: buff.dur, scope: buff.scope, color: buff.color, until: now + buff.dur * 1000 };
+    pushLog(`✨ 天降机缘·${buff.name}：${buff.desc}`, '✨');
+    save(); emit('golden', { applied: true, buff }); return true;
+  }
+
+  /* ---------- 每日签到 ---------- */
+  function dateStr(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+  function todayStr() { return dateStr(new Date()); }
+  function yesterdayStr() { const d = new Date(); d.setDate(d.getDate() - 1); return dateStr(d); }
+  function hasCheckedInToday() { return state.checkInDate === todayStr(); }
+  // 连签中断判定：上次签到不是「今天」也不是「昨天」则归零
+  function streakBroken() { return state.checkInDate && state.checkInDate !== yesterdayStr() && state.checkInDate !== todayStr(); }
+  // 预览今天应得奖励（不发放），供签到弹窗展示
+  function nextCheckInReward() {
+    const streak = streakBroken() ? 0 : (state.checkInStreak || 0);
+    return { streak, reward: CONFIG.checkIn.rewards[Math.min(streak, CONFIG.checkIn.rewards.length - 1)] };
+  }
+  function checkIn() {
+    if (hasCheckedInToday()) return false;
+    const streak = streakBroken() ? 0 : (state.checkInStreak || 0);
+    const idx = Math.min(streak, CONFIG.checkIn.rewards.length - 1);
+    const rw = CONFIG.checkIn.rewards[idx];
+    state.stone += rw.stone; state.materials += rw.mat;
+    state.checkInStreak = streak + 1;
+    state.checkInDate = todayStr();
+    pushLog(`📅 每日签到（第 ${state.checkInStreak} 天）：灵石+${rw.stone} 🌿+${rw.mat}`, '📅');
+    save(); emit('checkin', { reward: rw, streak: state.checkInStreak }); return true;
+  }
+
   /* ---------- 成就 ---------- */
   function checkAchievements() {
     const petCount = Object.keys(state.pets).filter(k => state.pets[k] > 0).length;
@@ -390,26 +475,44 @@ const Game = (function () {
     });
   }
 
-  /* ---------- 手动运转周天 ---------- */
+  /* ---------- 手动运转周天（含 combo / 暴击） ---------- */
+  let clickCombo = 0;          // 连续点击连击数（模块变量，不持久化）
+  let lastClickTime = 0;
   function clickCultivate() {
-    const gain = Math.max(1, currentSpeed() * CONFIG.clickBase);
+    const now = Date.now();
+    if (now - lastClickTime <= CONFIG.combo.window * 1000) clickCombo++;
+    else clickCombo = 0;
+    lastClickTime = now;
+    const comboBonus = Math.min(clickCombo * CONFIG.combo.perStack, CONFIG.combo.max); // 封顶 +max（默认 +3.0 → ×4）
+    const comboMult = 1 + comboBonus;
+    let gain = Math.max(1, currentSpeed() * CONFIG.clickBase * comboMult);
+    const isCrit = Math.random() < CONFIG.combo.critChance;
+    if (isCrit) gain = Math.floor(gain * CONFIG.combo.critMult);
     state.xp += gain; state.totalXp += gain;
     let extra = '';
     if (Math.random() < CONFIG.clickStoneChance) { const g = randInt(1, Math.max(2, Math.floor(currentSpeed()))); state.stone += g; extra = `，灵石+${g}`; }
-    emit('click', gain);
-    return { gain, extra };
+    emit('click', { gain, combo: clickCombo, comboMult, crit: isCrit, extra });
+    return { gain, extra, combo: clickCombo, comboMult, crit: isCrit };
   }
 
   /* ---------- 战斗属性 / 法宝 ---------- */
   function rand(a, b) { return a + Math.random() * (b - a); }
   function qualityMult(tid) { const t = TREASURES.find(x => x.id === tid); return (QUALITY.find(q => q.id === t.quality) || QUALITY[0]).mult; }
+  function affixLabel(type) { return { atk: '攻', def: '防', hp: '气血', crit: '暴击', dodge: '闪避', hit: '命中' }[type] || type; }
+  function affixText(a, v) { return `${a.name}·${affixLabel(a.type)} +${(v * 100).toFixed(1)}%`; }
   function treasureStats(tid) {
     const t = TREASURES.find(x => x.id === tid); if (!t) return null;
     const own = state.treasures[tid]; const lv = own ? own.level : 0;
     const scale = (1 + lv * 0.1) * qualityMult(tid);
     const out = {};
     for (const k in t.base) out[k] = t.base[k] * scale;
-    return { id: tid, name: t.name, icon: t.icon, slot: t.slot, quality: t.quality, level: lv, attrs: out };
+    // 觉醒词缀（条数封顶）：攻/防/血 = 本法宝当前(已缩放)数值的 +pct%；暴击/闪避/命中 = 加性 +value
+    const affixes = (own && own.affixes) || [];
+    affixes.forEach(af => {
+      if (af.kind === 'pct') { if (out[af.type] != null) out[af.type] = out[af.type] * (1 + af.value); }
+      else { out[af.type] = (out[af.type] || 0) + af.value; }   // add：命中/闪避/暴击（纯加性）
+    });
+    return { id: tid, name: t.name, icon: t.icon, slot: t.slot, quality: t.quality, level: lv, attrs: out, affixes };
   }
   // 玩家战斗属性：境界 + 功法 + 洞府 + 丹药 + 悟道 + 灵宠 + 灵根 + 仙缘 + 法宝
   // —— 设计原则 ——
@@ -564,7 +667,8 @@ const Game = (function () {
       const tid = state.equipped[s]; if (!tid) return;
       const ts = treasureStats(tid); if (!ts) return;
       const e = []; for (const k in ts.attrs) e.push(`${ab(k)}+${k === 'hit' || k === 'dodge' || k === 'crit' ? Math.round(ts.attrs[k] * 100) + '%' : Math.round(ts.attrs[k])}`);
-      items.push({ icon: TREASURES.find(t => t.id === tid).icon, name: '法宝·' + ts.name, desc: e.join(' ') });
+      const aw = (ts.affixes && ts.affixes.length) ? ` · 觉醒×${ts.affixes.length}` : '';
+      items.push({ icon: TREASURES.find(t => t.id === tid).icon, name: '法宝·' + ts.name + aw, desc: e.join(' ') });
     });
     return items;
   }
@@ -710,13 +814,13 @@ const Game = (function () {
   function equipTreasure(tid) {
     const t = TREASURES.find(x => x.id === tid); if (!t || !hasTreasure(tid)) return false;
     state.equipped[t.slot] = tid;
-    pushLog(`装备${t.icon}${t.name}`, t.icon); save(); emit('treasure'); return true;
+    pushLog(`装备${t.icon}${t.name}`, t.icon); save(); emit('treasure', { action: 'equip', tid }); return true;
   }
   function unequip(slot) {
     if (!state.equipped[slot]) return false;
     const tid = state.equipped[slot]; state.equipped[slot] = null;
     const t = TREASURES.find(x => x.id === tid);
-    pushLog(`卸下${t ? t.name : slot}`, '💎'); save(); emit('treasure'); return true;
+    pushLog(`卸下${t ? t.name : slot}`, '💎'); save(); emit('treasure', { action: 'unequip', tid }); return true;
   }
   function enhanceCost(tid) {
     const t = TREASURES.find(x => x.id === tid); const own = state.treasures[tid]; if (!t || !own) return null;
@@ -733,7 +837,7 @@ const Game = (function () {
     if (state.materials < cost.mat || state.stone < cost.stone) return false;
     state.materials -= cost.mat; state.stone -= cost.stone; own.level++;
     if (own.level >= CONFIG.treasure.maxLevel) checkAchievements();
-    pushLog(`🔨 ${t.name}强化至 ${own.level} 级`, t.icon); save(); emit('treasure'); return true;
+    pushLog(`🔨 ${t.name}强化至 ${own.level} 级`, t.icon); save(); emit('treasure', { action: 'enhance', tid, level: own.level }); return true;
   }
   // 熔炼：已装备件永不卸下；其余（多余）件一次性全部熔炼为天材地宝
   function smeltTreasure(tid) {
@@ -747,7 +851,40 @@ const Game = (function () {
     own.count -= melt;
     const gain = CONFIG.treasure.smeltMatPerQuality * t.quality * melt;
     state.materials += gain;
-    pushLog(`🔥 熔炼${t.name}（${melt} 件），得天材地宝 +${gain}`, t.icon); save(); emit('treasure'); return true;
+    pushLog(`🔥 熔炼${t.name}（${melt} 件），得天材地宝 +${gain}`, t.icon); save(); emit('treasure', { action: 'smelt', tid, gain }); return true;
+  }
+  // 法宝觉醒：满级后方可觉醒，消耗天材地宝随机赋予词缀（条数封顶）；已满 3 条则「再觉醒=重 roll 全部」
+  function awakenCost(tid) {
+    const own = state.treasures[tid]; if (!own) return null;
+    const n = (own.affixes || []).length;
+    return Math.floor(CONFIG.awaken.costBase * Math.pow(CONFIG.awaken.costGrowth, n));
+  }
+  function rollAffix() {
+    const pool = CONFIG.awaken.affixes;
+    const a = pool[Math.floor(Math.random() * pool.length)];
+    const value = a.min + Math.random() * (a.max - a.min);
+    return { type: a.type, kind: a.kind, value: +value.toFixed(4), name: a.name };
+  }
+  function awakenTreasure(tid) {
+    const t = TREASURES.find(x => x.id === tid); const own = state.treasures[tid];
+    if (!t || !own || own.level < CONFIG.treasure.maxLevel) return false;
+    const cost = awakenCost(tid);
+    if (state.materials < cost) return false;
+    state.materials -= cost;
+    let affixes = own.affixes || [];
+    let last;
+    if (affixes.length >= CONFIG.awaken.maxAffixes) {
+      affixes = [];
+      for (let i = 0; i < CONFIG.awaken.maxAffixes; i++) affixes.push(rollAffix());   // 满 3 条 → 重 roll 全部
+      last = affixes[affixes.length - 1];
+      pushLog(`🌟 ${t.name}重铸觉醒：${affixText(last, last.value)} 等 ${affixes.length} 条`, t.icon);
+    } else {
+      last = rollAffix(); affixes.push(last);
+      pushLog(`🌟 ${t.name}觉醒：${affixText(last, last.value)}`, t.icon);
+    }
+    own.affixes = affixes;
+    save(); emit('treasure', { action: 'awaken', tid });
+    return true;
   }
 
   /* ---------- 存档 / 读档 ---------- */
@@ -763,6 +900,13 @@ const Game = (function () {
         const data = JSON.parse(raw);
         state = Object.assign(defaultState(), data);
         ['techniques', 'abodes', 'pills', 'pets', 'insightLv', 'achievements', 'log', 'treasures', 'equipped', 'mapProgress'].forEach(k => { state[k] = data[k] || (Array.isArray(data[k]) ? [] : {}); });
+        // 新字段兜底 + 天降机缘：清除可能过期的增益；离线收益不计入 goldenBuff
+        state.goldenBuff = null;
+        state.nextGoldenAt = (state.nextGoldenAt && state.nextGoldenAt > Date.now())
+          ? state.nextGoldenAt : (Date.now() + randInt(CONFIG.golden.minInterval, CONFIG.golden.maxInterval) * 1000);
+        if (state.lastGoldenAt === undefined || state.lastGoldenAt > Date.now()) state.lastGoldenAt = Date.now();
+        if (state.checkInDate === undefined) state.checkInDate = '';
+        if (state.checkInStreak === undefined) state.checkInStreak = 0;
         const now = Date.now();
         let sec = (now - (data.lastSave || now)) / 1000;
         const cap = CONFIG.offlineCapHours * 3600;
@@ -786,6 +930,7 @@ const Game = (function () {
         if (now >= state.nextEventAt) state.nextEventAt = now + randInt(CONFIG.eventMinSec, CONFIG.eventMaxSec) * 1000;
       }
     } catch (e) { state = defaultState(); }
+    clickCombo = 0; lastClickTime = 0;   // combo 不持久化，载入即归零
     checkAchievements();
     lastTick = Date.now();
     return offline;
@@ -793,6 +938,7 @@ const Game = (function () {
   function reset() {
     try { localStorage.removeItem(SAVE_KEY); } catch (e) { /* ignore */ }
     state = defaultState(); lastTick = Date.now();
+    clickCombo = 0; lastClickTime = 0;
     pushLog('道途重启，一切从头。', '🔄'); emit('reset');
   }
   function setDaoName(name) { state.daoName = (name || '').trim() || '无名散修'; save(); }
@@ -816,7 +962,9 @@ const Game = (function () {
     techniqueFlat, techniqueTopRatio, abodeFlat, abodeTopRatio, pillMult, legacyMult, rootMult, petAllBonus, petOutPerSec, getTotalLayers,
     formatNum, formatSpeed, formatTime,
     combatStats, currentSpeed, qualityMult, treasureStats, canBattle, battleCooldownLeft, isLevelUnlocked, fight, simulateCombat, towerEnemy, towerFight, softCap, combatBreakdown, combatFormula,
-    hasTreasure, equipTreasure, unequip, enhanceCost, enhanceTreasure, smeltTreasure,
+    hasTreasure, equipTreasure, unequip, enhanceCost, enhanceTreasure, smeltTreasure, awakenTreasure, awakenCost,
+    applyGolden, goldenActive,
+    checkIn, hasCheckedInToday, nextCheckInReward,
     get state() { return state; },
     get REALMS() { return REALMS; }, get ROOTS() { return ROOTS; }, get TECHNIQUES() { return TECHNIQUES; },
     get ABODES() { return ABODES; }, get PILLS() { return PILLS; }, get PETS() { return PETS; },

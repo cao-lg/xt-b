@@ -6,6 +6,28 @@
   const view = $('#view');
   const modalLayer = $('#modal-layer');
   const toastLayer = $('#toast-layer');
+  // 反馈特效引擎（fx.js）；若未加载则降级为空操作，避免报错
+  const FX = window.FX || { floatText() {}, burst() {}, shake() {}, flash() {}, banner() {}, confetti() {}, layer() { return document.body; } };
+
+  let goldenOrbEl = null;     // 当前屏上的天降机缘宝光
+  let comboMeterEl = null;    // combo 连击表
+
+  // 境界突破卡·道韵文案
+  const REALM_FLAVOR = {
+    lianqi: '一缕清气萌于丹田，凡躯初闻道音。',
+    zhuji: '灵台清明，根基如磐石初立。',
+    jindan: '金丹在炉，万法自此有归依。',
+    yuanying: '元婴离体，神游八荒观天地。',
+    huashen: '炼神返虚，一念可化山川形。',
+    lianxu: '虚空可触，法则于指间流转。',
+    heti: '身神相合，气象万千纳于一身。',
+    dasheng: '大乘将满，已见仙门一线光。',
+    dujie: '天雷淬体，劫后余生方为真。',
+    zhenxian: '功成圆满，证得无量真仙果位。'
+  };
+  const GOLDEN_ICON = { speed: '🌀', all: '🌿', burst: '💥' };
+  const AL = { atk: '攻', def: '防', hp: '气血', crit: '暴击', dodge: '闪避', hit: '命中' };
+  function affixChipText(af) { return `${af.name}·${AL[af.type] || ''} +${(af.value * 100).toFixed(1)}%`; }
 
   const REALM_AVATAR = ['🧘', '🧘', '⚪', '👶', '🌌', '🌠', '🔗', '🚀', '⚡', '✨'];
   let currentTab = 'cultivate';
@@ -63,6 +85,22 @@
     document.body.appendChild(el);
     setTimeout(() => el.remove(), 950);
   }
+  // combo 连击表：连续点击时显示连击数与倍率，超时（窗口外无点击）自动隐藏
+  function updateComboMeter(r) {
+    if (!comboMeterEl) {
+      comboMeterEl = document.createElement('div');
+      comboMeterEl.className = 'combo-meter';
+      document.body.appendChild(comboMeterEl);
+    }
+    if (r.combo > 0) {
+      comboMeterEl.innerHTML = `<div class="cv">${r.combo} 连击</div><div class="cmult">修为 ×${r.comboMult.toFixed(2)}</div>`;
+      comboMeterEl.classList.add('on');
+      clearTimeout(comboMeterEl._t);
+      comboMeterEl._t = setTimeout(() => comboMeterEl.classList.remove('on'), CONFIG.combo.window * 1000);
+    } else {
+      comboMeterEl.classList.remove('on');
+    }
+  }
   function modal(html, cls) {
     const mask = document.createElement('div');
     mask.className = 'modal-mask' + (cls ? ' ' + cls : '');
@@ -105,6 +143,8 @@
     if (xfLv > 0) html += `<span class="pill-tag" title="上古仙府（顶级）：修炼速度 ×${(1 + xf.ratio * xfLv).toFixed(2)}（比例倍率）">🏯 仙府 ×${(1 + xf.ratio * xfLv).toFixed(2)}</span>`;
     if (pa > 0) html += `<span class="pill-tag" title="獬豸全资源加成：修炼 +${Math.round(pa * 100)}%（战斗：攻/防/血 ×${(1 + pa * CONFIG.combat.petAllCombat).toFixed(2)}）">🦄 灵宠 +${Math.round(pa * 100)}%</span>`;
     if (s.legacy > 0) html += `<span class="pill-tag" title="仙缘倍率（飞升转生，不封顶）：全局全效率 ×${Game.legacyMult().toFixed(2)}">🔁 仙缘 ×${Game.legacyMult().toFixed(2)}</span>`;
+    const g = Game.goldenActive && Game.goldenActive();
+    if (g) { const sec = Math.max(0, Math.ceil((g.until - Date.now()) / 1000)); html += `<span class="pill-tag" style="border-color:#ffd76f;color:#ffe9a8" title="${g.desc}">${g.name} ${sec}s</span>`; }
     return html || '<span style="color:var(--text-dim)">运转周天，静心修炼……</span>';
   }
 
@@ -129,7 +169,14 @@
     $('#btn-cultivate').addEventListener('click', (e) => {
       const r = Game.clickCultivate();
       const rect = e.currentTarget.getBoundingClientRect();
-      floatNum('+' + Game.formatNum(r.gain) + ' 修为', rect.left + rect.width / 2 - 30, rect.top - 10);
+      const x = rect.left + rect.width / 2, y = rect.top - 8;
+      if (r.crit) {
+        FX.floatText('暴击! +' + Game.formatNum(r.gain), { x, y, kind: 'crit', size: 26 });
+        FX.burst(x, y, '#ff7a7a', 14); FX.shake(1.5);
+      } else {
+        FX.floatText('+' + Game.formatNum(r.gain) + ' 修为', { x, y, kind: 'good' });
+      }
+      updateComboMeter(r);
     });
     $('#btn-break').addEventListener('click', () => { if (Game.canBreak()) Game.doBreak(); });
   }
@@ -543,13 +590,20 @@
         : `<button class="buy-btn" data-equip="${t.id}">装备</button>`;
       const smeltLabel = equipped ? `熔炼多余(${surplus})` : `熔炼(${surplus})`;
       const smeltBtn = smeltAfford ? `<button class="buy-btn smelt" data-smelt="${t.id}">${smeltLabel}<div class="price">+${CONFIG.treasure.smeltMatPerQuality * t.quality * surplus}🌿</div></button>` : '';
+      // 觉醒（满级解锁）：消耗天材地宝随机赋予词缀；满 3 条则为「重铸觉醒」
+      const affixes = own.affixes || [];
+      const awakenCost = Game.awakenCost(t.id);
+      const canAwaken = maxed && s.materials >= awakenCost && affixes.length < CONFIG.awaken.maxAffixes;
+      const awakenBtn = maxed ? `<button class="buy-btn awaken" data-awaken="${t.id}" ${canAwaken ? '' : 'disabled'}>${affixes.length >= CONFIG.awaken.maxAffixes ? '重铸觉醒' : '觉醒'}<div class="price">${awakenCost}🌿</div></button>` : '';
+      const affixHtml = affixes.length ? `<div class="affix-wrap">${affixes.map(af => `<span class="affix-chip">${affixChipText(af)}</span>`).join('')}</div>` : '';
       return `<div class="tcard">
         <div class="ti" style="color:${qColor(t.quality)}">${t.icon}</div>
         <div class="tn">${t.name} <span class="q" style="color:${qColor(t.quality)}">${qName(t.quality)}</span></div>
         <div class="td">${t.desc}</div>
         <div class="tattrs">${attrText(ts.attrs)}</div>
-        <div class="tsub">持有 ${own.count} · ${own.level}级</div>
-        <div class="tactions">${eqBtn}${enhBtn}${smeltBtn}</div>
+        ${affixHtml}
+        <div class="tsub">持有 ${own.count} · ${own.level}级${maxed ? ' · 已满级' : ''}</div>
+        <div class="tactions">${eqBtn}${enhBtn}${smeltBtn}${awakenBtn}</div>
       </div>`;
     }).join('');
     view.innerHTML = `
@@ -572,6 +626,7 @@
     view.querySelectorAll('[data-unequip]').forEach(b => b.addEventListener('click', () => { Game.unequip(b.dataset.unequip); renderTreasure(); }));
     view.querySelectorAll('[data-enh]').forEach(b => b.addEventListener('click', () => { if (Game.enhanceTreasure(b.dataset.enh)) renderTreasure(); else toast('材料或灵石不足'); }));
     view.querySelectorAll('[data-smelt]').forEach(b => b.addEventListener('click', () => { if (Game.smeltTreasure(b.dataset.smelt)) renderTreasure(); else toast('仅剩 1 件，已为你保留（不会误熔唯一法宝）'); }));
+    view.querySelectorAll('[data-awaken]').forEach(b => b.addEventListener('click', () => { if (Game.awakenTreasure(b.dataset.awaken)) renderTreasure(); else toast('天材地宝不足'); }));
   }
 
   /* ---------------- 购买委托 ---------------- */
@@ -643,21 +698,137 @@
     modal(`<h2>🔁 飞升转世</h2><p>你斩断此世因果，重入轮回。</p><p>得仙缘 <span class="big">+${gain}</span></p><p>全局效率 +${Math.round(gain * CONFIG.legacyPerPoint * 100)}%，翌世愈发强盛。</p><button class="btn" id="ri-ok">再启道途</button>`);
     $('#ri-ok').addEventListener('click', () => closeModal($('#modal-layer .modal-mask')));
   }
+  // 境界突破卡（叙事化里程碑）
+  function showRealmCard(realmIndex) {
+    const R = Game.REALMS[realmIndex];
+    const power = Game.combatStats().power;
+    const m = modal(`<div class="realm-card">
+      <div class="rc-emoji" style="color:${R.color}">${REALM_AVATAR[realmIndex] || '✨'}</div>
+      <div class="rc-name" style="color:${R.color}">晋入 · ${R.name}</div>
+      <div class="rc-power">当前战力 ${Game.formatNum(power)}</div>
+      <div class="rc-flavor">「${REALM_FLAVOR[R.id] || '道无止境，唯进不退。'}」</div>
+      <button class="btn" id="rc-ok">收入道心</button>
+    </div>`, 'tribulation');
+    $('#rc-ok').addEventListener('click', () => closeModal(m));
+  }
+  // 每日签到弹窗
+  function showCheckIn() {
+    const hasToday = Game.hasCheckedInToday();
+    const info = Game.nextCheckInReward();
+    const doneDays = hasToday ? Game.state.checkInStreak : info.streak;
+    const days = [];
+    for (let i = 1; i <= 7; i++) {
+      const cls = i <= doneDays ? 'done' : (i === doneDays + 1 && !hasToday ? 'today' : '');
+      days.push(`<div class="ci-day ${cls}">第${i}天<br/>${CONFIG.checkIn.rewards[Math.min(i - 1, 6)].stone}💎</div>`);
+    }
+    const m = modal(`<div class="checkin">
+      <h2>📅 每日签到</h2>
+      <div class="ci-grid">${days.join('')}</div>
+      ${hasToday
+        ? `<div class="ci-reward">今日已签到 ✅</div><button class="btn" id="ci-ok">收下</button>`
+        : `<div class="ci-reward">今日可领：💎 ${info.reward.stone} · 🌿 ${info.reward.mat}</div><button class="btn" id="ci-ok">签到领奖</button>`}
+    </div>`);
+    $('#ci-ok').addEventListener('click', () => {
+      if (!hasToday && Game.checkIn()) { FX.confetti(); FX.banner('签到成功！', { kind: 'gold' }); }
+      closeModal(m);
+      if (['cultivate', 'treasure', 'pet', 'secret'].includes(currentTab)) renderCurrent();
+    });
+  }
+  // 天降机缘·可点击宝光
+  function spawnGoldenOrb(buff) {
+    if (goldenOrbEl) { goldenOrbEl.remove(); goldenOrbEl = null; }
+    const el = document.createElement('div');
+    el.className = 'golden-orb';
+    el.innerHTML = `<div class="orb-ring"></div><div class="orb-tip">${buff.name}</div>${GOLDEN_ICON[buff.id] || '✨'}`;
+    const w = window.innerWidth, h = window.innerHeight;
+    const x = 40 + Math.random() * Math.max(10, w - 80);
+    const y = 150 + Math.random() * Math.max(10, h - 260);
+    el.style.left = x + 'px'; el.style.top = y + 'px';
+    el.addEventListener('click', () => {
+      Game.applyGolden(buff.id);
+      el.remove(); goldenOrbEl = null;
+    });
+    document.body.appendChild(el);
+    goldenOrbEl = el;
+    const life = (buff.life || 16) * 1000;
+    setTimeout(() => { if (goldenOrbEl === el) { el.remove(); goldenOrbEl = null; } }, life);
+  }
 
-  /* ---------------- 事件订阅 ---------------- */
+  /* ---------------- 事件订阅（全系统反馈接线） ---------------- */
   Game.on('break', (d) => {
-    if (d.major) showTribulation(d.realm, d.success);
-    else toast('破境成功，修为更进', true);
+    if (d.major) {
+      if (d.success) {
+        showTribulation(d.realm, true);
+        showRealmCard(Game.state.realmIndex);
+        FX.flash('#ffe9a8'); FX.confetti(['#ffd76f', '#fff2a8', '#ff9f1a']);
+        FX.banner(`晋入 ${d.realm}！`, { kind: 'gold', dur: 2200 }); FX.shake(2);
+      } else {
+        showTribulation(d.realm, false);
+        FX.flash('#ff6b6b'); FX.shake(2.2);
+      }
+    } else {
+      FX.flash('#7fd1c1'); FX.shake(1); FX.banner('突破！', { kind: 'jade', dur: 1200 });
+      toast('破境成功，修为更进', true);
+    }
     renderCurrent();
   });
-  Game.on('achievement', (a) => { toast(`🏆 解锁成就：${a.name}`, true); if (currentTab === 'achv') renderAchievements(); });
-  Game.on('event', () => { if (currentTab === 'event') renderEvents(); });
-  Game.on('pills', () => { if (currentTab === 'cultivate' || currentTab === 'pill') renderCurrent(); });
-  Game.on('root', () => {});
+  Game.on('buy', (d) => {
+    if (d.maxed) {
+      FX.confetti(); FX.banner(`${d.name} 圆满！`, { kind: 'gold', dur: 1800 });
+      toast(`🌟 ${d.name} 圆满！`, true);
+    }
+  });
+  Game.on('pills', () => {
+    FX.flash('#ffd76f'); FX.floatText('灵力暴涨！', { kind: 'gold', y: window.innerHeight * 0.45 });
+    if (currentTab === 'cultivate' || currentTab === 'pill') renderCurrent();
+  });
+  Game.on('event', (ev) => {
+    FX.banner(ev.name, { kind: 'gold', dur: 1600 });
+    if (currentTab === 'event') renderEvents();
+  });
+  Game.on('achievement', (a) => {
+    FX.confetti(); FX.banner(`🏆 ${a.name}`, { kind: 'gold', dur: 2000 });
+    toast(`🏆 解锁成就：${a.name}`, true);
+    if (currentTab === 'achv') renderAchievements();
+  });
+  Game.on('treasure', (d) => {
+    const t = d.tid ? Game.TREASURES.find(x => x.id === d.tid) : null;
+    if (d.action === 'equip') { FX.floatText(`装备 ${t ? t.icon + t.name : ''}`, { kind: 'good' }); }
+    else if (d.action === 'enhance') { const x = window.innerWidth / 2, y = window.innerHeight * 0.4; FX.burst(x, y, '#ffd76f', 10); FX.floatText('强化 +1级', { kind: 'gold' }); }
+    else if (d.action === 'smelt') { FX.floatText(`熔炼 +🌿${d.gain || ''}`, { kind: 'good' }); }
+    else if (d.action === 'awaken') {
+      const x = window.innerWidth / 2, y = window.innerHeight * 0.4;
+      FX.burst(x, y, '#c79fff', 18); FX.confetti(['#c79fff', '#7a5cff', '#ffd76f']);
+      FX.banner(`${t ? t.name : '法宝'} 觉醒！`, { kind: 'jade', dur: 2000 });
+    }
+    if (currentTab === 'treasure') renderTreasure();
+  });
+  Game.on('battle', (d) => {
+    if (d.win) { FX.floatText('胜！', { kind: 'good', y: window.innerHeight * 0.38, size: 30 }); }
+    else { FX.flash('#ff6b6b'); FX.shake(1.6); }
+  });
   Game.on('pet', () => { if (currentTab === 'pet') renderCurrent(); });
   Game.on('explore', () => { if (currentTab === 'secret') renderCurrent(); });
   Game.on('insight', () => { if (currentTab === 'insight') renderCurrent(); });
-  Game.on('reincarnate', (d) => { showReincarnate(d.gain); renderCurrent(); });
+  Game.on('reincarnate', (d) => {
+    showReincarnate(d.gain);
+    FX.flash('#c79fff'); FX.confetti(['#c79fff', '#9ff0ff', '#ffd76f']); FX.banner('飞升转世！', { kind: 'jade', dur: 2200 });
+    renderCurrent();
+  });
+  Game.on('golden', (d) => {
+    if (d.spawn) { spawnGoldenOrb(d.buff); }
+    else if (d.applied) {
+      FX.flash(d.buff.color || '#ffe9a8');
+      FX.floatText(d.buff.name + (d.gain ? ' +' + Game.formatNum(d.gain) : ''), { kind: 'gold', size: 22 });
+      FX.burst(window.innerWidth / 2, window.innerHeight * 0.4, d.buff.color || '#ffd24d', 16);
+      if (goldenOrbEl) { goldenOrbEl.remove(); goldenOrbEl = null; }
+      if (currentTab === 'cultivate') renderCurrent();
+    }
+  });
+  Game.on('checkin', (d) => {
+    FX.flash('#ffd76f'); FX.floatText(`签到 +💎${d.reward.stone} 🌿${d.reward.mat}`, { kind: 'gold' });
+    if (['cultivate', 'treasure', 'pet', 'secret'].includes(currentTab)) renderCurrent();
+  });
   Game.on('reset', () => { updateTopbar(); });
 
   /* ---------------- 启动 ---------------- */
@@ -669,6 +840,7 @@
     updateTopbar();
     if (offline) showOffline(offline);
     if (!Game.state.rootId) showRootPicker();
+    if (!Game.hasCheckedInToday()) showCheckIn();
     function loop() { updateTopbar(); requestAnimationFrame(loop); }
     requestAnimationFrame(loop);
   }
