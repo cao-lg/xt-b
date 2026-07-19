@@ -128,10 +128,12 @@
       const tf = Game.techniqueFlat();
       const af = Game.abodeFlat();
       const pf = Game.pillFlat();
+      const pa = Game.petAllBonus();
       const flatTotal = tf + af + pf;
       const petInfo = px > 0 ? ` · 🐲<span class="spd-px">+${Game.formatSpeed(px)}</span>` : '';
+      const xiezhiInfo = pa > 0 ? ` · 🦄<span class="spd-xz">+${(pa*100).toFixed(0)}%</span>` : '';
       const flatInfo = flatTotal > 0 ? ` · 📜<span class="spd-ft">${Game.formatNum(tf)}</span> ⛰️<span class="spd-ft">${Game.formatNum(af)}</span> 💊<span class="spd-ft">${Game.formatNum(pf)}</span>` : '';
-      $('#speed-val').innerHTML = `<span class="spd-main">${Game.formatSpeed(spd)}</span>${petInfo}${flatInfo}`;
+      $('#speed-val').innerHTML = `<span class="spd-main">${Game.formatSpeed(spd)}</span>${petInfo}${xiezhiInfo}${flatInfo}`;
     }
     $('#progress-bar').style.width = Math.min(100, ratio * 100) + '%';
     $('#progress-pct').textContent = Math.min(100, Math.floor(ratio * 100)) + '%';
@@ -343,12 +345,21 @@
     const seek = Game.seekCost();
     const seekAfford = s.stone >= seek;
     const seekBtn = `<button class="btn" id="btn-seek" ${seekAfford ? '' : 'disabled'}>🐾 寻妖（${Game.formatNum(seek)} 💎）</button>`;
+    // 计算獬豸对灵气/秒的实际贡献（用于卡片展示）
+    let xiezhiSpeedStr = '';
+    try {
+      const sb = Game.speedBreakdown();
+      if (sb.paBonus > 0) {
+        const xiezhiContrib = sb.afterGlobal - (sb.afterGlobal / (1 + sb.paBonus));
+        xiezhiSpeedStr = ` → 灵气速度 +${xiezhiContrib.toFixed(2)}/秒`;
+      }
+    } catch(e) {}
     const cards = Game.PETS.map(p => {
       const lv = s.pets[p.id] || 0;
       const perLv = p.produce.base * lv;          // 该灵宠本等级基础产率
       const perSec = perLv * Game.legacyMult() * (1 + Game.petAllBonus()); // 计入仙缘 / 全资源加成后的真实每秒产出
       const out = (p.produce.type === 'all')
-        ? `全资源加成 +${Math.round(perLv * 100)}%`
+        ? `全资源加成 +${Math.round(perLv * 100)}%${xiezhiSpeedStr}`
         : `产出 ${fmtAmt(perSec)} ${typeUnit(p.produce.type)}/秒`;
       const feed = Game.feedCost(p.id), fAfford = lv > 0 && s.materials >= feed;
       const fbtn = lv <= 0 ? `<span class="sub">尚未收服</span>`
