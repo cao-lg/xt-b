@@ -285,7 +285,7 @@ html, body {
 .choice-btn .cb-mult { font-size: 14px; font-weight: 900; color: var(--gold-soft); white-space: nowrap; }
 
 /* ---------------- 战斗盲盒 ---------------- */
-.blind-box { text-align: center; min-width: 260px; }
+.blind-box { text-align: center; min-width: 260px; position: relative; }
 .blind-box .bb-title { font-size: 20px; font-weight: 900; color: var(--gold-soft); margin-bottom: 6px; }
 .blind-box .bb-desc { font-size: 13px; color: var(--text-dim); margin-bottom: 10px; }
 .blind-box .bb-buff { font-size: 12px; color: #c79aff; margin-bottom: 8px; font-weight: 700; }
@@ -297,6 +297,14 @@ html, body {
 .blind-box .bb-rolling { font-size: 14px; color: var(--text-dim); }
 .blind-box .bb-number { font-size: 48px; font-weight: 900; color: var(--gold-soft); margin: 8px 0; }
 .blind-box .bb-amount { font-size: 16px; color: var(--jade); }
+.blind-box .bb-close {
+  position: absolute; top: 6px; right: 10px; background: none; border: none;
+  color: var(--text-dim); font-size: 20px; cursor: pointer; padding: 2px 6px; line-height: 1; z-index: 2;
+}
+.blind-box .bb-close:hover { color: var(--text); }
+.blind-box .bb-merchant {
+  font-size: 14px; color: #c79aff; text-align: center; margin-bottom: 2px; font-weight: 700; letter-spacing: 1px;
+}
 .blind-box .bb-cancel { margin-top: 6px; }
 .blind-box .bb-btn-cancel { background: transparent; border: none; color: var(--text-dim); cursor: pointer; font-size: 12px; padding: 6px 12px; }
 .blind-box .bb-btn-cancel:hover { color: var(--text); }

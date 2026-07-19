@@ -1088,6 +1088,10 @@
   let _bbResolve = null;
   let _bbResource = null;
   const BB_BET_LABELS = ['小注', '中注', '大注', '豪注'];
+  // 盲盒通用：关闭按钮HTML + 关闭重置
+  const BB_CLOSE = '<button class="bb-close" data-bb-close>×</button>';
+  function bbReset() { _bbResource = null; _bbResolve = null; }
+  function bbClose(m) { closeModal(m); bbReset(); }
   function showBlindBox() {
     if (_bbResolve) return;
     const s = Game.state;
@@ -1097,26 +1101,26 @@
     if (!_bbResource) {
       const m = modal(`
         <div class="blind-box">
-        <div class="bb-title">🎰 战利品盲盒</div>
-        <div class="bb-desc">选一种资源投注（扣除本金），搏 0.3×~10×！亏本或翻盘！${hasBuff ? '✨天降祥瑞高倍率↑' : ''}</div>
+          ${BB_CLOSE}
+          <div class="bb-merchant">🧳 仙界行商</div>
+          <div class="bb-title">🎰 战利品盲盒</div>
+          <div class="bb-desc">选一种资源投注（扣除本金），搏 0.3×~10×！亏本或翻盘！${hasBuff ? '✨天降祥瑞高倍率↑' : ''}</div>
           ${buffTip}
           <div class="bb-btns">
             <button class="bb-btn" data-bb="xp">📜 修为</button>
             <button class="bb-btn" data-bb="stone">💎 灵石</button>
             <button class="bb-btn" data-bb="mat">🌿 天材地宝</button>
           </div>
-          <div class="bb-cancel"><button class="bb-btn-cancel">取消</button></div>
+          <div class="bb-cancel"><button class="bb-btn-cancel">关闭</button></div>
         </div>
       `);
       m.querySelectorAll('.bb-btn').forEach(btn => btn.addEventListener('click', () => {
         _bbResource = btn.dataset.bb;
-        _bbResolve = null; // 释放锁，允许下一步
+        _bbResolve = null;
         closeModal(m);
         showBlindBox();
       }));
-      m.querySelectorAll('.bb-btn-cancel').forEach(btn => btn.addEventListener('click', () => {
-        closeModal(m); _bbResource = null; _bbResolve = null;
-      }));
+      m.querySelectorAll('[data-bb-close], .bb-btn-cancel').forEach(btn => btn.addEventListener('click', () => bbClose(m)));
       _bbResolve = m;
       return;
     }
@@ -1136,10 +1140,12 @@
     }).join('');
     const m = modal(`
       <div class="blind-box">
+        ${BB_CLOSE}
+        <div class="bb-merchant">🧳 仙界行商</div>
         <div class="bb-title">🎰 ${rName} · 投注</div>
         <div class="bb-desc">扣除投注额，掷 0.3×~10×！亏本或翻盘！${hasBuff ? '✨天降祥瑞高倍率↑' : ''}</div>
         <div class="bb-bet-grid">${betBtns}</div>
-        <div class="bb-cancel"><button class="bb-btn-cancel">返回</button></div>
+        <div class="bb-cancel"><button class="bb-btn-cancel">关闭</button></div>
       </div>
     `);
     m.querySelectorAll('.bb-bet-btn').forEach(btn => btn.addEventListener('click', () => {
@@ -1153,16 +1159,15 @@
       showBlindBoxRoll(_bbResource, betAmt);
       _bbResource = null;
     }));
-    m.querySelectorAll('.bb-btn-cancel').forEach(btn => btn.addEventListener('click', () => {
-      _bbResource = null; _bbResolve = null; closeModal(m);
-      setTimeout(() => showBlindBox(), 50); // 回到选资源
-    }));
+    m.querySelectorAll('[data-bb-close], .bb-btn-cancel').forEach(btn => btn.addEventListener('click', () => { _bbResource = null; bbClose(m); }));
     _bbResolve = m;
   }
   function showBlindBoxRoll(resourceType, betAmt) {
     const rName = resourceType === 'xp' ? '修为' : resourceType === 'stone' ? '灵石' : '天材地宝';
     const m = modal(`
       <div class="blind-box">
+        ${BB_CLOSE}
+        <div class="bb-merchant">🧳 仙界行商</div>
         <div class="bb-title">🎰 开奖中……</div>
         <div class="bb-result">
           <div class="bb-rolling">🎲 -${resourceType === 'xp' ? Game.formatSpeed(betAmt) : Game.formatNum(betAmt)} ${rName} → 搏倍率</div>
@@ -1171,6 +1176,9 @@
       </div>
     `);
     _bbResolve = m;
+    m.querySelectorAll('[data-bb-close]').forEach(btn => btn.addEventListener('click', () => {
+      clearInterval(ival); bbClose(m);
+    }));
     const numEl = m.querySelector('.bb-number');
     const rollEl = m.querySelector('.bb-rolling');
     // 滚动动画
