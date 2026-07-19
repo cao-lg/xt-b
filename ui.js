@@ -389,19 +389,99 @@
     return pc !== undefined && pc >= prev.levels.length - 1;
   }
 
-  /* ---------------- 秘境 ---------------- */
+  /* ---------------- 秘境（爽文故事「凡人逆天录」） ---------------- */
+  let _selectedRisk = 1; // 0=低,1=中,2=高,3=极限
   function renderSecret() {
     const s = Game.state;
     const cd = !Game.canExplore();
-    const cards = Game.SECRET_REALMS.map(r => {
-      const afford = s.stone >= r.cost;
-      const btn = `<button class="buy-btn" data-explore="${r.id}" ${afford && !cd ? '' : 'disabled'}>探索<div class="price">${Game.formatNum(r.cost)} 💎</div></button>`;
-      return `<div class="card"><div class="icon">${r.icon}</div><div class="body"><div class="name">${r.name}</div><div class="desc">修为${Game.formatNum(r.xp[0])}~${Game.formatNum(r.xp[1])} · 灵石${Game.formatNum(r.stone[0])}~${Game.formatNum(r.stone[1])} · 🌿${r.mat[0]}~${r.mat[1]}</div><div class="sub">风险 ${Math.round(r.risk * 100)}%（损修为 ${Math.round(r.riskLoss * 100)}%）</div></div>${btn}</div>`;
-    }).join('');
     const cdText = cd ? `<div class="cd-text">秘境冷却中……</div>` : '';
-    view.innerHTML = `<div class="section-title">🗺️ 秘境历练 <small>耗灵石探索，得资源亦有机危</small></div>${cdText}<div class="list">${cards}</div>`;
+    const selectedRisk = _selectedRisk;
+
+    // 找出当前可探索的章节（境界达标 + 故事未完成）
+    const unlocked = Game.SECRET_REALMS.filter(r => s.realmIndex >= r.realmReq);
+    const currentChapter = unlocked[unlocked.length - 1]; // 最新的可解锁章节
+    // 找出正在读的章节（故事未读完的当前章节）
+    const activeChapter = Game.SECRET_REALMS.find(r => {
+      const prog = s.storyProgress[r.id] || 0;
+      return r.realmReq <= s.realmIndex && prog < r.storyChapters.length;
+    });
+    const chapter = activeChapter || currentChapter || Game.SECRET_REALMS[0];
+    const prog = s.storyProgress[chapter?.id] || 0;
+    const storyDone = chapter && prog >= chapter.storyChapters.length;
+
+    // 收益预览
+    const riskLabels = ['低·10%', '中·100%', '高·200%', '极限·300%'];
+    const riskMult = (1 + (chapter ? (chapter.riskRange[0] + (selectedRisk/3)*(chapter.riskRange[1]-chapter.riskRange[0])) : 0.1));
+    const rMultStr = riskMult.toFixed(1) + '×';
+
+    // 风险选项按钮
+    const riskBtns = [0,1,2,3].map(i => {
+      const pct = [10, 100, 200, 300];
+      const mult = (1 + (chapter ? (chapter.riskRange[0] + (i/3)*(chapter.riskRange[1]-chapter.riskRange[0])) : 0.1)).toFixed(1);
+      const sel = i === selectedRisk ? 'sel' : '';
+      return `<button class="risk-btn ${sel}" data-risk="${i}">${riskLabels[i]}<span class="mult">×${mult}</span></button>`;
+    }).join('');
+
+    let storyHtml = '';
+    if (chapter) {
+      // 故事标题 + 正文
+      const storyProgHtml = chapter.storyChapters.map((text, i) => {
+        const read = i < prog ? 'read' : '';
+        const cur = i === prog ? ' current' : '';
+        return `<div class="story-line ${read}${cur}"><span class="idx">${i+1}</span><span>${text}</span></div>`;
+      }).join('');
+      storyHtml = `
+        <div class="story-card">
+          <div class="story-title">${chapter.storyTitle}</div>
+          <div class="story-text">${chapter.storyText}</div>
+          <div class="story-progress">${storyProgHtml}</div>
+          ${storyDone ? `<div class="story-done">✅ 故事已读完，可继续探索获取资源</div>` : `<div class="story-hint">📖 探索成功可推进故事（${prog}/${chapter.storyChapters.length}）</div>`}
+        </div>
+      `;
+    }
+
+    // 探索按钮
+    const aff = chapter && s.stone >= chapter.cost;
+    const exploreBtn = chapter
+      ? `<button class="buy-btn explore-btn" data-explore="${chapter.id}" ${aff && !cd ? '' : 'disabled'}>
+          探索「${chapter.name}」
+          <div class="price">${Game.formatNum(chapter.cost)} 💎 · ×${rMultStr}</div>
+        </button>`
+      : '';
+
+    // 章节一览
+    const chapterListHtml = Game.SECRET_REALMS.map(r => {
+      const unlockedNow = s.realmIndex >= r.realmReq;
+      const chapProg = s.storyProgress[r.id] || 0;
+      const done = chapProg >= (r.storyChapters.length);
+      const status = unlockedNow ? (done ? '✅' : `📖${chapProg}/${r.storyChapters.length}`) : `🔒 ${Game.REALMS[r.realmReq].name}解锁`;
+      return `<div class="chap-item ${unlockedNow ? 'unlocked' : 'locked'}"><span class="chap-icon">${r.icon}</span><span class="chap-name">${r.name}</span><span class="chap-status">${status}</span></div>`;
+    }).join('');
+
+    view.innerHTML = `
+      <div class="section-title">🗺️ 秘境历练 <small>爽文故事「凡人逆天录」·选择风险强度探索修炼</small></div>
+      ${cdText}
+      ${storyHtml}
+      <div class="risk-selector">
+        <div class="risk-label">⚡ 风险强度（倍率 ×${rMultStr}）</div>
+        <div class="risk-btns">${riskBtns}</div>
+      </div>
+      <div class="explore-area">${exploreBtn}</div>
+      <div class="sep"></div>
+      <div class="chapter-list">
+        <div class="list-title">📚 故事篇章</div>
+        ${chapterListHtml}
+      </div>
+    `;
+
+    // 绑定事件
+    view.querySelectorAll('[data-risk]').forEach(b => b.addEventListener('click', () => {
+      _selectedRisk = parseInt(b.dataset.risk);
+      renderCurrent();
+    }));
     view.querySelectorAll('[data-explore]').forEach(b => b.addEventListener('click', () => {
-      if (Game.explore(b.dataset.explore)) renderCurrent(); else toast('灵石不足或冷却中');
+      const ok = Game.explore(b.dataset.explore, selectedRisk);
+      if (ok) renderCurrent(); else toast('灵石不足或冷却中');
     }));
   }
 

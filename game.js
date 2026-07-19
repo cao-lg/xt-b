@@ -29,6 +29,7 @@ const Game = (function () {
       seekCount: 0,          // 寻妖次数（成本递增）
       exploreCount: 0,       // 秘境探索次数
       realmCd: 0,            // 秘境探索冷却到期时间戳
+      storyProgress: {},     // 爽文秘境故事进度 { chapterId: 已读段落数 }
       reincarnations: 0,     // 飞升次数
       tribFails: 0,           // 连续渡劫失败计数（触发保底后清零）
       /* ---- 战斗 / 法宝 ---- */
@@ -371,29 +372,87 @@ const Game = (function () {
     save(); emit('pet'); return true;
   }
 
-  /* ---------- 秘境历练 ---------- */
+  /* ---------- 秘境历练（爽文秘境·可选中风险强度） ---------- */
   function canExplore() { return Date.now() >= state.realmCd; }
-  function explore(realmId) {
+  // riskLevel: 0=低(10%), 1=中(100%), 2=高(200%), 3=极限(300%)
+  function explore(realmId, riskLevel) {
     const r = SECRET_REALMS.find(x => x.id === realmId);
     if (!r) return false;
     if (state.stone < r.cost) return false;
     if (!canExplore()) return false;
+    if (riskLevel === undefined) riskLevel = 1; // 默认中风险
+
+    // 计算风险强度和收益倍率
+    const lossPct = r.riskRange[0] + (riskLevel / 3) * (r.riskRange[1] - r.riskRange[0]); // 0~1 → 0.1~3.0
+    const rewardMult = 1 + lossPct; // 10%→×1.1, 100%→×2, 200%→×3, 300%→×4
+
     state.stone -= r.cost; state.exploreCount++;
     state.realmCd = Date.now() + CONFIG.realmCooldown * 1000;
-    const xp = Math.floor(currentSpeed() * rand(3, 8)); // 秘境修为 = 修炼速度×秒数，扣灵石后净效≤修炼
-    const stone = Math.floor(randInt(r.stone[0], r.stone[1]) * 0.25);
-    const mat = randInt(r.mat[0], r.mat[1]);
-    state.xp += xp; state.totalXp += xp; state.stone += stone; state.materials += mat;
-    let parts = [`修为+${formatNum(xp)}`, `灵石+${formatNum(stone)}`, `天材地宝+${mat}`];
-    if (Math.random() < r.risk) {
-      const loss = state.xp * r.riskLoss;
-      state.xp -= loss;
-      pushLog(`⚠ 探${r.name}遇险，损修为 ${formatNum(loss)}（${parts.join('，')}）`, r.icon);
+
+    const spd = currentSpeed();
+    const xp = Math.floor(spd * randInt(r.xpSeconds[0], r.xpSeconds[1]) * rewardMult);
+    const stone = Math.floor(randInt(r.stone[0], r.stone[1]) * rewardMult * 0.25);
+    const mat = Math.floor(randInt(r.mat[0], r.mat[1]) * rewardMult);
+
+    const roll = Math.random();
+    if (roll < r.riskChance) {
+      // —— 失败 ——
+      let lossMsg;
+      if (r.riskType === 'xpPct' || lossPct <= 1.0) {
+        // 按比例损失修为（上限为当前层全部修为）
+        const loss = Math.min(state.xp, Math.floor(state.xp * lossPct));
+        state.xp -= loss;
+        lossMsg = `修为损失 ${formatNum(loss)}（${(lossPct*100).toFixed(0)}%）`;
+      } else {
+        // 超 100% 损失：清空当前层修为 + 额外掉层
+        const loss = state.xp;
+        state.xp = 0;
+        const dropLayers = Math.min(Math.round(lossPct - 1), state.layer);
+        state.layer -= dropLayers;
+        lossMsg = `修为尽失（${formatNum(loss)}）！跌落 ${dropLayers} 层`;
+      }
+      pushLog(`⚠ ${r.failMsg} ${lossMsg}`, r.icon);
     } else {
-      pushLog(`🌟 探${r.name}大有所得（${parts.join('，')}）`, r.icon);
+      // —— 成功 ——
+      state.xp += xp; state.totalXp += xp; state.stone += stone; state.materials += mat;
+      let parts = [`修为+${formatNum(xp)}`, `灵石+${formatNum(stone)}`, `天材地宝+${mat}`];
+      // 悟性奖励
+      if (Math.random() < (r.insightChance || 0)) {
+        state.insight += (r.insightGain || 1);
+        parts.push(`悟性+${r.insightGain || 1}`);
+      }
+      // 主角机缘（极低概率突破1层）
+      let fortune = false;
+      if (Math.random() < (r.fortuneChance || 0)) {
+        fortune = true;
+        triggerFortune(r);
+      }
+      // 推进故事进度
+      const prog = state.storyProgress[r.id] || 0;
+      if (!fortune && prog < r.storyChapters.length) {
+        state.storyProgress[r.id] = prog + 1;
+      }
+      const storyProgressed = !fortune && prog < r.storyChapters.length;
+      pushLog(`🌟 探${r.name}大有所得（${parts.join('，')}）${storyProgressed ? '📖 故事推进' : ''}${fortune ? ' ✨机缘触发！' : ''}`, r.icon);
     }
     checkAchievements();
-    save(); emit('explore', r); return true;
+    save(); emit('explore', { realm: r, riskLevel, success: roll >= r.riskChance, rewardMult });
+    return true;
+  }
+  // 主角机缘：免费突破 1 小层（不会越过大境界，若超出则自动渡劫）
+  function triggerFortune(realmData) {
+    const majorLayer = LAYERS_PER_REALM - 1;
+    state.layer++;
+    if (state.layer > majorLayer) {
+      // 跨越大境界——模拟渡劫（必成）
+      state.layer = 0; state.realmIndex++;
+      const ins = CONFIG.insightPerMajor[state.realmIndex] || 0;
+      state.insight += ins;
+      pushLog(`✨ ${realmData.fortuneDesc} 晋入${REALMS[state.realmIndex].name}！`, '🌟');
+      emit('break', { major: true, realm: REALMS[state.realmIndex].name, success: true, mercy: true });
+    } else {
+      pushLog(`✨ ${realmData.fortuneDesc}（第${CHINESE_LAYER[state.layer]}层）`, '✨');
+    }
   }
 
   /* ---------- 悟道 ---------- */
@@ -976,7 +1035,7 @@ const Game = (function () {
       if (raw) {
         const data = JSON.parse(raw);
         state = Object.assign(defaultState(), data);
-        ['techniques', 'abodes', 'pills', 'pets', 'insightLv', 'achievements', 'log', 'treasures', 'equipped', 'mapProgress'].forEach(k => { state[k] = data[k] || (Array.isArray(data[k]) ? [] : {}); });
+        ['techniques', 'abodes', 'pills', 'pets', 'insightLv', 'achievements', 'log', 'treasures', 'equipped', 'mapProgress', 'storyProgress'].forEach(k => { state[k] = data[k] || (Array.isArray(data[k]) ? [] : {}); });
         // 新字段兜底 + 天降机缘：清除可能过期的增益；离线收益不计入 goldenBuff
         state.goldenBuff = null;
         state.nextGoldenAt = (state.nextGoldenAt && state.nextGoldenAt > Date.now())

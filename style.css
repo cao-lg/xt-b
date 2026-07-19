@@ -240,6 +240,45 @@ html, body {
 .stat-grid .cell b { color: var(--gold-soft); font-size: 16px; }
 .stat-grid .cell span { font-size: 11px; color: var(--text-dim); display: block; margin-top: 3px; }
 
+/* ---------------- 秘境·爽文故事「凡人逆天录」 ---------------- */
+.story-card {
+  background: rgba(0,0,0,0.35); border: 1px solid var(--border); border-radius: 12px;
+  padding: 14px; margin: 10px 0;
+}
+.story-title { font-size: 16px; font-weight: 800; color: var(--gold-soft); margin-bottom: 8px; }
+.story-text { font-size: 13px; color: var(--text); line-height: 1.6; margin-bottom: 12px; padding: 8px; background: rgba(0,0,0,0.25); border-radius: 8px; font-style: italic; }
+.story-progress { margin: 8px 0; }
+.story-line { display: flex; gap: 8px; padding: 6px 0; font-size: 12px; color: var(--text-dim); border-bottom: 1px solid rgba(255,255,255,0.04); }
+.story-line .idx { color: var(--gold-soft); font-weight: 700; width: 20px; flex-shrink: 0; }
+.story-line.read { opacity: .4; }
+.story-line.current { color: var(--text); font-weight: 700; background: rgba(127,209,193,0.08); margin: 0 -4px; padding: 6px 4px; border-radius: 4px; }
+.story-done { font-size: 12px; color: var(--jade); margin-top: 8px; text-align: center; }
+.story-hint { font-size: 12px; color: var(--gold-soft); margin-top: 8px; text-align: center; }
+
+.risk-selector { margin: 10px 0; padding: 10px; background: rgba(0,0,0,0.25); border-radius: 10px; }
+.risk-label { font-size: 13px; font-weight: 700; color: var(--gold-soft); margin-bottom: 8px; }
+.risk-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+.risk-btn {
+  flex: 1; min-width: 60px; padding: 8px 4px; border: 1px solid var(--border); border-radius: 8px;
+  background: rgba(0,0,0,0.2); color: var(--text-dim); cursor: pointer; font-size: 11px; text-align: center;
+  transition: all .15s;
+}
+.risk-btn:hover { border-color: var(--gold-soft); color: var(--text); }
+.risk-btn.sel { border-color: #ffd76f; background: rgba(255,215,111,0.12); color: #ffe9a8; font-weight: 700; }
+.risk-btn .mult { display: block; font-size: 14px; font-weight: 900; color: var(--gold-soft); margin-top: 2px; }
+
+.explore-area { text-align: center; margin: 10px 0; }
+.explore-btn { width: 100%; padding: 12px; font-size: 15px !important; }
+
+.chapter-list { margin: 6px 0; }
+.list-title { font-size: 13px; font-weight: 700; color: var(--text-dim); margin-bottom: 6px; }
+.chap-item { display: flex; align-items: center; gap: 8px; padding: 6px 8px; font-size: 12px; border-radius: 6px; margin: 2px 0; }
+.chap-item.unlocked { color: var(--text); }
+.chap-item.locked { color: var(--text-dim); opacity: .5; }
+.chap-icon { font-size: 16px; width: 24px; text-align: center; }
+.chap-name { flex: 1; }
+.chap-status { font-size: 11px; color: var(--text-dim); }
+
 /* ---------------- 底部标签栏 ---------------- */
 .tabbar {
   flex: 0 0 auto; display: flex; flex-wrap: wrap; justify-content: center; background: rgba(12,16,28,0.96);
