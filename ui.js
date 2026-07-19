@@ -725,7 +725,7 @@
     view.querySelectorAll('[data-map]').forEach(b => b.addEventListener('click', () => { if (!b.disabled) { battleMode = 'map'; currentMap = b.dataset.map; currentLevel = 0; Game.state._battleUserSelected = true; renderBattle(); } }));
     view.querySelectorAll('[data-mode="tower"]').forEach(b => b.addEventListener('click', () => { battleMode = 'tower'; Game.state._battleUserSelected = true; renderBattle(); }));
     const sheatheBtn = $('#btn-sheathe');
-    if (sheatheBtn) sheatheBtn.addEventListener('click', () => { _bbPending = false; showBlindBox(); });
+    if (sheatheBtn) sheatheBtn.addEventListener('click', function() { this.remove(); _bbPending = false; showBlindBox(); });
     view.querySelectorAll('[data-fight]').forEach(b => b.addEventListener('click', () => {
       const [mid, idx] = b.dataset.fight.split(':');
       currentLevel = parseInt(idx, 10);
