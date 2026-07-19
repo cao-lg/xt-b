@@ -1067,62 +1067,134 @@
   Game.on('battle', (d) => {
     if (d.win) {
       FX.floatText('胜！', { kind: 'good', y: window.innerHeight * 0.38, size: 30 });
-      // 战斗盲盒：延迟弹出让 FX 先播完
-      setTimeout(() => showBlindBox(), 400);
+      // 显示「收剑」按钮，点击后才弹盲盒（避免画面重叠）
+      showSheatheSword();
     } else { FX.flash('#ff6b6b'); FX.shake(1.6); }
   });
 
+  // 收剑按钮（战斗胜利后浮层，点击弹盲盒）
+  let _bbPending = false;
+  let _sheatheEl = null;
+  function showSheatheSword() {
+    if (_sheatheEl) return;
+    _bbPending = false;
+    const el = document.createElement('div');
+    el.className = 'sheathe-btn';
+    el.innerHTML = '⚔️ 点击收剑 · 领取战利品';
+    el.addEventListener('click', () => {
+      el.remove(); _sheatheEl = null;
+      _bbPending = true;
+      showBlindBox();
+    });
+    document.body.appendChild(el);
+    _sheatheEl = el;
+    // 10秒后自动消失（玩家脱离战斗界面）
+    setTimeout(() => { if (_sheatheEl === el) { el.remove(); _sheatheEl = null; } }, 10000);
+  }
+
   let _bbResolve = null;
+  let _bbResource = null;
+  const BB_BET_LABELS = ['小注', '中注', '大注', '豪注'];
   function showBlindBox() {
-    if (_bbResolve) return; // 已有打开的盲盒
+    if (_bbResolve) return;
+    const s = Game.state;
     const hasBuff = Game.goldenActive() != null;
     const buffTip = hasBuff ? '<div class="bb-buff">✨ 天降祥瑞 · 高倍率概率提升！</div>' : '';
+    // 如果还没选资源，显示资源选择
+    if (!_bbResource) {
+      const m = modal(`
+        <div class="blind-box">
+          <div class="bb-title">🎰 战利品盲盒</div>
+          <div class="bb-desc">选一种资源投入，获得 1~10 倍回报！</div>
+          ${buffTip}
+          <div class="bb-btns">
+            <button class="bb-btn" data-bb="xp">📜 修为</button>
+            <button class="bb-btn" data-bb="stone">💎 灵石</button>
+            <button class="bb-btn" data-bb="mat">🌿 天材地宝</button>
+          </div>
+          <div class="bb-cancel"><button class="bb-btn-cancel">取消</button></div>
+        </div>
+      `);
+      m.querySelectorAll('.bb-btn').forEach(btn => btn.addEventListener('click', () => {
+        _bbResource = btn.dataset.bb;
+        closeModal(m);
+        showBlindBox(); // 进入下一步：选投注额
+      }));
+      m.querySelectorAll('.bb-btn-cancel').forEach(btn => btn.addEventListener('click', () => {
+        closeModal(m); _bbResource = null; _bbPending = false;
+      }));
+      _bbResolve = m;
+      return;
+    }
+    // 选投注额
+    const rName = _bbResource === 'xp' ? '修为' : _bbResource === 'stone' ? '灵石' : '天材地宝';
+    const bets = Game.blindBoxBets(_bbResource);
+    const maxBet = bets[3] || 1;
+    const betBtns = bets.map((amt, i) => {
+      const aff = amt > 0 && (_bbResource === 'xp' || amt <= (_bbResource === 'stone' ? s.stone : s.materials));
+      const mult = 1 + (_bbResource === 'xp' ? 0 : 0); // just reference
+      return `<button class="bb-bet-btn" data-bet="${i}" ${aff ? '' : 'disabled'}>
+        <span class="bb-bet-label">${BB_BET_LABELS[i]}</span>
+        <span class="bb-bet-amt">${_bbResource === 'xp' ? Game.formatSpeed(amt) : Game.formatNum(amt)}</span>
+        <span class="bb-bet-pct">(${Math.round(amt / Math.max(1, maxBet) * 100)}%)</span>
+      </button>`;
+    }).join('');
     const m = modal(`
       <div class="blind-box">
-        <div class="bb-title">🎰 战利品盲盒</div>
-        <div class="bb-desc">选一种资源投注，获得 1~10 倍！</div>
-        ${buffTip}
-        <div class="bb-btns">
-          <button class="bb-btn" data-bb="xp">📜 修为</button>
-          <button class="bb-btn" data-bb="stone">💎 灵石</button>
-          <button class="bb-btn" data-bb="mat">🌿 天材地宝</button>
-        </div>
-        <div class="bb-result" hidden>
-          <div class="bb-rolling">🎲 开奖中……</div>
-          <div class="bb-number"></div>
-          <div class="bb-amount"></div>
+        <div class="bb-title">🎰 ${rName} · 投注额</div>
+        <div class="bb-desc">选一注，搏 1~10 倍！${hasBuff ? '✨天降祥瑞高倍率↑' : ''}</div>
+        <div class="bb-bet-grid">${betBtns}</div>
+        <div class="bb-cancel"><button class="bb-btn-cancel">返回</button></div>
+      </div>
+    `);
+    m.querySelectorAll('.bb-bet-btn').forEach(btn => btn.addEventListener('click', () => {
+      const idx = parseInt(btn.dataset.bet);
+      const betAmt = bets[idx];
+      if (betAmt <= 0) return;
+      // 扣本金（灵石/材料）
+      if (_bbResource === 'stone' && betAmt > s.stone) return;
+      if (_bbResource === 'mat' && betAmt > s.materials) return;
+      closeModal(m);
+      // 开奖动画
+      showBlindBoxRoll(_bbResource, betAmt);
+      _bbResource = null; _bbPending = false;
+    }));
+    m.querySelectorAll('.bb-btn-cancel').forEach(btn => btn.addEventListener('click', () => {
+      closeModal(m); _bbResource = null; showBlindBox(); // 回到选资源
+    }));
+    _bbResolve = m;
+  }
+  function showBlindBoxRoll(resourceType, betAmt) {
+    const rName = resourceType === 'xp' ? '修为' : resourceType === 'stone' ? '灵石' : '天材地宝';
+    const m = modal(`
+      <div class="blind-box">
+        <div class="bb-title">🎰 开奖中……</div>
+        <div class="bb-result">
+          <div class="bb-rolling">🎲 投注 ${rName}${resourceType === 'xp' ? '' : '（扣除本金）'}</div>
+          <div class="bb-number">×?</div>
         </div>
       </div>
     `);
-    _bbResolve = true;
-    m.querySelectorAll('.bb-btn').forEach(btn => btn.addEventListener('click', () => {
-      const type = btn.dataset.bb;
-      // 禁用按钮 + 显示滚动效果
-      m.querySelectorAll('.bb-btn').forEach(b => b.disabled = true);
-      const resultEl = m.querySelector('.bb-result');
-      resultEl.hidden = false;
-      const rollEl = m.querySelector('.bb-rolling');
-      const numEl = m.querySelector('.bb-number');
-      const amtEl = m.querySelector('.bb-amount');
-      // 快速滚动数字动画
-      let i = 0;
-      const ival = setInterval(() => {
-        i = Math.floor(Math.random() * 10) + 1;
-        numEl.textContent = '×' + i;
-      }, 80);
-      const result = Game.rollBlindBox(type);
-      setTimeout(() => {
-        clearInterval(ival);
-        const rName = type === 'xp' ? '修为' : type === 'stone' ? '灵石' : '天材地宝';
-        rollEl.textContent = `🎉 ${rName} ×${result.mult}！`;
-        numEl.textContent = `×${result.mult}`;
-        numEl.style.color = result.mult >= 8 ? 'var(--gold-soft)' : result.mult >= 5 ? '#7fd1c1' : '#ffe9a8';
-        result.mult;
-        amtEl.textContent = result.resource === 'xp' ? Game.formatSpeed(result.amount) : Game.formatNum(result.amount);
-        FX.confetti(result.mult >= 8 ? ['#ffd76f','#ff9f9f','#c79fff'] : ['#ffd76f']);
-        setTimeout(() => { closeModal(m); _bbResolve = null; }, 2000);
-      }, 600 + Math.random() * 400);
-    }));
+    _bbResolve = m;
+    const numEl = m.querySelector('.bb-number');
+    const rollEl = m.querySelector('.bb-rolling');
+    // 滚动动画
+    let i = 0;
+    const ival = setInterval(() => { i = Math.floor(Math.random() * 10) + 1; numEl.textContent = '×' + i; }, 80);
+    const result = Game.rollBlindBox(resourceType, betAmt);
+    setTimeout(() => {
+      clearInterval(ival);
+      rollEl.textContent = `🎉 ${rName} ×${result.mult}！`;
+      numEl.textContent = `×${result.mult}`;
+      numEl.style.color = result.mult >= 8 ? '#ffd76f' : result.mult >= 5 ? '#7fd1c1' : '#ffe9a8';
+      const amtEl = document.createElement('div');
+      amtEl.className = 'bb-amount';
+      amtEl.textContent = '+ ' + (resourceType === 'xp' ? Game.formatSpeed(result.amount) : Game.formatNum(result.amount));
+      m.querySelector('.bb-result').appendChild(amtEl);
+      FX.confetti(result.mult >= 8 ? ['#ffd76f','#ff9f9f','#c79fff'] : ['#ffd76f']);
+      // 自动关闭
+      setTimeout(() => { closeModal(m); _bbResolve = null; }, 2500);
+    }, 600 + Math.random() * 400);
   }
   Game.on('pet', () => { if (currentTab === 'pet') renderCurrent(); });
   Game.on('explore', () => { if (currentTab === 'secret') renderCurrent(); });

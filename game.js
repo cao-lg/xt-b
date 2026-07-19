@@ -880,34 +880,45 @@ const Game = (function () {
     return { res, reward, drop, win: res.win, level: lv };
   }
 
-  // 战斗盲盒：胜利后触发，选资源类型投注 1~10 倍
+  // 战斗盲盒：胜利后触发，选资源+投注额，掷 1~10 倍
   const BOX_TYPES = ['xp', 'stone', 'mat'];
-  function rollBlindBox(resourceType) {
+  // 获取当前境界的盲盒投注档位（返回4档金额）
+  function blindBoxBets(resourceType) {
+    const bc = breakCost();
+    if (resourceType === 'xp') {
+      const base = Math.floor(bc * 0.05);
+      return [base, base * 3, base * 6, base * 12];
+    } else if (resourceType === 'stone') {
+      const base = Math.max(100, Math.floor(state.stone * 0.05));
+      return [base, Math.min(base * 3, state.stone), Math.min(base * 6, state.stone), Math.min(base * 12, state.stone)];
+    } else if (resourceType === 'mat') {
+      const base = Math.max(1, Math.floor(state.materials * 0.05));
+      return [base, Math.min(base * 3, state.materials), Math.min(base * 6, state.materials), Math.min(base * 12, state.materials)];
+    }
+    return [0,0,0,0];
+  }
+  function rollBlindBox(resourceType, betAmount) {
     if (!BOX_TYPES.includes(resourceType)) return null;
+    if (betAmount <= 0) return null;
     // 天降祥瑞时，高倍率概率提升
     const hasBuff = !!(state.goldenBuff && Date.now() < state.goldenBuff.until);
-    // 加权随机：num=1~10，buff 时 6~10 权重翻倍
-    const weights = [1,1,1,1,1,1,1,1,1,1]; // 10 weights for 1..10
-    if (hasBuff) for (let i = 5; i < 10; i++) weights[i] *= 2; // 6~10 权重×2
+    const weights = [1,1,1,1,1,1,1,1,1,1];
+    if (hasBuff) for (let i = 5; i < 10; i++) weights[i] *= 2;
     const totalW = weights.reduce((a,b)=>a+b,0);
     let r = Math.random() * totalW;
     let mult = 1;
     for (let i = 0; i < 10; i++) { r -= weights[i]; if (r <= 0) { mult = i + 1; break; } }
-    // 计算数量
-    let amount = 0;
+    const amount = Math.floor(betAmount * mult);
+    // 应用收益（灵石/材料需扣除本金再结算；修为纯增）
     if (resourceType === 'xp') {
-      amount = Math.floor(currentSpeed() * 60 * mult); // ≈ 1分钟修炼 × 倍数
+      state.xp += amount; state.totalXp += amount;
     } else if (resourceType === 'stone') {
-      amount = Math.floor(stoneSpeed() * 60 * mult);
+      state.stone += amount - betAmount; // 收益 - 本金
     } else if (resourceType === 'mat') {
-      amount = Math.floor(mult * (1 + Math.random() * 3));
+      state.materials += amount - betAmount;
     }
-    // 应用收益
-    if (resourceType === 'xp') { state.xp += amount; state.totalXp += amount; }
-    else if (resourceType === 'stone') state.stone += amount;
-    else if (resourceType === 'mat') state.materials += amount;
     pushLog(`🎰 盲盒：${resourceType==='xp'?'修为':resourceType==='stone'?'灵石':'天材地宝'} ×${mult} = ${formatNum(amount)}${hasBuff ? '（天降祥瑞）' : ''}`, '🎲');
-    return { resource: resourceType, mult, amount, hasBuff };
+    return { resource: resourceType, mult, amount, bet: betAmount, hasBuff };
   }
 
   // ---------- 无尽试炼塔 ----------
@@ -1142,7 +1153,7 @@ const Game = (function () {
     formatNum, formatSpeed, formatTime,
     combatStats, currentSpeed, qualityMult, treasureStats, canBattle, battleCooldownLeft, isLevelUnlocked, fight, simulateCombat, towerEnemy, towerFight, softCap, combatBreakdown, combatFormula,
     hasTreasure, equipTreasure, unequip, enhanceCost, enhanceTreasure, smeltTreasure, awakenTreasure, awakenCost,
-    applyGolden, goldenActive, rollBlindBox,
+    applyGolden, goldenActive, rollBlindBox, blindBoxBets,
     checkIn, hasCheckedInToday, nextCheckInReward,
     get state() { return state; },
     get REALMS() { return REALMS; }, get ROOTS() { return ROOTS; }, get TECHNIQUES() { return TECHNIQUES; },
