@@ -83,6 +83,7 @@ html, body {
 .speed-detail {
   margin-top: 8px; background: rgba(0,0,0,0.35); border: 1px solid var(--border);
   border-radius: 10px; padding: 10px 12px; font-size: 12px; color: var(--text);
+  max-height: 55vh; overflow-y: auto; -webkit-overflow-scrolling: touch;
 }
 .speed-detail .row { display: flex; justify-content: space-between; padding: 2px 0; }
 .speed-detail .row.dim { color: var(--text-dim); }
