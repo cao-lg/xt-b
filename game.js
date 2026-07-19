@@ -900,25 +900,45 @@ const Game = (function () {
   function rollBlindBox(resourceType, betAmount) {
     if (!BOX_TYPES.includes(resourceType)) return null;
     if (betAmount <= 0) return null;
-    // 天降祥瑞时，高倍率概率提升
+    // 先检查余额
+    if (resourceType === 'xp' && state.xp < betAmount) return null;
+    if (resourceType === 'stone' && state.stone < betAmount) return null;
+    if (resourceType === 'mat' && state.materials < betAmount) return null;
+    // 扣除投注额
+    if (resourceType === 'xp') { state.xp -= betAmount; state.totalXp = Math.max(0, state.totalXp - betAmount); }
+    else if (resourceType === 'stone') state.stone -= betAmount;
+    else if (resourceType === 'mat') state.materials -= betAmount;
+    // 掷倍率（0.3×~10×）：天降祥瑞时高倍率概率提升
     const hasBuff = !!(state.goldenBuff && Date.now() < state.goldenBuff.until);
-    const weights = [1,1,1,1,1,1,1,1,1,1];
-    if (hasBuff) for (let i = 5; i < 10; i++) weights[i] *= 2;
-    const totalW = weights.reduce((a,b)=>a+b,0);
+    // 倍率表：值 + 权重（无祥瑞/有祥瑞）
+    const multTable = [
+      { mult: 0.3, w: 1.5, wBuff: 0.5 },  // 大亏
+      { mult: 0.6, w: 2.0, wBuff: 1.0 },  // 亏
+      { mult: 0.9, w: 2.5, wBuff: 1.5 },  // 小亏
+      { mult: 1.2, w: 3.0, wBuff: 2.5 },  // 小赚
+      { mult: 1.5, w: 2.5, wBuff: 3.0 },  // 赚
+      { mult: 2.0, w: 2.0, wBuff: 3.0 },  // 大赚
+      { mult: 3.0, w: 1.5, wBuff: 2.5 },  // 暴击
+      { mult: 5.0, w: 1.0, wBuff: 2.0 },  // 大奖
+      { mult: 8.0, w: 0.5, wBuff: 1.2 },  // 特奖
+      { mult: 10.0,w: 0.3, wBuff: 0.8 },  // 头奖
+    ];
+    const totalW = multTable.reduce((s, m) => s + (hasBuff ? m.wBuff : m.w), 0);
     let r = Math.random() * totalW;
-    let mult = 1;
-    for (let i = 0; i < 10; i++) { r -= weights[i]; if (r <= 0) { mult = i + 1; break; } }
-    const amount = Math.floor(betAmount * mult);
-    // 应用收益（灵石/材料需扣除本金再结算；修为纯增）
-    if (resourceType === 'xp') {
-      state.xp += amount; state.totalXp += amount;
-    } else if (resourceType === 'stone') {
-      state.stone += amount - betAmount; // 收益 - 本金
-    } else if (resourceType === 'mat') {
-      state.materials += amount - betAmount;
+    let mult = 0.3;
+    for (const entry of multTable) {
+      r -= (hasBuff ? entry.wBuff : entry.w);
+      if (r <= 0) { mult = entry.mult; break; }
     }
-    pushLog(`🎰 盲盒：${resourceType==='xp'?'修为':resourceType==='stone'?'灵石':'天材地宝'} ×${mult} = ${formatNum(amount)}${hasBuff ? '（天降祥瑞）' : ''}`, '🎲');
-    return { resource: resourceType, mult, amount, bet: betAmount, hasBuff };
+    const amount = Math.floor(betAmount * mult);
+    const netChange = amount - betAmount;
+    // 结算收益
+    if (resourceType === 'xp') { state.xp += amount; state.totalXp += amount; }
+    else if (resourceType === 'stone') state.stone += amount;
+    else if (resourceType === 'mat') state.materials += amount;
+    const netStr = netChange >= 0 ? `+${formatNum(netChange)}` : formatNum(netChange);
+    pushLog(`🎰 盲盒：${resourceType==='xp'?'修为':resourceType==='stone'?'灵石':'天材地宝'} ×${mult} = ${formatNum(amount)}（净${netStr}）${hasBuff ? '✨天降祥瑞' : ''}`, '🎲');
+    return { resource: resourceType, mult, amount, bet: betAmount, netChange, hasBuff };
   }
 
   // ---------- 无尽试炼塔 ----------

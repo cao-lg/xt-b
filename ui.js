@@ -1097,8 +1097,8 @@
     if (!_bbResource) {
       const m = modal(`
         <div class="blind-box">
-          <div class="bb-title">🎰 战利品盲盒</div>
-          <div class="bb-desc">选一种资源投入，获得 1~10 倍回报！</div>
+        <div class="bb-title">🎰 战利品盲盒</div>
+        <div class="bb-desc">选一种资源投注（扣除本金），搏 0.3×~10×！亏本或翻盘！${hasBuff ? '✨天降祥瑞高倍率↑' : ''}</div>
           ${buffTip}
           <div class="bb-btns">
             <button class="bb-btn" data-bb="xp">📜 修为</button>
@@ -1124,17 +1124,20 @@
     const rName = _bbResource === 'xp' ? '修为' : _bbResource === 'stone' ? '灵石' : '天材地宝';
     const bets = Game.blindBoxBets(_bbResource);
     const betBtns = bets.map((amt, i) => {
-      const aff = amt > 0 && (_bbResource === 'xp' || amt <= (_bbResource === 'stone' ? s.stone : s.materials));
+      const aff = amt > 0
+        && (_bbResource === 'xp' ? amt <= s.xp
+          : _bbResource === 'stone' ? amt <= s.stone
+          : amt <= s.materials);
       return `<button class="bb-bet-btn" data-bet="${i}" ${aff ? '' : 'disabled'}>
         <span class="bb-bet-label">${BB_BET_LABELS[i]}</span>
         <span class="bb-bet-amt">${_bbResource === 'xp' ? Game.formatSpeed(amt) : Game.formatNum(amt)}</span>
-        <span class="bb-bet-pct">(${Math.round(amt / Math.max(1, bets[3]) * 100)}%)</span>
+        <span class="bb-bet-pct">(-${Math.round(amt / Math.max(1, bets[3]) * 100)}%)</span>
       </button>`;
     }).join('');
     const m = modal(`
       <div class="blind-box">
-        <div class="bb-title">🎰 ${rName} · 投注额</div>
-        <div class="bb-desc">选一注，搏 1~10 倍！${hasBuff ? '✨天降祥瑞高倍率↑' : ''}</div>
+        <div class="bb-title">🎰 ${rName} · 投注</div>
+        <div class="bb-desc">扣除投注额，掷 0.3×~10×！亏本或翻盘！${hasBuff ? '✨天降祥瑞高倍率↑' : ''}</div>
         <div class="bb-bet-grid">${betBtns}</div>
         <div class="bb-cancel"><button class="bb-btn-cancel">返回</button></div>
       </div>
@@ -1143,6 +1146,7 @@
       const idx = parseInt(btn.dataset.bet);
       const betAmt = bets[idx];
       if (betAmt <= 0) return;
+      if (_bbResource === 'xp' && betAmt > s.xp) return;
       if (_bbResource === 'stone' && betAmt > s.stone) return;
       if (_bbResource === 'mat' && betAmt > s.materials) return;
       _bbResolve = null; closeModal(m);
@@ -1161,7 +1165,7 @@
       <div class="blind-box">
         <div class="bb-title">🎰 开奖中……</div>
         <div class="bb-result">
-          <div class="bb-rolling">🎲 投注 ${rName}${resourceType === 'xp' ? '' : '（扣除本金）'}</div>
+          <div class="bb-rolling">🎲 -${resourceType === 'xp' ? Game.formatSpeed(betAmt) : Game.formatNum(betAmt)} ${rName} → 搏倍率</div>
           <div class="bb-number">×?</div>
         </div>
       </div>
@@ -1170,21 +1174,27 @@
     const numEl = m.querySelector('.bb-number');
     const rollEl = m.querySelector('.bb-rolling');
     // 滚动动画
+    const mults = [0.3, 0.6, 0.9, 1.2, 1.5, 2.0, 3.0, 5.0, 8.0, 10.0];
     let i = 0;
-    const ival = setInterval(() => { i = Math.floor(Math.random() * 10) + 1; numEl.textContent = '×' + i; }, 80);
+    const ival = setInterval(() => { i = Math.floor(Math.random() * 10); numEl.textContent = '×' + mults[i].toFixed(1); }, 80);
     const result = Game.rollBlindBox(resourceType, betAmt);
     setTimeout(() => {
       clearInterval(ival);
-      rollEl.textContent = `🎉 ${rName} ×${result.mult}！`;
-      numEl.textContent = `×${result.mult}`;
-      numEl.style.color = result.mult >= 8 ? '#ffd76f' : result.mult >= 5 ? '#7fd1c1' : '#ffe9a8';
+      numEl.textContent = '×' + result.mult.toFixed(1);
+      const isWin = result.netChange >= 0;
+      rollEl.textContent = isWin ? `🎉 净赚 +${resourceType === 'xp' ? Game.formatSpeed(result.netChange) : Game.formatNum(result.netChange)} ${rName}！` : `💸 净亏 ${resourceType === 'xp' ? Game.formatSpeed(-result.netChange) : Game.formatNum(-result.netChange)} ${rName}……`;
+      numEl.style.color = isWin ? '#ffd76f' : '#ff6b6b';
+      if (isWin && result.mult >= 8) numEl.style.color = '#c79fff';
       const amtEl = document.createElement('div');
       amtEl.className = 'bb-amount';
-      amtEl.textContent = '+ ' + (resourceType === 'xp' ? Game.formatSpeed(result.amount) : Game.formatNum(result.amount));
+      amtEl.textContent = isWin ? `${result.mult.toFixed(1)}× → ${resourceType === 'xp' ? Game.formatSpeed(result.amount) : Game.formatNum(result.amount)}` : `惨，${result.mult.toFixed(1)}× 只收回 ${resourceType === 'xp' ? Game.formatSpeed(result.amount) : Game.formatNum(result.amount)}`;
+      amtEl.style.color = isWin ? 'var(--jade)' : 'var(--danger)';
       m.querySelector('.bb-result').appendChild(amtEl);
-      FX.confetti(result.mult >= 8 ? ['#ffd76f','#ff9f9f','#c79fff'] : ['#ffd76f']);
+      const hasBuff = result.hasBuff;
+      if (isWin) FX.confetti(result.mult >= 5 ? ['#ffd76f','#ff9f9f','#c79fff'] : ['#ffd76f']);
+      if (result.netChange <= 0) FX.shake(1.2);
       // 自动关闭
-      setTimeout(() => { closeModal(m); _bbResolve = null; }, 2500);
+      setTimeout(() => { closeModal(m); _bbResolve = null; }, 3000);
     }, 600 + Math.random() * 400);
   }
   Game.on('pet', () => { if (currentTab === 'pet') renderCurrent(); });
