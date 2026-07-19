@@ -146,6 +146,37 @@ const Game = (function () {
     const cp = coreSpeed();
     return cp * CONFIG.stoneRatio * rootMult('stone') * (1 + insightStoneMult()) + purchasedFlat() * CONFIG.stoneRatio;
   }
+  // 修为/秒 完整分解（供 UI 展示灵气/秒公式与各项贡献；灵宠自动产出走独立 tick 故另列）
+  function speedBreakdown() {
+    const base = CONFIG.baseSpeed * Math.pow(CONFIG.growthPerLayer, state.layer);
+    const band = CONFIG.cultBandBase * Math.pow(CONFIG.cultBandMult, state.realmIndex) * (1 + state.layer * CONFIG.cultBandLayer);
+    const rMult = rootMult('speed');
+    const iMult = 1 + insightSpeedMult();
+    const lMult = legacyMult();
+    const bMult = blessMult('xiuwei');
+    const pa = petAllBonus();
+    const gSpd = goldenSpeedMult();
+    const gAll = goldenAllMult();
+    const golden = gSpd * gAll;
+    const afterBand = base * band;
+    const afterRoot = afterBand * rMult;
+    const afterInsight = afterRoot * iMult;
+    const afterGlobal = afterInsight * lMult * bMult * (1 + pa);
+    const afterGolden = afterGlobal * golden;
+    const tf = techniqueFlat(), af = abodeFlat(), pf = pillFlat();
+    return {
+      base, band,
+      rMult, iMult, lMult, bMult, paBonus: pa, golden,
+      afterBand, afterRoot, afterInsight, afterGlobal, afterGolden,
+      techFlat: tf, abodeFlat: af, pillFlat: pf,
+      purchasedFlat: tf + af + pf,
+      corePart: afterGolden,
+      currentSpeed: afterGolden + tf + af + pf,
+      petXpPerSec: petOutPerSec('xp'),       // 灵宠修为/秒（独立 tick，不计入 currentSpeed）
+      petStonePerSec: petOutPerSec('stone'), // 灵宠灵石/秒
+      petMatPerSec: petOutPerSec('mat')      // 灵宠材料/秒
+    };
+  }
 
   // 灵宠每秒产出（各类资源）
   function petOutPerSec(type) {
@@ -1003,7 +1034,7 @@ const Game = (function () {
     on, emit, start, save, load, reset, setDaoName, setRoot,
     doBreak, buyTechnique, buyAbode, takePill, clickCultivate, triggerEvent,
     seekPet, feedPet, explore, comprehend, reincarnate, checkAchievements,
-    currentSpeed, stoneSpeed, breakCost, canBreak, isMajorBreak, tribChance,
+    currentSpeed, stoneSpeed, speedBreakdown, breakCost, canBreak, isMajorBreak, tribChance,
     techniquePrice, abodePrice, seekCost, feedCost, insightPrice, legacyGain, canReincarnate, canExplore,
     techniqueFlat, abodeFlat, pillFlat, purchasedFlat, legacyMult, rootMult, petAllBonus, petOutPerSec, getTotalLayers,
     blessMult, blessCost, buyBlessing, towerTitle,

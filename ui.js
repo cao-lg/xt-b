@@ -135,6 +135,53 @@
     const bl = $('#buff-line'); if (bl) bl.innerHTML = buildBuffLine();
   }
 
+  // 灵气/秒 公式分解面板（点击顶栏灵气/秒展开）
+  let speedDetailOpen = false;
+  function renderSpeedDetail() {
+    const b = Game.speedBreakdown();
+    const fmt = (n) => Game.formatNum(n);
+    const pct = (n) => (n > 0 ? '+' : '') + Math.round(n * 100) + '%';
+    const note = b.petXpPerSec > 0
+      ? `（灵宠修为 ${fmt(b.petXpPerSec)}/秒 走独立 tick 直接加到修为池，不计入上方灵气/秒；灵根/獬豸的%加成走乘法链）`
+      : '';
+    const html = `
+      <div class="formula">灵气/秒 = base × band × 灵根 × 悟道 × 仙缘 × 祝福 × (1+獬豸) × 宝光 + 功法 + 洞府 + 丹药</div>
+      <div class="row"><span>base（天道基础）</span><span class="v">${b.base.toFixed(2)}</span></div>
+      <div class="row"><span>band（境界修炼带）</span><span class="v">${b.band.toFixed(2)}</span></div>
+      <div class="row dim"><span>= 天道核心 base×band</span><span class="v">${b.afterBand.toFixed(2)}</span></div>
+      <div class="row"><span>× 灵根(${Game.ROOTS.find(r=>r.id===Game.state.rootId)?.name||'无'}, ${pct(b.rMult-1)})</span><span class="v">${b.afterRoot.toFixed(2)}</span></div>
+      <div class="row"><span>× 悟道(+${(Game.state.insightLv.dao||0)*4}%)</span><span class="v">${b.afterInsight.toFixed(2)}</span></div>
+      <div class="row"><span>× 仙缘(×${b.lMult.toFixed(2)})</span><span class="v">—</span></div>
+      <div class="row"><span>× 仙缘殿·长春(×${b.bMult.toFixed(2)})</span><span class="v">—</span></div>
+      <div class="row"><span>× (1+獬豸·全资源 +${(b.paBonus*100).toFixed(0)}%)</span><span class="v">${b.afterGlobal.toFixed(2)}</span></div>
+      <div class="row"><span>× 天降机缘(${b.golden.toFixed(2)}×)</span><span class="v">${b.afterGolden.toFixed(2)}</span></div>
+      <div class="row dim"><span>= 天道核心 corePart</span><span class="v">${b.corePart.toFixed(2)}</span></div>
+      <div class="sep"></div>
+      <div class="row"><span>+ 功法 flat（永久·不享受比例）</span><span class="v">+${b.techFlat.toFixed(2)}</span></div>
+      <div class="row"><span>+ 洞府 flat（永久·不享受比例）</span><span class="v">+${b.abodeFlat.toFixed(2)}</span></div>
+      <div class="row"><span>+ 丹药 flat（限时冲刺）</span><span class="v">+${b.pillFlat.toFixed(2)}</span></div>
+      <div class="row dim"><span>= 玩家固定值 purchasedFlat</span><span class="v">+${b.purchasedFlat.toFixed(2)}</span></div>
+      <div class="sep"></div>
+      <div class="row total"><span>= 灵气/秒 currentSpeed</span><span class="v">${b.currentSpeed.toFixed(2)}</span></div>
+      <div class="sep"></div>
+      <div class="row dim"><span>🐲 灵宠修为/秒（独立tick）</span><span class="v dim">+${b.petXpPerSec.toFixed(2)}</span></div>
+      <div class="row dim"><span>💎 灵宠灵石/秒</span><span class="v dim">+${b.petStonePerSec.toFixed(2)}</span></div>
+      <div class="row dim"><span>🌿 灵宠材料/秒</span><span class="v dim">+${b.petMatPerSec.toFixed(2)}</span></div>
+      ${note ? `<div class="note">${note}</div>` : ''}
+    `;
+    const el = $('#speed-detail'); if (el) { el.innerHTML = html; el.hidden = false; }
+    const stat = $('#stat-speed'); if (stat) stat.classList.add('open');
+    speedDetailOpen = true;
+  }
+  function closeSpeedDetail() {
+    const el = $('#speed-detail'); if (el) { el.hidden = true; }
+    const stat = $('#stat-speed'); if (stat) stat.classList.remove('open');
+    speedDetailOpen = false;
+  }
+  function toggleSpeedDetail() {
+    if (speedDetailOpen) closeSpeedDetail(); else renderSpeedDetail();
+  }
+
   function buildBuffLine() {
     const s = Game.state;
     let html = '';
@@ -888,6 +935,7 @@
     // 签到摩擦优化：开屏自动领取（非阻塞 banner 反馈），不再强制弹窗；手动查看请点顶栏📅
     if (!Game.hasCheckedInToday()) Game.checkIn();
     const bci = $('#btn-checkin'); if (bci) bci.addEventListener('click', showCheckIn);
+    const ss = $('#stat-speed'); if (ss) ss.addEventListener('click', toggleSpeedDetail);
     function loop() { updateTopbar(); requestAnimationFrame(loop); }
     requestAnimationFrame(loop);
   }

@@ -76,6 +76,23 @@ html, body {
   flex: 1; background: var(--panel); border: 1px solid var(--border);
   border-radius: 10px; padding: 7px 8px; text-align: center;
 }
+.stat-speed { cursor: pointer; transition: border-color .15s; }
+.stat-speed:hover { border-color: var(--gold-soft); }
+.stat-speed.open .caret { transform: rotate(180deg); display: inline-block; transition: transform .2s; }
+.caret { font-size: 9px; opacity: .6; margin-left: 2px; display: inline-block; transition: transform .2s; }
+.speed-detail {
+  margin-top: 8px; background: rgba(0,0,0,0.35); border: 1px solid var(--border);
+  border-radius: 10px; padding: 10px 12px; font-size: 12px; color: var(--text);
+}
+.speed-detail .row { display: flex; justify-content: space-between; padding: 2px 0; }
+.speed-detail .row.dim { color: var(--text-dim); }
+.speed-detail .row .v { font-weight: 700; color: var(--gold-soft); font-variant-numeric: tabular-nums; }
+.speed-detail .row .v.dim { color: var(--text-dim); font-weight: 400; }
+.speed-detail .formula { background: rgba(0,0,0,0.3); border-radius: 6px; padding: 6px 8px; margin: 6px 0; font-size: 11px; color: var(--text-dim); word-break: break-all; }
+.speed-detail .sep { height: 1px; background: var(--border); margin: 6px 0; }
+.speed-detail .total { color: #ffe9a8; font-size: 14px; }
+.speed-detail .total .v { color: #ffe9a8; }
+.speed-detail .note { font-size: 11px; color: var(--text-dim); margin-top: 6px; font-style: italic; }
 .stat-label { display: block; font-size: 11px; color: var(--text-dim); }
 .stat-val { display: block; font-size: 14px; font-weight: 700; margin-top: 3px; color: var(--gold-soft); }
 
