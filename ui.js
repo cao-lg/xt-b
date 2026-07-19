@@ -122,7 +122,17 @@
     $('#xp-val').textContent = Game.formatNum(s.xp);
     $('#xp-need').textContent = Game.formatNum(cost);
     $('#stone-val').textContent = Game.formatNum(s.stone);
-    $('#speed-val').textContent = Game.formatSpeed(Game.currentSpeed());
+    {
+      const spd = Game.currentSpeed();
+      const px = Game.petOutPerSec('xp');
+      const tf = Game.techniqueFlat();
+      const af = Game.abodeFlat();
+      const pf = Game.pillFlat();
+      const flatTotal = tf + af + pf;
+      const petInfo = px > 0 ? ` · 🐲<span class="spd-px">+${Game.formatSpeed(px)}</span>` : '';
+      const flatInfo = flatTotal > 0 ? ` · 📜<span class="spd-ft">${Game.formatNum(tf)}</span> ⛰️<span class="spd-ft">${Game.formatNum(af)}</span> 💊<span class="spd-ft">${Game.formatNum(pf)}</span>` : '';
+      $('#speed-val').innerHTML = `<span class="spd-main">${Game.formatSpeed(spd)}</span>${petInfo}${flatInfo}`;
+    }
     $('#progress-bar').style.width = Math.min(100, ratio * 100) + '%';
     $('#progress-pct').textContent = Math.min(100, Math.floor(ratio * 100)) + '%';
     const ci = $('#btn-checkin'), cid = $('#ci-day');
