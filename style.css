@@ -93,6 +93,11 @@ html, body {
 .speed-detail .total { color: #ffe9a8; font-size: 14px; }
 .speed-detail .total .v { color: #ffe9a8; }
 .speed-detail .note { font-size: 11px; color: var(--text-dim); margin-top: 6px; font-style: italic; }
+.speed-detail .section { font-size: 13px; font-weight: 800; margin: 8px 0 4px; padding: 4px 8px; border-radius: 6px; }
+.speed-detail .sec-core { background: rgba(127,209,193,0.15); color: #7fd1c1; }
+.speed-detail .sec-flat { background: rgba(255,215,111,0.15); color: #ffd76f; }
+.speed-detail .sec-pet  { background: rgba(199,154,255,0.15); color: #c79aff; }
+.speed-detail .row .d { font-size: 11px; color: var(--text-dim); margin-left: 4px; opacity: .7; }
 .stat-label { display: block; font-size: 11px; color: var(--text-dim); }
 .stat-val { display: block; font-size: 14px; font-weight: 700; margin-top: 3px; color: var(--gold-soft); }
 

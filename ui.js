@@ -139,35 +139,87 @@
   let speedDetailOpen = false;
   function renderSpeedDetail() {
     const b = Game.speedBreakdown();
-    const fmt = (n) => Game.formatNum(n);
+    const s = Game.state;
+    const fmt = (n) => n < 10000 ? n.toFixed(2) : Game.formatNum(n);
     const pct = (n) => (n > 0 ? '+' : '') + Math.round(n * 100) + '%';
-    const note = b.petXpPerSec > 0
-      ? `（灵宠修为 ${fmt(b.petXpPerSec)}/秒 走独立 tick 直接加到修为池，不计入上方灵气/秒；灵根/獬豸的%加成走乘法链）`
-      : '';
+    // 各比例因子的独立贡献
+    const cb = b.afterBand;                                     // base×band
+    const dRoot  = b.afterRoot - b.afterBand;                   // 灵根贡献
+    const dIns   = b.afterInsight - b.afterRoot;                 // 悟道贡献
+    const dLeg   = b.afterInsight * (b.lMult - 1);              // 仙缘贡献
+    const dBless = (b.afterInsight + dLeg) * (b.bMult - 1);     // 祝福贡献
+    const dPa    = (b.afterInsight + dLeg + dBless) * b.paBonus; // 獬豸贡献
+    const dGold  = (b.afterInsight + dLeg + dBless + dPa) * (b.golden - 1); // 宝光贡献
+    const core  = b.afterGlobal;
+    // 分类标题
+    const fmtRow = (label, value, delta, unit) => {
+      const abs = value < 0 ? value.toFixed(2) : fmt(value);
+      const d = delta !== undefined && delta !== 0 ? `<span class="d">(+${fmt(delta)}</span>` : '';
+      return `<div class="row"><span>${label}</span><span class="v">${abs} ${unit||''} ${d}</span></div>`;
+    };
+    // 灵宠明细
+    const pets = Game.PETS.filter(p => (s.pets[p.id]||0) > 0);
+    const petRows = pets.map(p => {
+      const lv = s.pets[p.id]||0;
+      if (p.produce.type === 'all') return { id: p.id, label: p.name + '·全资源', val: (lv * p.produce.base * 100).toFixed(0) + '%', unit: '' };
+      if (p.produce.type === 'xp')  return { id: p.id, label: p.name + '·修为', val: fmt(p.produce.base * lv * b.lMult * (1 + b.paBonus) * b.golden), unit: '/秒' };
+      if (p.produce.type === 'stone') return { id: p.id, label: p.name + '·灵石', val: fmt(p.produce.base * lv * b.lMult * (1 + b.paBonus) * b.golden), unit: '/秒' };
+      if (p.produce.type === 'mat')  return { id: p.id, label: p.name + '·材料', val: fmt(p.produce.base * lv * b.lMult * (1 + b.paBonus) * b.golden), unit: '/秒' };
+      return null;
+    }).filter(Boolean);
+    const petTotal = pets.reduce((sum, p) => {
+      const lv = s.pets[p.id]||0;
+      if (p.produce.type === 'all') return sum;
+      const base = p.produce.base * lv * b.lMult * (1 + b.paBonus) * b.golden;
+      if (p.produce.type === 'xp') return { xp: (sum.xp||0) + base, stone: sum.stone||0, mat: sum.mat||0 };
+      if (p.produce.type === 'stone') return { xp: sum.xp||0, stone: (sum.stone||0) + base, mat: sum.mat||0 };
+      if (p.produce.type === 'mat') return { xp: sum.xp||0, stone: sum.stone||0, mat: (sum.mat||0) + base };
+      return sum;
+    }, { xp: 0, stone: 0, mat: 0 });
+    const hasPet = petTotal.xp > 0 || petTotal.stone > 0 || petTotal.mat > 0;
+    // 灵根名称
+    const rootName = Game.ROOTS.find(r => r.id === s.rootId)?.name || '无';
     const html = `
-      <div class="formula">灵气/秒 = base × band × 灵根 × 悟道 × 仙缘 × 祝福 × (1+獬豸) × 宝光 + 功法 + 洞府 + 丹药</div>
+      <div class="formula">灵气/秒 = 天道核心(base×band×比例乘区) + 玩家固定值(功法+洞府+丹药)</div>
+      <!-- 天道核心 -->
+      <div class="section sec-core">🏛 天道核心（享受境界缩放+灵根/悟道/仙缘/祝福/獬豸/宝光）</div>
       <div class="row"><span>base（天道基础）</span><span class="v">${b.base.toFixed(2)}</span></div>
-      <div class="row"><span>band（境界修炼带）</span><span class="v">${b.band.toFixed(2)}</span></div>
-      <div class="row dim"><span>= 天道核心 base×band</span><span class="v">${b.afterBand.toFixed(2)}</span></div>
-      <div class="row"><span>× 灵根(${Game.ROOTS.find(r=>r.id===Game.state.rootId)?.name||'无'}, ${pct(b.rMult-1)})</span><span class="v">${b.afterRoot.toFixed(2)}</span></div>
-      <div class="row"><span>× 悟道(+${(Game.state.insightLv.dao||0)*4}%)</span><span class="v">${b.afterInsight.toFixed(2)}</span></div>
-      <div class="row"><span>× 仙缘(×${b.lMult.toFixed(2)})</span><span class="v">—</span></div>
-      <div class="row"><span>× 仙缘殿·长春(×${b.bMult.toFixed(2)})</span><span class="v">—</span></div>
-      <div class="row"><span>× (1+獬豸·全资源 +${(b.paBonus*100).toFixed(0)}%)</span><span class="v">${b.afterGlobal.toFixed(2)}</span></div>
-      <div class="row"><span>× 天降机缘(${b.golden.toFixed(2)}×)</span><span class="v">${b.afterGolden.toFixed(2)}</span></div>
-      <div class="row dim"><span>= 天道核心 corePart</span><span class="v">${b.corePart.toFixed(2)}</span></div>
+      <div class="row"><span>× band（境界修炼带 ×${b.band.toFixed(2)}）</span><span class="v">${cb.toFixed(2)}</span></div>
+      <div class="row"><span>× 灵根·${rootName}（${pct(b.rMult-1)}）</span><span class="v">${b.afterRoot.toFixed(2)}</span></div>
+      <div class="row dim"><span style="padding-left:16px">· 灵根贡献</span><span class="v">+${fmt(dRoot)} /秒</span></div>
+      <div class="row"><span>× 悟道（${Game.REALMS[s.realmIndex]&&(s.insightLv.dao||0)*4}%）</span><span class="v">${b.afterInsight.toFixed(2)}</span></div>
+      <div class="row dim"><span style="padding-left:16px">· 悟道贡献</span><span class="v">+${fmt(dIns)} /秒</span></div>
+      <div class="row"><span>× 仙缘（×${b.lMult.toFixed(2)}）</span><span class="v">${(b.afterInsight * b.lMult).toFixed(2)}</span></div>
+      <div class="row dim"><span style="padding-left:16px">· 仙缘贡献</span><span class="v">+${fmt(dLeg)} /秒</span></div>
+      <div class="row"><span>× 仙缘殿·长春（×${b.bMult.toFixed(2)}）</span><span class="v">${(b.afterInsight * b.lMult * b.bMult).toFixed(2)}</span></div>
+      <div class="row dim"><span style="padding-left:16px">· 祝福贡献</span><span class="v">+${fmt(dBless)} /秒</span></div>
+      <div class="row"><span>× (1+獬豸 ${(b.paBonus*100).toFixed(0)}%)</span><span class="v">${(b.afterInsight * b.lMult * b.bMult * (1+b.paBonus)).toFixed(2)}</span></div>
+      <div class="row dim"><span style="padding-left:16px">· 獬豸贡献</span><span class="v">+${fmt(dPa)} /秒</span></div>
+      <div class="row"><span>× 天降机缘（×${b.golden.toFixed(2)}）</span><span class="v">${b.afterGolden.toFixed(2)}</span></div>
+      <div class="row dim"><span style="padding-left:16px">· 宝光贡献</span><span class="v">+${fmt(dGold)} /秒</span></div>
       <div class="sep"></div>
-      <div class="row"><span>+ 功法 flat（永久·不享受比例）</span><span class="v">+${b.techFlat.toFixed(2)}</span></div>
-      <div class="row"><span>+ 洞府 flat（永久·不享受比例）</span><span class="v">+${b.abodeFlat.toFixed(2)}</span></div>
-      <div class="row"><span>+ 丹药 flat（限时冲刺）</span><span class="v">+${b.pillFlat.toFixed(2)}</span></div>
-      <div class="row dim"><span>= 玩家固定值 purchasedFlat</span><span class="v">+${b.purchasedFlat.toFixed(2)}</span></div>
+      <div class="row total"><span>🏛 天道核心 合计</span><span class="v">${b.corePart.toFixed(2)} /秒</span></div>
+      <!-- 玩家固定值 -->
+      <div class="section sec-flat">🔧 玩家固定值（加在最后·不享受任何比例缩放）</div>
+      <div class="row"><span>📜 功法 flat（累计 ${b.techFlat.toFixed(1)}）</span><span class="v">+${b.techFlat.toFixed(2)} /秒</span></div>
+      <div class="row"><span>⛰️ 洞府 flat（累计 ${b.abodeFlat.toFixed(1)}）</span><span class="v">+${b.abodeFlat.toFixed(2)} /秒</span></div>
+      <div class="row"><span>💊 丹药 flat（累计 ${b.pillFlat.toFixed(1)}）</span><span class="v">+${b.pillFlat.toFixed(2)} /秒</span></div>
       <div class="sep"></div>
-      <div class="row total"><span>= 灵气/秒 currentSpeed</span><span class="v">${b.currentSpeed.toFixed(2)}</span></div>
+      <div class="row total"><span>🔧 玩家固定值 合计</span><span class="v">+${b.purchasedFlat.toFixed(2)} /秒</span></div>
+      <!-- 总 -->
       <div class="sep"></div>
-      <div class="row dim"><span>🐲 灵宠修为/秒（独立tick）</span><span class="v dim">+${b.petXpPerSec.toFixed(2)}</span></div>
-      <div class="row dim"><span>💎 灵宠灵石/秒</span><span class="v dim">+${b.petStonePerSec.toFixed(2)}</span></div>
-      <div class="row dim"><span>🌿 灵宠材料/秒</span><span class="v dim">+${b.petMatPerSec.toFixed(2)}</span></div>
-      ${note ? `<div class="note">${note}</div>` : ''}
+      <div class="row" style="font-size:16px;font-weight:900;color:#ffe9a8">
+        <span>⚡ 灵气/秒（${b.corePart.toFixed(2)} + ${b.purchasedFlat.toFixed(2)}）</span>
+        <span class="v" style="color:#ffe9a8">${b.currentSpeed.toFixed(2)} /秒</span>
+      </div>
+      <!-- 灵宠独立产出 -->
+      ${hasPet ? `<div class="section sec-pet">🐲 灵宠独立产出（直接加资源池，不计入灵气/秒）</div>
+      ${petRows.map(r => `<div class="row"><span style="padding-left:8px">${r.label}</span><span class="v dim">+${r.val}${r.unit||''}</span></div>`).join('')}
+      ${petTotal.xp > 0 ? `<div class="row total dim"><span style="padding-left:8px">小计·修为</span><span class="v">+${fmt(petTotal.xp)} /秒</span></div>` : ''}
+      ${petTotal.stone > 0 ? `<div class="row total dim"><span style="padding-left:8px">小计·灵石</span><span class="v">+${fmt(petTotal.stone)} /秒</span></div>` : ''}
+      ${petTotal.mat > 0 ? `<div class="row total dim"><span style="padding-left:8px">小计·材料</span><span class="v">+${fmt(petTotal.mat)} /秒</span></div>` : ''}
+      ` : ''}
+      <div class="note">💡 公式说明：天道核心 = base×band×灵根×悟道×仙缘×祝福×(1+獬豸)×宝光；玩家固定值 = 功法+洞府+丹药 flat（不乘任何比例）</div>
     `;
     const el = $('#speed-detail'); if (el) { el.innerHTML = html; el.hidden = false; }
     const stat = $('#stat-speed'); if (stat) stat.classList.add('open');
