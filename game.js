@@ -30,6 +30,7 @@ const Game = (function () {
       exploreCount: 0,       // 秘境探索次数
       realmCd: 0,            // 秘境探索冷却到期时间戳
       reincarnations: 0,     // 飞升次数
+      tribFails: 0,           // 连续渡劫失败计数（触发保底后清零）
       /* ---- 战斗 / 法宝 ---- */
       treasures: {},         // tid -> { count, level }
       equipped: { weapon: null, armor: null, trinket: null },
@@ -38,6 +39,9 @@ const Game = (function () {
       battles: 0,            // 累计出战次数
       bossKills: 0,          // 累计 BOSS 击杀数
       towerFloor: 0,         // 无尽试炼塔当前最高层
+      jade: 0,                // 仙玉（飞升转世赠予，可消耗于仙缘殿永久道韵）
+      blessings: {},          // 永久道韵等级 id -> 等级
+      awakenAddStreak: 0,     // 连续觉醒到「加成型」词条的计数（触发保底后清零）
       achievements: {},
       log: [],
       lastSave: now,
@@ -94,6 +98,13 @@ const Game = (function () {
   }
   // 仙缘全局倍率
   function legacyMult() { return 1 + state.legacy * CONFIG.legacyPerPoint; }
+
+  // 仙缘殿·永久道韵乘区（按 kind 取对应道韵的总加成）
+  function blessMult(kind) {
+    const b = BLESSINGS.find(x => x.kind === kind); if (!b) return 1;
+    const lv = state.blessings[b.id] || 0;
+    return 1 + b.effect * lv;
+  }
   // 灵根对某类资源的倍率
   function rootMult(type) {
     const r = ROOTS.find(x => x.id === state.rootId);
@@ -138,7 +149,7 @@ const Game = (function () {
   }
   // 综合修炼速度（修为/秒）= 核心速度 × 天降机缘（speed 仅修为 / all 全资源）
   function currentSpeed() {
-    return coreSpeed() * goldenSpeedMult() * goldenAllMult();
+    return coreSpeed() * goldenSpeedMult() * goldenAllMult() * blessMult('xiuwei');
   }
   function stoneSpeed() {
     return coreSpeed() * CONFIG.stoneRatio * rootMult('stone') * (1 + insightStoneMult()) * (1 + petAllBonus()) * goldenAllMult();
@@ -252,21 +263,24 @@ const Game = (function () {
       save(); emit('break', { major: false, realm: REALMS[state.realmIndex].name, layer: CHINESE_LAYER[state.layer] });
       return true;
     }
-    // 大境界：渡劫判定
+    // 大境界：渡劫判定（含保底：连续失败达阈值后下次必成；tribMercyStreak<=0 关闭保底）
     const chance = tribChance();
-    if (Math.random() < chance || (state.pills.bijie || 0) > 0) {
+    const mercy = CONFIG.tribMercyStreak > 0 && (state.tribFails || 0) >= CONFIG.tribMercyStreak;
+    if (mercy || Math.random() < chance || (state.pills.bijie || 0) > 0) {
+      state.tribFails = 0;
       state.xp = 0; state.breaks++;
       state.layer = 0; state.realmIndex++;
       const ins = CONFIG.insightPerMajor[state.realmIndex] || 0;
       if (ins > 0) { state.insight += ins; pushLog(`渡劫体悟，获悟性点 +${ins}`, '📿'); }
       checkAchievements();
-      pushLog(`渡劫成功，晋入${REALMS[state.realmIndex].name}！`, '🌟');
-      save(); emit('break', { major: true, realm: REALMS[state.realmIndex].name, success: true });
+      pushLog(mercy ? `天道庇佑，渡劫终成，晋入${REALMS[state.realmIndex].name}！` : `渡劫成功，晋入${REALMS[state.realmIndex].name}！`, mercy ? '🛡️' : '🌟');
+      save(); emit('break', { major: true, realm: REALMS[state.realmIndex].name, success: true, mercy });
       return true;
     } else {
+      state.tribFails = (state.tribFails || 0) + 1;
       const loss = state.xp * CONFIG.tribFailLoss;
       state.xp -= loss;
-      pushLog(`渡劫失败！道心受创，损修为 ${formatNum(loss)}`, '💥');
+      pushLog(`渡劫失败！道心受创，损修为 ${formatNum(loss)}（连续失败 ${state.tribFails}/${CONFIG.tribMercyStreak}，再败将获天道庇佑）`, '💥');
       save(); emit('break', { major: true, success: false });
       return 'fail';
     }
@@ -372,18 +386,40 @@ const Game = (function () {
   }
 
   /* ---------- 飞升转生 ---------- */
-  function legacyGain() { return Math.floor(Math.sqrt(state.totalXp / CONFIG.legacyGainBase)); }
+  function legacyGain() { return Math.floor(Math.sqrt(state.totalXp / CONFIG.legacyGainBase) * blessMult('xianyuan')); }
   function canReincarnate() { return state.realmIndex >= REALMS.length - 1; }
   function reincarnate() {
     if (!canReincarnate()) return false;
     const gain = legacyGain();
-    state.legacy += gain; state.reincarnations++;
+    state.legacy += gain; state.jade += gain; state.reincarnations++;
     state.realmIndex = 0; state.layer = 0; state.xp = 0; state.stone = 0;
     state.techniques = {}; state.abodes = {}; state.pills = {};
     state.pets = {}; state.materials = 0; state.seekCount = 0; state.exploreCount = 0; state.breaks = 0;
-    pushLog(`🔁 飞升转世！得仙缘 +${gain}（全局效率 +${Math.round(gain * CONFIG.legacyPerPoint * 100)}%）`, '🔁');
+    pushLog(`🔁 飞升转世！得仙缘 +${gain}（全局效率 +${Math.round(gain * CONFIG.legacyPerPoint * 100)}%）· 仙玉 +${gain}`, '🔁');
     checkAchievements();
     save(); emit('reincarnate', { gain }); return true;
+  }
+
+  /* ---------- 仙缘殿·永久道韵 ---------- */
+  function blessCost(id) {
+    const b = BLESSINGS.find(x => x.id === id); if (!b) return Infinity;
+    const lv = state.blessings[id] || 0;
+    return Math.floor(b.baseCost * Math.pow(b.growth, lv));
+  }
+  function buyBlessing(id) {
+    const b = BLESSINGS.find(x => x.id === id); if (!b) return false;
+    const lv = state.blessings[id] || 0;
+    if (lv >= b.max) return false;
+    const cost = blessCost(id);
+    if (state.jade < cost) return false;
+    state.jade -= cost; state.blessings[id] = lv + 1;
+    pushLog(`💠 修得${b.name} 第${lv + 1}重（${b.desc}）`, b.icon);
+    save(); emit('bless', { id, lv: lv + 1 }); return true;
+  }
+  function towerTitle() {
+    let t = TOWER_TIERS[0];
+    for (const x of TOWER_TIERS) if (state.towerFloor >= x.floor) t = x;
+    return t;
   }
 
   /* ---------- 奇遇 ---------- */
@@ -561,6 +597,8 @@ const Game = (function () {
     atk *= daoRatio; def *= daoRatio; hp *= daoRatio;
     // 境界战力带缩放
     atk *= band; def *= band; hp *= band;
+    // 仙缘殿·永久道韵（破军）
+    const bm = blessMult('zhanli'); atk *= bm; def *= bm; hp *= bm;
 
     // —— 命中/闪避/暴击：纯加法，不封顶（combat 判定时夹 [0,1]）——
     let hit = CONFIG.combat.baseHit + r * CONFIG.combat.realmHit;
@@ -865,6 +903,21 @@ const Game = (function () {
     const value = a.min + Math.random() * (a.max - a.min);
     return { type: a.type, kind: a.kind, value: +value.toFixed(4), name: a.name };
   }
+  // 觉醒词条保底：连续 awaken.pity 次「加成型」词条后，下次必出 攻/血 百分比词条
+  function rollAffixPity() {
+    const pool = CONFIG.awaken.affixes;
+    if (CONFIG.awaken.pity > 0 && (state.awakenAddStreak || 0) >= CONFIG.awaken.pity) {
+      const pct = pool.filter(a => (a.type === 'atk' || a.type === 'hp') && a.kind === 'pct');
+      const a = pct[Math.floor(Math.random() * pct.length)];
+      const value = a.min + Math.random() * (a.max - a.min);
+      state.awakenAddStreak = 0;
+      return { type: a.type, kind: a.kind, value: +value.toFixed(4), name: a.name, pitied: true };
+    }
+    const a = pool[Math.floor(Math.random() * pool.length)];
+    const value = a.min + Math.random() * (a.max - a.min);
+    if (a.kind === 'add') state.awakenAddStreak = (state.awakenAddStreak || 0) + 1; else state.awakenAddStreak = 0;
+    return { type: a.type, kind: a.kind, value: +value.toFixed(4), name: a.name };
+  }
   function awakenTreasure(tid) {
     const t = TREASURES.find(x => x.id === tid); const own = state.treasures[tid];
     if (!t || !own || own.level < CONFIG.treasure.maxLevel) return false;
@@ -874,12 +927,13 @@ const Game = (function () {
     let affixes = own.affixes || [];
     let last;
     if (affixes.length >= CONFIG.awaken.maxAffixes) {
+      state.awakenAddStreak = 0; // 重铸全部，保底计数重置
       affixes = [];
-      for (let i = 0; i < CONFIG.awaken.maxAffixes; i++) affixes.push(rollAffix());   // 满 3 条 → 重 roll 全部
+      for (let i = 0; i < CONFIG.awaken.maxAffixes; i++) affixes.push(rollAffixPity());   // 满 3 条 → 重 roll 全部
       last = affixes[affixes.length - 1];
       pushLog(`🌟 ${t.name}重铸觉醒：${affixText(last, last.value)} 等 ${affixes.length} 条`, t.icon);
     } else {
-      last = rollAffix(); affixes.push(last);
+      last = rollAffixPity(); affixes.push(last);
       pushLog(`🌟 ${t.name}觉醒：${affixText(last, last.value)}`, t.icon);
     }
     own.affixes = affixes;
@@ -960,6 +1014,7 @@ const Game = (function () {
     currentSpeed, stoneSpeed, breakCost, canBreak, isMajorBreak, tribChance,
     techniquePrice, abodePrice, seekCost, feedCost, insightPrice, legacyGain, canReincarnate, canExplore,
     techniqueFlat, techniqueTopRatio, abodeFlat, abodeTopRatio, pillMult, legacyMult, rootMult, petAllBonus, petOutPerSec, getTotalLayers,
+    blessMult, blessCost, buyBlessing, towerTitle,
     formatNum, formatSpeed, formatTime,
     combatStats, currentSpeed, qualityMult, treasureStats, canBattle, battleCooldownLeft, isLevelUnlocked, fight, simulateCombat, towerEnemy, towerFight, softCap, combatBreakdown, combatFormula,
     hasTreasure, equipTreasure, unequip, enhanceCost, enhanceTreasure, smeltTreasure, awakenTreasure, awakenCost,
@@ -971,6 +1026,7 @@ const Game = (function () {
     get SECRET_REALMS() { return SECRET_REALMS; }, get INSIGHTS() { return INSIGHTS; },
     get EVENTS() { return EVENTS; }, get ACHIEVEMENTS() { return ACHIEVEMENTS; },
     get QUALITY() { return QUALITY; }, get TREASURES() { return TREASURES; }, get MAPS() { return MAPS; },
+    get BLESSINGS() { return BLESSINGS; }, get TOWER_TIERS() { return TOWER_TIERS; },
     LAYERS_PER_REALM, CHINESE_LAYER
   };
 })();

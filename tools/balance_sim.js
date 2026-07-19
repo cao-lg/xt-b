@@ -107,8 +107,8 @@ function simEconomy(rootId, seed, maxT) {
     const dl = s.insightLv.dao || 0; if (dl < 50 && s.insight >= g.insightPrice('dao')) best = { time: 0, kind: 'ins', id: 'dao' };
     const nt = Math.min(tB, best ? best.time : Infinity);
     if (!isFinite(nt)) { t += 60; advance(g, 60); continue; }
-    const dt = Math.max(0, nt);
-    if (dt < 1e-6 && !g.canBreak()) { t += 1; advance(g, 1); continue; }
+    let dt = Math.max(0, nt);
+    if (dt < 1e-6 && !g.canBreak()) dt = 1; // 买得起即购买（不再因 dt=0 跳过，避免虚高时长）
     advance(g, dt); t += dt;
     if (g.canBreak()) continue;
     if (best && dt >= best.time - 1e-9) {
@@ -178,7 +178,7 @@ function snapAtRealm(rootId, seed, target) {
     const dl = s.insightLv.dao || 0; if (dl < 50 && s.insight >= g.insightPrice('dao')) best = { time: 0, kind: 'ins', id: 'dao' };
     const nt = Math.min(tB, best ? best.time : Infinity);
     if (!isFinite(nt)) { t += 60; advance(g, 60); continue; }
-    const dt = Math.max(0, nt); if (dt < 1e-6 && !g.canBreak()) { t += 1; advance(g, 1); continue; }
+    let dt = Math.max(0, nt); if (dt < 1e-6 && !g.canBreak()) dt = 1;
     advance(g, dt); t += dt;
     if (g.canBreak()) continue;
     if (best && dt >= best.time - 1e-9) { if (best.kind === 'tech') g.buyTechnique(best.id); else if (best.kind === 'abode') g.buyAbode(best.id); else if (best.kind === 'ins') g.comprehend('dao'); }

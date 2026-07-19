@@ -13,7 +13,7 @@ const CONFIG = {
   // 修炼带：把「基础 + 固定值」整体按境界缩放（功法/洞府固定值也由此享受比例提升，与战斗战力带一致）
   cultBandBase: 1,         // 修炼带基数
   cultBandMult: 2.2,       // 每大境界 修炼带 ×2.2（v3 重平衡：由 1.5 上调，使修炼速度随境界成长足以追上突破成本，解除中后期卡死）
-  cultBandLayer: 0.05,     // 每小层 修炼带 +5%（v3 由 0.04 上调，层内提速更顺）
+  cultBandLayer: 0.06,     // 每小层 修炼带 +6%（v3 由 0.04→0.05 上调；本次再微调软化层内墙，仅作用于修炼速度，不影响战斗平衡）
   baseCost: 900,           // 第 0 层突破所需修为（基准）
   layerCostGrowth: 2.0,    // 每小层突破成本 ×2.0（v3 由 2.10 下调，层内节奏更平滑）
   realmCostGrowth: 3.2,    // 每大境界突破成本 ×3.2（v3 重平衡：由 9.00 大幅下调——原值使成本增速远超速度增速，导致元婴之后永久卡死、游戏不可通关；现与修炼带(×2.2)/功法洞府再投资/仙缘复合匹配）
@@ -48,6 +48,7 @@ const CONFIG = {
   /* 渡劫风险 */
   tribBase: 0.70,          // 大境界突破基础成功率
   tribFailLoss: 0.5,       // 渡劫失败损失「当前层累积修为」比例
+  tribMercyStreak: 4,      // 连续渡劫失败达此次数后，下次必成（保底/怜悯机制，防极端霉运致挫败；设 0 关闭）
 
   /* 悟性点来源 */
   insightPerMajor: [0, 5, 12, 25, 45, 80, 140, 240, 400, 700], // 各大境界突破奖励（按 realmIndex）
@@ -118,7 +119,7 @@ const CONFIG = {
   golden: {
     minInterval: 150, maxInterval: 320,   // 两次机缘最小/最大间隔（秒）
     pity: 480,                            // 保底：距上次超过此秒数必出
-    orbLife: 16,                          // 宝光在屏可点击时长（秒）
+    orbLife: 20,                          // 宝光在屏可点击时长（秒）
     buffs: [
       { id: 'speed', name: '灵机迸发', desc: '修炼速度 ×5', mult: 5, dur: 30, color: 'rgba(127,209,193,0.92)' },
       { id: 'all',   name: '万物滋长', desc: '全资源 ×2',   mult: 2, dur: 60, color: 'rgba(255,215,111,0.94)', scope: 'all' },
@@ -128,6 +129,7 @@ const CONFIG = {
   // 法宝觉醒（词缀）：满级后可觉醒，按「本法宝基数百分比」或加性百分比赋予词缀（条数封顶）
   awaken: {
     costBase: 150, costGrowth: 1.85, maxAffixes: 3,
+    pity: 2,               // 连续 N 次非百分比(加成型)词条后，下次必出 攻/血 百分比词条（保底；满 3 条槽需 ≤2 方能保证至少 1 条有用词条）
     affixes: [
       { type: 'atk',   kind: 'pct', min: 0.08, max: 0.18, name: '锋锐' },
       { type: 'def',   kind: 'pct', min: 0.08, max: 0.18, name: '坚壁' },
@@ -330,6 +332,29 @@ const INSIGHTS = [
   { id: 'dao',  name: '参悟·大道', desc: '基础修炼速度 +4%/级', base: 2, growth: 1.5, mult: 0.04, max: 50, icon: '☯️' },
   { id: 'jie',  name: '参悟·渡劫', desc: '渡劫成功率 +4%/级',   base: 3, growth: 1.6, mult: 0.04, max: 50, icon: '⚡' },
   { id: 'cai',  name: '参悟·聚财', desc: '灵石效率 +4%/级',     base: 2, growth: 1.5, mult: 0.04, max: 50, icon: '💰' }
+];
+
+/* ---------- 仙缘殿·永久道韵（消耗「仙玉」购买，跨轮回永久生效） ---------- */
+/* kind 对应生效维度：xiuwei=修炼速度, zhanli=战斗攻防血, xianyuan=仙缘(仙玉)获取 */
+const BLESSINGS = [
+  { id: 'xiuwei',   kind: 'xiuwei',   name: '道韵·长春', desc: '修炼速度 +8%/级（永久）', icon: '🌱', baseCost: 20, growth: 1.7, max: 10, effect: 0.08 },
+  { id: 'zhanli',   kind: 'zhanli',   name: '道韵·破军', desc: '战斗 攻/防/血 +8%/级（永久）', icon: '⚔️', baseCost: 20, growth: 1.7, max: 10, effect: 0.08 },
+  { id: 'xianyuan', kind: 'xianyuan', name: '道韵·聚仙', desc: '仙玉获取 +10%/级（永久）', icon: '🔮', baseCost: 30, growth: 1.8, max: 10, effect: 0.10 }
+];
+
+/* ---------- 无尽试炼塔·位阶（本地，依据历史最高层） ---------- */
+const TOWER_TIERS = [
+  { floor: 0,   title: '凡俗',     icon: '🌑' },
+  { floor: 10,  title: '炼气士',   icon: '🌒' },
+  { floor: 25,  title: '筑基真人', icon: '🌓' },
+  { floor: 50,  title: '金丹真人', icon: '🌔' },
+  { floor: 100, title: '元婴真君', icon: '🌕' },
+  { floor: 200, title: '化神天君', icon: '☀️' },
+  { floor: 400, title: '炼虚尊者', icon: '🌟' },
+  { floor: 700, title: '合体大宗', icon: '👑' },
+  { floor: 1000,title: '大乘仙尊', icon: '🏯' },
+  { floor: 1500,title: '渡劫道祖', icon: '⚡' },
+  { floor: 2000,title: '真仙之姿', icon: '✨' }
 ];
 
 /* ---------- 奇遇事件（随机触发，奖励进入日志） ---------- */

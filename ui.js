@@ -125,6 +125,11 @@
     $('#speed-val').textContent = Game.formatSpeed(Game.currentSpeed());
     $('#progress-bar').style.width = Math.min(100, ratio * 100) + '%';
     $('#progress-pct').textContent = Math.min(100, Math.floor(ratio * 100)) + '%';
+    const ci = $('#btn-checkin'), cid = $('#ci-day');
+    if (ci) {
+      if (Game.hasCheckedInToday()) { ci.classList.add('done'); if (cid) cid.textContent = '✓'; }
+      else { ci.classList.remove('done'); if (cid) cid.textContent = '第' + (Game.state.checkInStreak + 1) + '天'; }
+    }
     const bb = $('#btn-break');
     if (bb) { const ready = Game.canBreak(); bb.classList.toggle('ready', ready); bb.disabled = !ready; }
     const bl = $('#buff-line'); if (bl) bl.innerHTML = buildBuffLine();
@@ -326,6 +331,41 @@
     if (bf) bf.addEventListener('click', () => { if (Game.reincarnate()) renderCurrent(); });
   }
 
+  /* ---------------- 仙缘殿·永久道韵 ---------------- */
+  function renderBless() {
+    const s = Game.state;
+    const jade = s.jade || 0;
+    const cards = Game.BLESSINGS.map(b => {
+      const lv = (s.blessings && s.blessings[b.id]) || 0;
+      const maxed = lv >= b.max;
+      const cost = Game.blessCost(b.id);
+      const afford = jade >= cost;
+      const effNow = (b.effect * lv * 100).toFixed(0);
+      const effNext = (b.effect * (lv + 1) * 100).toFixed(0);
+      return `<div class="card bless-card">
+        <div class="icon">${b.icon}</div>
+        <div class="body">
+          <div class="name">${b.name} <span class="lv">${'●'.repeat(lv)}${'○'.repeat(b.max - lv)}</span></div>
+          <div class="desc">${b.desc}</div>
+          <div class="sub">当前 +${effNow}% ${lv < b.max ? '→ 下重 +' + effNext + '%' : '（已圆满）'}</div>
+        </div>
+        <button class="buy-btn" data-bless="${b.id}" ${maxed || !afford ? 'disabled' : ''}>${maxed ? '圆满' : '修习<div class="price">' + Game.formatNum(cost) + ' 🔮</div>'}</button>
+      </div>`;
+    }).join('');
+    view.innerHTML = `
+      <div class="res-bar">
+        <div class="res-chip jade"><div class="l">仙玉</div><div class="v">🔮 ${Game.formatNum(jade)}</div></div>
+        <div class="res-chip legacy"><div class="l">仙缘</div><div class="v">🔁 ${Game.formatNum(s.legacy)}</div></div>
+      </div>
+      <div class="section-title">🔮 仙缘殿 <small>消耗仙玉修习永久道韵，跨轮回永驻</small></div>
+      <div class="hint">仙玉于每次飞升转世时与仙缘同额赠予；道韵加持永不随轮回消散，越往后收益越厚。</div>
+      <div class="list">${cards}</div>`;
+    view.querySelectorAll('[data-bless]').forEach(b => b.addEventListener('click', () => {
+      if (Game.buyBlessing(b.dataset.bless)) renderBless();
+      else toast('仙玉不足');
+    }));
+  }
+
   /* ---------------- 奇遇 / 成就 / 设置 ---------------- */
   function renderEvents() {
     const s = Game.state;
@@ -403,12 +443,12 @@
       const diff = difficultyRating(preview, st.power);
       body = `
         <div class="tower-view">
-          <div class="tower-info">当前最高层 <b>${s.towerFloor}</b> · 下一层 <b>${next}</b> · 难度 ×${d} · 推荐战力 <b>${Game.formatNum(ep)}</b> · 难度 <span class="${diff.cls}">${diff.text}</span></div>
+          <div class="tower-info">位阶 <b class="tower-title">${Game.towerTitle().icon} ${Game.towerTitle().title}</b> · 当前最高层 <b>${s.towerFloor}</b> · 下一层 <b>${next}</b> · 难度 ×${d} · 推荐战力 <b>${Game.formatNum(ep)}</b> · 难度 <span class="${diff.cls}">${diff.text}</span></div>
           <div class="level-row">
             <div class="level-idx">🗼</div>
             <div class="level-body">
               <div class="name">${preview.icon} ${preview.name} ${preview.boss ? '<span class="boss-tag">BOSS</span>' : ''}</div>
-              <div class="enemy-stats">攻${preview.atk} 防${preview.def} 气血${preview.hp} 命中${Math.round(preview.hit * 100)}% 闪避${Math.round(preview.dodge * 100)}% 暴击${Math.round(preview.crit * 100)}%</div>
+              <div class="enemy-stats">攻${Game.formatNum(preview.atk)} 防${Game.formatNum(preview.def)} 气血${Game.formatNum(preview.hp)} 命中${Math.round(preview.hit * 100)}% 闪避${Math.round(preview.dodge * 100)}% 暴击${Math.round(preview.crit * 100)}%</div>
               <div class="reward-line">奖励 灵石${Game.formatNum(preview.reward.stone[0])}~${Game.formatNum(preview.reward.stone[1])} · 🌿${preview.reward.mat[0]}~${preview.reward.mat[1]} · 修为 ≈ ${Game.formatNum(xp)} · 法宝掉落${Math.round(preview.drop.chance * 100)}%</div>
             </div>
             <button class="buy-btn fight-btn" data-tower="${next}" ${cd ? 'disabled' : ''}>挑战</button>
@@ -512,8 +552,8 @@
         '<div class="scene-bg"></div>'+
         '<div class="vs-intro"><span>VS</span></div>'+
         '<div class="bars">'+
-          '<div class="hpbar p"><div class="hp-fill p" style="width:100%"></div><span class="hp-label" data-plabel>气血 '+pHp0+'</span></div>'+
-          '<div class="hpbar e"><div class="hp-fill e" style="width:100%"></div><span class="hp-label" data-elabel>'+lv.name+' '+eHp0+'</span></div>'+
+          '<div class="hpbar p"><div class="hp-fill p" style="width:100%"></div><span class="hp-label" data-plabel>气血 '+Game.formatNum(pHp0)+'</span></div>'+
+          '<div class="hpbar e"><div class="hp-fill e" style="width:100%"></div><span class="hp-label" data-elabel>'+lv.name+' '+Game.formatNum(eHp0)+'</span></div>'+
         '</div>'+
         '<div class="powerbar"><span class="pw-p">战力 '+Game.formatNum(pPow)+'</span><div class="pw-track"><div class="pw-fill p" style="width:'+pPct+'%"></div><div class="pw-fill e" style="width:'+ePct+'%"></div></div><span class="pw-e">强度 '+Game.formatNum(ePow)+'</span></div>'+
         '<div class="arena">'+
@@ -524,7 +564,7 @@
         '<div class="fx-layer"></div>'+
         '<div class="seal '+(r.win?'win':'lose')+'" style="display:none"><span>'+(r.win?'胜':'败')+'</span></div>'+
       '</div>'+
-      '<div class="combat-sub">'+lv.name+' · 回合 '+res.rounds+' · 你剩余气血 <span data-pend>'+pHp0+'</span></div>'+
+      '<div class="combat-sub">'+lv.name+' · 回合 '+res.rounds+' · 你剩余气血 <span data-pend>'+Game.formatNum(pHp0)+'</span></div>'+
       '<div class="combat-log">'+lines+more+'</div>'+
       '<div class="combat-reward" style="display:none">'+rewardHtml+'</div>'+
       '<button class="btn" id="cb-ok" style="display:none">收剑</button>', 'combat');
@@ -543,7 +583,7 @@
     var log=res.log, pHp0=res.player.hp, eHp0=res.enemy.hp;
     var pHp=pHp0, eHp=eHp0, i=0, phased=false, castCount=0;
     var delay=Math.max(110,Math.min(400,6500/Math.max(1,log.length)));
-    function sh(){pFill.style.width=Math.max(0,pHp/pHp0*100)+'%';eFill.style.width=Math.max(0,eHp/eHp0*100)+'%';pLabel.textContent='气血 '+Math.max(0,Math.round(pHp));eLabel.textContent=lv.name+' '+Math.max(0,Math.round(eHp));var pe=m.querySelector('[data-pend]');if(pe)pe.textContent=Math.max(0,Math.round(pHp));}
+    function sh(){pFill.style.width=Math.max(0,pHp/pHp0*100)+'%';eFill.style.width=Math.max(0,eHp/eHp0*100)+'%';pLabel.textContent='气血 '+Game.formatNum(Math.max(0,pHp));eLabel.textContent=lv.name+' '+Game.formatNum(Math.max(0,eHp));var pe=m.querySelector('[data-pend]');if(pe)pe.textContent=Game.formatNum(Math.max(0,pHp));}
     function lunge(w){var f=w==='p'?pFighter:eFighter,c=w==='p'?'lunge-p':'lunge-e';f.classList.remove(c);void f.offsetWidth;f.classList.add(c);}
     function hitR(f){f.classList.remove('hit');void f.offsetWidth;f.classList.add('hit');setTimeout(function(){f.classList.remove('hit')},320);}
     function ft(target,text,cls){var s=fx.getBoundingClientRect(),t=target.getBoundingClientRect();var el=document.createElement('div');el.className='dmg-num '+cls;el.textContent=text;el.style.left=(t.left-s.left+t.width/2)+'px';el.style.top=(t.top-s.top+t.height*.18)+'px';fx.appendChild(el);setTimeout(function(){el.remove()},950);}
@@ -551,8 +591,8 @@
     function castSkill(){castCount++;pAura.classList.add('on');banner.classList.remove('show');void banner.offsetWidth;banner.classList.add('show');if(S&&S.getEnabled())S.play('skill');var s=fx.getBoundingClientRect(),tp=pFighter.getBoundingClientRect(),te=eFighter.getBoundingClientRect();var cx=tp.left-s.left+tp.width/2,cy=tp.top-s.top+tp.height*.4;var dx=te.left-s.left+te.width/2-cx,dy=te.top-s.top+te.height*.4-cy;var el=document.createElement('div');el.className='projectile';el.style.left=cx+'px';el.style.top=cy+'px';el.style.setProperty('--dx',dx+'px');el.style.setProperty('--dy',dy+'px');el.style.setProperty('--proj',aura);el.innerHTML=A.projectileSVG(techEl);fx.appendChild(el);el.classList.add('go');el.addEventListener('animationend',function(){el.remove();var im=document.createElement('div');im.className='impact';im.style.left=(cx+dx)+'px';im.style.top=(cy+dy)+'px';im.style.setProperty('--proj',aura);fx.appendChild(im);setTimeout(function(){im.remove()},400);});setTimeout(function(){pAura.classList.remove('on')},1100);}
     function finish(){pHp=res.pHp;eHp=res.eHp;sh();var rw=m.querySelector('.combat-reward');if(rw)rw.style.display='';var ok=m.querySelector('#cb-ok');if(ok)ok.style.display='';if(seal){seal.style.display='';void seal.offsetWidth;seal.querySelector('span').style.animation='none';void seal.querySelector('span').offsetWidth;seal.querySelector('span').style.animation='sealStamp .5s cubic-bezier(.2,1.4,.4,1) forwards';}if(S&&S.getEnabled())S.play(res.win?'win':'lose');}
     function step(){if(!stage.isConnected)return;if(i>=log.length){finish();return}var e=log[i];if(e.side==='p'&&(i===0||i%6===5))castSkill();if(!phased&&lv.boss&&eHp/eHp0<=.5){phased=true;stage.classList.add('phase2');banner.textContent='【二阶段】· 暴怒';banner.classList.remove('show');void banner.offsetWidth;banner.classList.add('show');setTimeout(function(){banner.textContent='施放 · 暴怒';},1200);if(S&&S.getEnabled())S.play('skill');}
-    if(e.side==='p'){if(e.miss){ft(eFighter,'闪避','miss');lunge('p');}else{eHp=Math.max(0,eHp-e.dmg);sh();lunge('p');hitR(eFighter);ft(eFighter,'-'+e.dmg+(e.crit?' 暴击!':''),e.crit?'crit':'dmg');spawnParticles(eFighter,e.crit?12:7);if(e.crit){stage.classList.remove('crit');void stage.offsetWidth;stage.classList.add('crit');if(S&&S.getEnabled())S.play('crit');}else if(S&&S.getEnabled())S.play('hit');}}
-    else{if(e.miss){ft(pFighter,'闪避','miss');lunge('e');}else{pHp=Math.max(0,pHp-e.dmg);sh();lunge('e');hitR(pFighter);ft(pFighter,'-'+e.dmg+(e.crit?' 暴击!':''),e.crit?'crit':'dmg');spawnParticles(pFighter,e.crit?12:7);if(e.crit){stage.classList.remove('crit');void stage.offsetWidth;stage.classList.add('crit');if(S&&S.getEnabled())S.play('crit');}else if(S&&S.getEnabled())S.play('hit');}}
+    if(e.side==='p'){if(e.miss){ft(eFighter,'闪避','miss');lunge('p');}else{eHp=Math.max(0,eHp-e.dmg);sh();lunge('p');hitR(eFighter);ft(eFighter,'-'+Game.formatNum(e.dmg)+(e.crit?' 暴击!':''),e.crit?'crit':'dmg');spawnParticles(eFighter,e.crit?12:7);if(e.crit){stage.classList.remove('crit');void stage.offsetWidth;stage.classList.add('crit');if(S&&S.getEnabled())S.play('crit');}else if(S&&S.getEnabled())S.play('hit');}}
+    else{if(e.miss){ft(pFighter,'闪避','miss');lunge('e');}else{pHp=Math.max(0,pHp-e.dmg);sh();lunge('e');hitR(pFighter);ft(pFighter,'-'+Game.formatNum(e.dmg)+(e.crit?' 暴击!':''),e.crit?'crit':'dmg');spawnParticles(pFighter,e.crit?12:7);if(e.crit){stage.classList.remove('crit');void stage.offsetWidth;stage.classList.add('crit');if(S&&S.getEnabled())S.play('crit');}else if(S&&S.getEnabled())S.play('hit');}}
     i++;setTimeout(step,delay);}
     setTimeout(step,250);
   }
@@ -608,12 +648,13 @@
     }).join('');
     view.innerHTML = `
       <div class="section-title">💎 法宝 <small>获取/装备/强化/熔炼，撑起战力</small></div>
+      <div class="hint">觉醒随机赋予词条；连续 ${CONFIG.awaken.pity} 次加成型词条后，下次必出「攻/血 百分比」词条（保底）。</div>
       <div class="res-bar"><div class="res-chip mat"><div class="l">天材地宝</div><div class="v">🌿 ${Game.formatNum(s.materials)}</div></div><div class="res-chip"><div class="l">灵石</div><div class="v">💎 ${Game.formatNum(s.stone)}</div></div></div>
       <div class="battle-meta"><details><summary>🧘 强化后战斗属性预览 (点击展开)</summary>
         <div class="player-panel" style="margin-top:8px">
           <div class="pp-head">🧘 自身战力 <b>${Game.formatNum(Game.combatStats().power)}</b></div>
           <div class="pp-stats">
-            <span>攻 ${Game.combatStats().atk}</span><span>防 ${Game.combatStats().def}</span><span>气血 ${Game.combatStats().hp}</span>
+            <span>攻 ${Game.formatNum(Game.combatStats().atk)}</span><span>防 ${Game.formatNum(Game.combatStats().def)}</span><span>气血 ${Game.formatNum(Game.combatStats().hp)}</span>
             <span>命中 ${Math.round(Game.combatStats().hit * 100)}%</span><span>闪避 ${Math.round(Game.combatStats().dodge * 100)}%</span><span>暴击 ${Math.round(Game.combatStats().crit * 100)}%</span>
           </div>
         </div></details>
@@ -652,6 +693,7 @@
       case 'secret': renderSecret(); break;
       case 'insight': renderInsight(); break;
       case 'fly': renderFly(); break;
+      case 'bless': renderBless(); break;
       case 'battle': renderBattle(); break;
       case 'treasure': renderTreasure(); break;
       case 'event': renderEvents(); break;
@@ -739,10 +781,10 @@
     if (goldenOrbEl) { goldenOrbEl.remove(); goldenOrbEl = null; }
     const el = document.createElement('div');
     el.className = 'golden-orb';
-    el.innerHTML = `<div class="orb-ring"></div><div class="orb-tip">${buff.name}</div>${GOLDEN_ICON[buff.id] || '✨'}`;
+    el.innerHTML = `<div class="orb-ring"></div><div class="orb-ring orb-ring2"></div><div class="orb-tip">${buff.name}</div><div class="orb-cta">点击收取</div>${GOLDEN_ICON[buff.id] || '✨'}`;
     const w = window.innerWidth, h = window.innerHeight;
-    const x = 40 + Math.random() * Math.max(10, w - 80);
-    const y = 150 + Math.random() * Math.max(10, h - 260);
+    const x = 60 + Math.random() * Math.max(10, w - 120);
+    const y = 170 + Math.random() * Math.max(10, h - 300);
     el.style.left = x + 'px'; el.style.top = y + 'px';
     el.addEventListener('click', () => {
       Game.applyGolden(buff.id);
@@ -750,7 +792,9 @@
     });
     document.body.appendChild(el);
     goldenOrbEl = el;
-    const life = (buff.life || 16) * 1000;
+    // 屏上提示：让挂机玩家也能注意到机缘降临
+    FX.banner(`✨ 天降机缘 · ${buff.name}（点击宝光收取）`, { kind: 'gold', dur: 2000 });
+    const life = (buff.life || 20) * 1000;
     setTimeout(() => { if (goldenOrbEl === el) { el.remove(); goldenOrbEl = null; } }, life);
   }
 
@@ -840,7 +884,9 @@
     updateTopbar();
     if (offline) showOffline(offline);
     if (!Game.state.rootId) showRootPicker();
-    if (!Game.hasCheckedInToday()) showCheckIn();
+    // 签到摩擦优化：开屏自动领取（非阻塞 banner 反馈），不再强制弹窗；手动查看请点顶栏📅
+    if (!Game.hasCheckedInToday()) Game.checkIn();
+    const bci = $('#btn-checkin'); if (bci) bci.addEventListener('click', showCheckIn);
     function loop() { updateTopbar(); requestAnimationFrame(loop); }
     requestAnimationFrame(loop);
   }
