@@ -526,9 +526,20 @@
   /* ---------------- 悟道 ---------------- */
   function renderInsight() {
     const s = Game.state;
+    const sb = Game.speedBreakdown();
+    const daoEffect = sb.afterInsight - sb.afterRoot; // 悟道·大道对灵气/秒的贡献
     const cards = Game.INSIGHTS.map(i => {
       const lv = s.insightLv[i.id] || 0, maxed = lv >= i.max, price = Game.insightPrice(i.id), afford = s.insight >= price && !maxed;
-      const bonus = lv > 0 ? `当前 +${Math.round(i.mult * lv * 100)}%` : '未参悟';
+      let effectText = '';
+      if (lv > 0 && i.id === 'dao') effectText = ` → 灵气/秒 +${daoEffect.toFixed(2)}`;
+      else if (lv > 0 && i.id === 'jie') effectText = ` → 渡劫成功率 +${lv * 4}%`;
+      else if (lv > 0 && i.id === 'cai') {
+        // 估算灵石贡献: corePart*stoneRatio * (当前cai加成 vs 无cai)
+        const caiBonus = 1 + lv * i.mult;
+        const caiContrib = sb.afterGlobal * CONFIG.stoneRatio * (caiBonus - 1);
+        effectText = ` → 灵石/秒 ≈ +${caiContrib.toFixed(2)}`;
+      }
+      const bonus = lv > 0 ? `当前 +${Math.round(i.mult * lv * 100)}%${effectText}` : '未参悟';
       const btn = maxed ? `<button class="buy-btn maxed" disabled>圆满</button>`
         : `<button class="buy-btn" data-insight="${i.id}" ${afford ? '' : 'disabled'}>参悟<div class="price">${price} 📿</div></button>`;
       return `<div class="card"><div class="icon">${i.icon}</div><div class="body"><div class="name">${i.name} <span class="lv">${lv}/${i.max} 重</span></div><div class="desc">${i.desc}</div><div class="sub">${bonus}</div></div>${btn}</div>`;
