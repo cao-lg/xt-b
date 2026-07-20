@@ -779,7 +779,8 @@
     var totalPow = Math.max(1, pPow + ePow), pPct = (pPow / totalPow * 100).toFixed(1), ePct = (ePow / totalPow * 100).toFixed(1);
     var lines = res.log.slice(0, 18).map(function(e) {
       if (e.miss) return '<div class="cl '+e.side+'">'+(e.side==='p'?'你':'敌')+' 落空/被闪避…</div>';
-      return '<div class="cl '+e.side+'">'+(e.side==='p'?'你':'敌')+' 造成 '+e.dmg+(e.crit?' 💥暴击':'')+'</div>';
+      var skl = (e.skill && e.skill!=='普攻' && e.skill!=='攻击') ? ' <span style="color:#c79aff">['+e.skill+']</span>' : '';
+      return '<div class="cl '+e.side+'">'+(e.side==='p'?'你':'敌')+' 造成 '+e.dmg+(e.crit?' 💥暴击':'')+skl+'</div>';
     }).join('');
     var more = res.log.length>18 ? '<div class="cl">…共 '+res.log.length+' 回合</div>' : '';
     var rewardHtml = '';
@@ -803,7 +804,7 @@
         '<div class="fx-layer"></div>'+
         '<div class="seal '+(r.win?'win':'lose')+'" style="display:none"><span>'+(r.win?'胜':'败')+'</span></div>'+
       '</div>'+
-      '<div class="combat-sub">'+lv.name+' · 回合 '+res.rounds+' · 你剩余气血 <span data-pend>'+Game.formatNum(pHp0)+'</span></div>'+
+      '<div class="combat-sub">'+lv.name+' · 聚气 '+res.rounds+' 轮 · 你剩余气血 <span data-pend>'+Game.formatNum(pHp0)+'</span></div>'+
       '<div class="combat-log">'+lines+more+'</div>'+
       '<div class="combat-reward" style="display:none">'+rewardHtml+'</div>'+
       '<button class="btn" id="cb-ok" style="display:none">收剑</button>', 'combat');

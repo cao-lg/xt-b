@@ -863,31 +863,74 @@ const Game = (function () {
     const cleared = state.mapProgress[mapId];
     return cleared !== undefined && cleared >= idx - 1;
   }
-  // 回合制模拟战斗：命中/闪避/暴击/伤害浮动 全程 RNG
-  // 闪避用软映射 dodge/(1+dodge)：数值可无限涨，有效闪避恒 <1（不会出现"永远打不中"的无敌态）
-  function softDodge(x) { return x / (1 + x); }
-  function simulateCombat(enemy) {
-    const p = combatStats(), e = enemy;
-    let pHp = p.hp, eHp = e.hp, round = 0;
+  // ATB 聚气战斗系统（替代回合制，速度决定出手频率，武学招式触发）
+  // 聚气参数（参照无名江湖 ATB 设计）
+  const CFG_ATB = { QI_THRESHOLD: 100, BASE_QI_GAIN: 34, SPEED_QI_K: 0.05, MAX_ROUNDS: 80 };
+  function atbCombat(enemy) {
+    const p = Object.assign({}, combatStats());
+    const ms = martialStats ? martialStats() : {atk:0,def:0,hp:0,speed:0};
+    // 武学属性叠加到战斗面板
+    p.atk += ms.atk; p.def += ms.def; p.hp += ms.hp;
+    const e = enemy;
+    let pHp = p.hp, eHp = e.hp;
+    const pSpeed = 50 + ms.speed;
+    const eSpeed = 30 + (state ? state.realmIndex * 5 : 0);
+    let pQi = 0, eQi = 0, round = 0;
     const log = [];
-    const v = CONFIG.combat.variance, cm = CONFIG.combat.critMult, dm = CONFIG.combat.defMit;
-    while (pHp > 0 && eHp > 0 && round < CONFIG.combat.maxRounds) {
-      round++;
-      if (Math.random() < Math.min(1, Math.max(0, p.hit * (1 - softDodge(e.dodge))))) {
-        let dmg = p.atk * rand(1 - v, 1 + v); const isCrit = Math.random() < Math.min(1, p.crit);
-        if (isCrit) dmg *= cm;
-        dmg = Math.max(1, dmg - e.def * dm); eHp -= dmg;
-        log.push({ side: 'p', miss: false, crit: isCrit, dmg: Math.floor(dmg) });
-      } else log.push({ side: 'p', miss: true });
-      if (eHp <= 0) break;
-      if (Math.random() < Math.min(1, Math.max(0, e.hit * (1 - softDodge(p.dodge))))) {
-        let dmg = e.atk * rand(1 - v, 1 + v); const isCrit = Math.random() < Math.min(1, e.crit);
-        if (isCrit) dmg *= cm;
-        dmg = Math.max(1, dmg - p.def * dm); pHp -= dmg;
-        log.push({ side: 'e', miss: false, crit: isCrit, dmg: Math.floor(dmg) });
-      } else log.push({ side: 'e', miss: true });
+    const deck = state.martialDeck || [];
+    const hasMA = deck.length > 0;
+    // 伤害：基于现有公式 + 武学倍率
+    function calcDmg(atk, def, ratePct, flat) {
+      const v = CONFIG.combat.variance;
+      let dmg = atk * (1 - v + Math.random() * v * 2);
+      dmg = Math.max(1, dmg - def * CONFIG.combat.defMit);
+      dmg = dmg * (ratePct / 100) + flat;
+      let isCrit = false;
+      if (Math.random() < Math.min(1, p.crit)) { dmg *= CONFIG.combat.critMult; isCrit = true; }
+      return { dmg: Math.floor(Math.max(1, dmg)), crit: isCrit };
     }
-    return { win: eHp <= 0, rounds: round, pHp: Math.floor(pHp), eHp: Math.floor(eHp), log, player: p, enemy: e };
+    while (pHp > 0 && eHp > 0 && round < CFG_ATB.MAX_ROUNDS) {
+      round++;
+      const avgSpeed = (pSpeed + eSpeed) / 2;
+      pQi += CFG_ATB.BASE_QI_GAIN + CFG_ATB.SPEED_QI_K * (pSpeed - avgSpeed);
+      eQi += CFG_ATB.BASE_QI_GAIN + CFG_ATB.SPEED_QI_K * (eSpeed - avgSpeed);
+      // 玩家行动（聚气满时可多次连动）
+      while (pQi >= CFG_ATB.QI_THRESHOLD && pHp > 0 && eHp > 0) {
+        pQi -= CFG_ATB.QI_THRESHOLD;
+        if (hasMA) {
+          // 从装备武学中随机选一门触发
+          const maId = deck[Math.floor(Math.random() * deck.length)];
+          const ma = MARTIAL_ARTS.find(m => m.id === maId);
+          if (ma && Math.random() < (ma.skill.fireRate / 100)) {
+            const r = calcDmg(p.atk, e.def, ma.skill.dmgRate, ma.skill.dmgFlat);
+            eHp -= r.dmg;
+            log.push({ side: 'p', miss: false, crit: r.crit, dmg: r.dmg, skill: ma.skill.name });
+          } else {
+            // 火率判定失败 → 普通攻击
+            const r = calcDmg(p.atk, e.def, 50, 0);
+            eHp -= r.dmg;
+            log.push({ side: 'p', miss: false, crit: r.crit, dmg: r.dmg, skill: '普攻' });
+          }
+        } else {
+          // 无武学：普通攻击
+          const r = calcDmg(p.atk, e.def, 50, 0);
+          eHp -= r.dmg;
+          log.push({ side: 'p', miss: false, crit: r.crit, dmg: r.dmg, skill: '普攻' });
+        }
+      }
+      // 敌人行动
+      while (eQi >= CFG_ATB.QI_THRESHOLD && pHp > 0 && eHp > 0) {
+        eQi -= CFG_ATB.QI_THRESHOLD;
+        const r = calcDmg(e.atk, p.def, 50, 0);
+        pHp -= r.dmg;
+        log.push({ side: 'e', miss: false, crit: r.crit, dmg: r.dmg, skill: '攻击' });
+      }
+    }
+    return {
+      win: eHp <= 0, rounds: round,
+      pHp: Math.floor(Math.max(0, pHp)), eHp: Math.floor(Math.max(0, eHp)),
+      log, player: p, enemy: e
+    };
   }
   function fight(mapId, idx) {
     const map = MAPS.find(m => m.id === mapId); if (!map) return null;
@@ -896,12 +939,12 @@ const Game = (function () {
     if (!canBattle()) return { error: 'cd' };
     state.battleCd = Date.now() + CONFIG.combat.battleCd * 1000;
     state.battles++;
-    const res = simulateCombat(lv);
+    const res = atbCombat(lv);
     let reward = null, drop = null;
     if (res.win) {
       const stone = Math.floor(randInt(lv.reward.stone[0], lv.reward.stone[1]) * 0.45);
       const mat = randInt(lv.reward.mat[0], lv.reward.mat[1]);
-      const xp = Math.floor(currentSpeed() * (lv.boss ? 18 : 6)); // 战利品修为 = 修炼速度×秒数，普怪持平修炼、BOSS三倍
+      const xp = Math.floor(currentSpeed() * (lv.boss ? 18 : 6));
       state.stone += stone; state.materials += mat; state.xp += xp; state.totalXp += xp;
       reward = { stone, mat, xp };
       if (state.mapProgress[mapId] === undefined || state.mapProgress[mapId] < idx) state.mapProgress[mapId] = idx;
@@ -1031,7 +1074,7 @@ const Game = (function () {
     state.battles++;
     const lv = towerEnemy(floor);
     lv._mapId = 'tower';
-    const res = simulateCombat(lv);
+    const res = atbCombat(lv);
     let reward = null, drop = null;
     if (res.win) {
       const stone = Math.floor(randInt(lv.reward.stone[0], lv.reward.stone[1]) * 0.45);
@@ -1229,7 +1272,7 @@ const Game = (function () {
     techniqueFlat, abodeFlat, pillFlat, purchasedFlat, legacyMult, rootMult, petAllBonus, petOutPerSec, getTotalLayers,
     blessMult, blessCost, buyBlessing, towerTitle,
     formatNum, formatSpeed, formatTime,
-    combatStats, currentSpeed, qualityMult, treasureStats, canBattle, battleCooldownLeft, isLevelUnlocked, fight, simulateCombat, towerEnemy, towerFight, softCap, combatBreakdown, combatFormula,
+    combatStats, currentSpeed, qualityMult, treasureStats, canBattle, battleCooldownLeft, isLevelUnlocked, fight, atbCombat, simulateCombat: atbCombat, towerEnemy, towerFight, softCap, combatBreakdown, combatFormula,
     hasTreasure, equipTreasure, unequip, enhanceCost, enhanceTreasure, smeltTreasure, awakenTreasure, awakenCost,
     applyGolden, goldenActive, rollBlindBox, blindBoxBets,
     checkIn, hasCheckedInToday, nextCheckInReward,
