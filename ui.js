@@ -688,7 +688,7 @@
             <div class="level-body">
               <div class="name">${preview.icon} ${preview.name} ${preview.boss ? '<span class="boss-tag">BOSS</span>' : ''}</div>
               <div class="enemy-stats">攻${Game.formatNum(preview.atk)} 防${Game.formatNum(preview.def)} 气血${Game.formatNum(preview.hp)} 命中${Math.round(preview.hit * 100)}% 闪避${Math.round(preview.dodge * 100)}% 暴击${Math.round(preview.crit * 100)}%</div>
-              <div class="reward-line">奖励 灵石${Game.formatNum(preview.reward.stone[0])}~${Game.formatNum(preview.reward.stone[1])} · 🌿${preview.reward.mat[0]}~${preview.reward.mat[1]} · 修为 ≈ ${Game.formatNum(xp)} · 法宝掉落${Math.round(preview.drop.chance * 100)}%</div>
+              <div class="reward-line">奖励 灵石${Game.formatNum(preview.reward.stone[0])}~${Game.formatNum(preview.reward.stone[1])} · 🌿${preview.reward.mat[0]}~${preview.reward.mat[1]} · 修为 ≈ ${Game.formatNum(xp)} · 法宝${Math.round(preview.drop.chance * 100)}% 武学≈10% 招式≈8%</div>
             </div>
             <button class="buy-btn fight-btn" data-tower="${next}" ${cd ? 'disabled' : ''}>挑战</button>
           </div>
@@ -710,7 +710,7 @@
           <div class="level-body">
             <div class="name">${lv.icon} ${lv.name} ${lv.boss ? '<span class="boss-tag">BOSS</span>' : ''} ${cleared ? '<span class="cleared-tag">已通关</span>' : ''} <span class="${diff.cls}" title="推荐战力 ${Game.formatNum(ep)} / 你的战力 ${Game.formatNum(st.power)}">难度 ${diff.text}</span></div>
             <div class="enemy-stats">攻${lv.atk} 防${lv.def} 气血${lv.hp} 命中${Math.round(lv.hit * 100)}% 闪避${Math.round(lv.dodge * 100)}% 暴击${Math.round(lv.crit * 100)}% · 推荐战力 ${Game.formatNum(ep)}</div>
-            <div class="reward-line">奖励 灵石${Game.formatNum(lv.reward.stone[0])}~${Game.formatNum(lv.reward.stone[1])} · 🌿${lv.reward.mat[0]}~${lv.reward.mat[1]} · 修为 ≈ ${Game.formatNum(Math.floor((Game.currentSpeed ? Game.currentSpeed() : 0) * (lv.boss ? 18 : 6)))}${lv.drop && lv.drop.chance ? ` · 法宝掉落${Math.round(lv.drop.chance * 100)}%` : ''}</div>
+            <div class="reward-line">奖励 灵石${Game.formatNum(lv.reward.stone[0])}~${Game.formatNum(lv.reward.stone[1])} · 🌿${lv.reward.mat[0]}~${lv.reward.mat[1]} · 修为 ≈ ${Game.formatNum(Math.floor((Game.currentSpeed ? Game.currentSpeed() : 0) * (lv.boss ? 18 : 6)))}${lv.drop && lv.drop.chance ? ` · 法宝${Math.round(lv.drop.chance * 100)}%` : ''} · 武学≈10% 招式≈8%</div>
           </div>${btn}</div>`;
       }).join('');
       body = `<div class="map-desc">${map.desc}</div>${cdText}<div class="level-path">${levels}</div>`;
@@ -988,7 +988,7 @@
       <div class="ma-equip-row">${equipSlots}</div>
       <div class="ma-filter-bar">${filterTabs}</div>
       <div class="ma-grid">${gridSlots}</div>
-      <div class="hint" style="margin-top:6px">💡 点击武学格子查看详情 · 品质：🟤根基 🔵进阶 🟡绝学 🟣稀有 🔴绝世</div>
+      <div class="hint" style="margin-top:6px">💡 点击武学格子查看详情 · 品质：🟤根基 🔵进阶 🟡绝学 🟣稀有 🔴绝世 · 战斗胜利有概率掉落⚠</div>
     `;
 
     // 事件绑定
