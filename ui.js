@@ -929,7 +929,7 @@
   /* ---------------- 武学（卡牌收集/装配） ---------------- */
   function renderMartial() {
     const s = Game.state;
-    const deck = s.martialDeck || [];
+    const deck = Array.isArray(s.martialDeck) ? s.martialDeck : [];
     const ownedIds = Object.keys(s.martialArts || {});
     const stats = Game.martialStats();
     const deckCount = deck.length;

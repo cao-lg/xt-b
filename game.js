@@ -658,6 +658,7 @@ const Game = (function () {
   // 武学属性合计（含等级倍率）
   function martialStats() {
     const ids = state.martialDeck;
+    if (!ids || !Array.isArray(ids)) return { atk:0, def:0, hp:0, speed:0 };
     let atk = 0, def = 0, hp = 0, speed = 0;
     ids.forEach(id => {
       const m = MARTIAL_ARTS.find(x => x.id === id);
@@ -975,7 +976,7 @@ const Game = (function () {
     const eSpeed = 30 + (state ? state.realmIndex * 5 : 0);
     let pQi = 0, eQi = 0, round = 0;
     const log = [];
-    const deck = state.martialDeck || [];
+    const deck = Array.isArray(state.martialDeck) ? state.martialDeck : [];
     const hasMA = deck.length > 0;
     // 伤害：采用文档公式 base = atk²/(atk+5×def)，×招式倍率 + 固定 + 暴击
     function calcDmg(atk, def, ratePct, flat) {
@@ -1365,7 +1366,8 @@ const Game = (function () {
       if (raw) {
         const data = JSON.parse(raw);
         state = Object.assign(defaultState(), data);
-        ['techniques', 'abodes', 'pills', 'pets', 'insightLv', 'achievements', 'log', 'treasures', 'equipped', 'mapProgress', 'storyProgress', 'martialArts', 'martialDeck', 'martialLevels', 'martialSkills', 'skills'].forEach(k => { state[k] = data[k] || (Array.isArray(data[k]) ? [] : {}); });
+        ['techniques', 'abodes', 'pills', 'pets', 'insightLv', 'achievements', 'log', 'treasures', 'equipped', 'mapProgress', 'storyProgress', 'martialArts', 'martialLevels', 'martialSkills', 'skills'].forEach(k => { state[k] = data[k] || (Array.isArray(data[k]) ? [] : {}); });
+        state.martialDeck = data.martialDeck || []; // 必须是数组，不能是对象
         // 新字段兜底 + 天降机缘：清除可能过期的增益；离线收益不计入 goldenBuff
         state.goldenBuff = null;
         state.nextGoldenAt = (state.nextGoldenAt && state.nextGoldenAt > Date.now())
