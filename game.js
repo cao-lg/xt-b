@@ -639,8 +639,9 @@ const Game = (function () {
   function canEquipMartial(id) {
     const ma = state.martialArts[id] || 0;
     if (ma <= 0) return false;
-    if (state.martialDeck.includes(id)) return false;
-    if (state.martialDeck.length >= MAX_MARTIAL_DECK) return false;
+    const deck = Array.isArray(state.martialDeck) ? state.martialDeck : [];
+    if (deck.includes(id)) return false;
+    if (deck.length >= MAX_MARTIAL_DECK) return false;
     return true;
   }
   function equipMartial(id) {
@@ -650,9 +651,11 @@ const Game = (function () {
     save(); emit('martial'); return true;
   }
   function unequipMartial(id) {
-    const idx = state.martialDeck.indexOf(id);
+    const deck = Array.isArray(state.martialDeck) ? state.martialDeck : [];
+    const idx = deck.indexOf(id);
     if (idx < 0) return false;
-    state.martialDeck.splice(idx, 1);
+    deck.splice(idx, 1);
+    state.martialDeck = deck;
     save(); emit('martial'); return true;
   }
   // 武学属性合计（含等级倍率）
@@ -1039,7 +1042,7 @@ const Game = (function () {
         const eMa2 = MARTIAL_ARTS[minIdx + Math.floor(Math.random() * (maxIdx - minIdx + 1))];
         const eAff2 = eMa2 ? martialAffinity(eMa2) : '调';
         // 玩家方取装备武学的平均内息偏向
-        const deckAff = state.martialDeck.length > 0 ? (() => {
+        const deckAff = Array.isArray(state.martialDeck) && state.martialDeck.length > 0 ? (() => {
           const counts = { '阴':0, '阳':0, '调':0 };
           state.martialDeck.forEach(id => { const mm = MARTIAL_ARTS.find(x => x.id === id); if(mm) counts[martialAffinity(mm)]++; });
           return Object.keys(counts).reduce((a,b) => counts[a] > counts[b] ? a : b);
@@ -1071,7 +1074,7 @@ const Game = (function () {
     state.battleCd = Date.now() + CONFIG.combat.battleCd * 1000;
     state.battles++;
     const res = atbCombat(lv);
-    let reward = null, drop = null;
+    let reward = null, drop = null, maDrop = null, skDrop = null;
     if (res.win) {
       const stone = Math.floor(randInt(lv.reward.stone[0], lv.reward.stone[1]) * 0.45);
       const mat = randInt(lv.reward.mat[0], lv.reward.mat[1]);
@@ -1249,8 +1252,8 @@ const Game = (function () {
     } else {
       pushLog(`🗼 试炼塔第 ${floor} 层败，还需磨砺。`, lv.icon);
     }
-    save(); emit('battle', { res, reward, drop, level: lv, mapId: 'tower', idx: floor, win: res.win });
-    return { res, reward, drop, win: res.win, level: lv };
+    save(); emit('battle', { res, reward, drop, maDrop: null, skDrop: null, level: lv, mapId: 'tower', idx: floor, win: res.win });
+    return { res, reward, drop, maDrop: null, skDrop: null, win: res.win, level: lv };
   }
 
   function hasTreasure(tid) { return state.treasures[tid] && state.treasures[tid].count > 0; }
@@ -1359,8 +1362,8 @@ const Game = (function () {
         const data = JSON.parse(raw);
         state = Object.assign(defaultState(), data);
         ['techniques', 'abodes', 'pills', 'pets', 'insightLv', 'achievements', 'log', 'treasures', 'equipped', 'mapProgress', 'storyProgress', 'martialArts', 'martialLevels', 'martialSkills', 'skills'].forEach(k => { state[k] = data[k] || (Array.isArray(data[k]) ? [] : {}); });
-        state.martialDeck = data.martialDeck || []; // 必须是数组，不能是对象
-        // 新字段兜底 + 天降机缘：清除可能过期的增益；离线收益不计入 goldenBuff
+        // 旧存档兼容：martialDeck 必须是数组（可能被旧代码存为 {}）
+        if (!Array.isArray(state.martialDeck)) state.martialDeck = [];
         state.goldenBuff = null;
         state.nextGoldenAt = (state.nextGoldenAt && state.nextGoldenAt > Date.now())
           ? state.nextGoldenAt : (Date.now() + randInt(CONFIG.golden.minInterval, CONFIG.golden.maxInterval) * 1000);
