@@ -898,7 +898,6 @@ const Game = (function () {
       while (pQi >= CFG_ATB.QI_THRESHOLD && pHp > 0 && eHp > 0) {
         pQi -= CFG_ATB.QI_THRESHOLD;
         if (hasMA) {
-          // 从装备武学中随机选一门触发
           const maId = deck[Math.floor(Math.random() * deck.length)];
           const ma = MARTIAL_ARTS.find(m => m.id === maId);
           if (ma && Math.random() < (ma.skill.fireRate / 100)) {
@@ -906,24 +905,34 @@ const Game = (function () {
             eHp -= r.dmg;
             log.push({ side: 'p', miss: false, crit: r.crit, dmg: r.dmg, skill: ma.skill.name });
           } else {
-            // 火率判定失败 → 普通攻击
             const r = calcDmg(p.atk, e.def, 50, 0);
             eHp -= r.dmg;
             log.push({ side: 'p', miss: false, crit: r.crit, dmg: r.dmg, skill: '普攻' });
           }
         } else {
-          // 无武学：普通攻击
           const r = calcDmg(p.atk, e.def, 50, 0);
           eHp -= r.dmg;
           log.push({ side: 'p', miss: false, crit: r.crit, dmg: r.dmg, skill: '普攻' });
         }
       }
-      // 敌人行动
+      // 敌人行动（带武学：按关卡境界匹配，不同地图类型不同）
       while (eQi >= CFG_ATB.QI_THRESHOLD && pHp > 0 && eHp > 0) {
         eQi -= CFG_ATB.QI_THRESHOLD;
-        const r = calcDmg(e.atk, p.def, 50, 0);
-        pHp -= r.dmg;
-        log.push({ side: 'e', miss: false, crit: r.crit, dmg: r.dmg, skill: '攻击' });
+        // 根据敌人境界选武学：hp/500 决定权重重心，越高越可能用高品
+        const eLv = Math.min(MARTIAL_ARTS.length - 1, Math.floor((enemy.hp || 1000) / 300));
+        const minIdx = Math.max(0, eLv - 2);
+        const maxIdx = Math.min(MARTIAL_ARTS.length - 1, eLv + 2);
+        const eMaIdx = minIdx + Math.floor(Math.random() * (maxIdx - minIdx + 1));
+        const eMa = MARTIAL_ARTS[eMaIdx];
+        if (eMa && Math.random() < (eMa.skill.fireRate / 100)) {
+          const r = calcDmg(e.atk, p.def, eMa.skill.dmgRate, eMa.skill.dmgFlat);
+          pHp -= r.dmg;
+          log.push({ side: 'e', miss: false, crit: r.crit, dmg: r.dmg, skill: eMa.skill.name });
+        } else {
+          const r = calcDmg(e.atk, p.def, 50, 0);
+          pHp -= r.dmg;
+          log.push({ side: 'e', miss: false, crit: r.crit, dmg: r.dmg, skill: '攻击' });
+        }
       }
     }
     return {
