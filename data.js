@@ -370,38 +370,64 @@ const QUALITY = [
   { id: 5, name: '神器', color: '#c79fff', mult: 5.5,  weight: 0.5 }
 ];
 
-/* ---------- 武学（卡牌 ATB 战斗核心） ----------
+/* ---------- 武学（基于无名江湖263张卡牌数据校准） ----------
  * type: 御剑/刀法/拳掌/奇门/内功/轻功
  * grade: 根基/进阶/绝学/稀有/绝世
- * atk/def/hp/speed：装配后加成的属性
+ * atk/def/hp/speed：装配后加成的属性（CSV数据×2.8缩放适配ATB公式）
  * skill：天赋招式（战斗时按 fireRate 概率触发）
  * extraSlots：可装配额外招式数
  * source：获取来源提示 */
 const MARTIAL_ARTS = [
-  // ── 御剑（高攻、高速） ──
-  { id: 'yixin_yijian',  name: '意心一剑', icon: '🗡️', type: '御剑', grade: '绝学', atk: 85,  def: 20, hp: 400, speed: 10, skill: { name: '一剑西来',   fireRate: 60, dmgRate: 85,  dmgFlat: 40,  desc: '以意御剑，化繁为简' }, extraSlots: 2, source: '剑崖奇遇' },
-  { id: 'luochen_jianfa',name: '落尘剑法', icon: '⚔️', type: '御剑', grade: '进阶', atk: 50,  def: 12, hp: 250, speed: 7,  skill: { name: '飞花逐月',   fireRate: 70, dmgRate: 60,  dmgFlat: 20,  desc: '剑出如落花，看似柔实则刚' }, extraSlots: 2, source: '剑崖奇遇' },
-  { id: 'tiandu_shijian',name: '天都十剑', icon: '🌟', type: '御剑', grade: '稀有', atk: 130, def: 30, hp: 550, speed: 12, skill: { name: '天都剑阵',   fireRate: 45, dmgRate: 120, dmgFlat: 80,  desc: '十剑齐出，天地变色' }, extraSlots: 3, source: '剑崖奇遇' },
-  // ── 刀法（高攻、高暴击） ──
-  { id: 'baidao_luanwu',  name: '百刀乱舞', icon: '🔪', type: '刀法', grade: '进阶', atk: 55,  def: 8,  hp: 300, speed: 6,  skill: { name: '乱劈风',     fireRate: 75, dmgRate: 55,  dmgFlat: 15,  desc: '狂风般的乱刀，压制对手' }, extraSlots: 2, source: '战斗掉落' },
-  { id: 'renwang_dao',    name: '人王刀',   icon: '🗡️', type: '刀法', grade: '绝学', atk: 100, def: 18, hp: 450, speed: 8,  skill: { name: '一刀两断',   fireRate: 55, dmgRate: 95,  dmgFlat: 60,  desc: '霸道至简的一刀' }, extraSlots: 2, source: '战斗掉落' },
-  { id: 'beiming_dao',    name: '北冥刀诀', icon: '🌊', type: '刀法', grade: '稀有', atk: 140, def: 25, hp: 600, speed: 9,  skill: { name: '北冥吞天',   fireRate: 40, dmgRate: 150, dmgFlat: 100, desc: '如北冥之海，吞噬一切' }, extraSlots: 3, source: '战斗掉落' },
-  // ── 拳掌（高防、中血） ──
-  { id: 'tiexian_quan',   name: '铁线拳',   icon: '👊', type: '拳掌', grade: '根基', atk: 20,  def: 30, hp: 350, speed: 4,  skill: { name: '铁线横江',   fireRate: 80, dmgRate: 35,  dmgFlat: 10,  desc: '以身为线，以拳为锁' }, extraSlots: 1, source: '初始可得' },
-  { id: 'qixing_zhang',   name: '七星掌',   icon: '🖐️', type: '拳掌', grade: '进阶', atk: 40,  def: 35, hp: 500, speed: 5,  skill: { name: '七星印月',   fireRate: 65, dmgRate: 50,  dmgFlat: 25,  desc: '掌影如七星，连绵不绝' }, extraSlots: 2, source: '战斗掉落' },
-  { id: 'tianmo_quan',    name: '天魔拳',   icon: '💀', type: '拳掌', grade: '绝学', atk: 80,  def: 40, hp: 700, speed: 6,  skill: { name: '天魔解体',   fireRate: 50, dmgRate: 110, dmgFlat: 70,  desc: '以伤换伤，越战越勇' }, extraSlots: 2, source: '魔渊关卡' },
-  // ── 奇门（特效、高速） ──
-  { id: 'wuxing_ling',    name: '五行铃',   icon: '🔔', type: '奇门', grade: '根基', atk: 25,  def: 15, hp: 200, speed: 9,  skill: { name: '五行颠倒',   fireRate: 70, dmgRate: 40,  dmgFlat: 15,  desc: '铃声扰神，五行错乱' }, extraSlots: 1, source: '初始可得' },
-  { id: 'qianji_suo',     name: '千机锁',   icon: '🔗', type: '奇门', grade: '绝学', atk: 60,  def: 25, hp: 400, speed: 11, skill: { name: '锁天链',     fireRate: 55, dmgRate: 70,  dmgFlat: 45,  desc: '千机百变，锁天困地' }, extraSlots: 2, source: '秘境夺宝' },
-  { id: 'shenji_nu',      name: '神机弩',   icon: '🏹', type: '奇门', grade: '稀有', atk: 110, def: 12, hp: 350, speed: 14, skill: { name: '追魂箭',     fireRate: 50, dmgRate: 130, dmgFlat: 90,  desc: '一击必中，追魂夺命' }, extraSlots: 2, source: '星陨秘境' },
-  // ── 内功（高血、增伤/减伤） ──
-  { id: 'ziqi_donglai',   name: '紫气东来', icon: '🟣', type: '内功', grade: '进阶', atk: 10,  def: 20, hp: 600, speed: 3,  skill: { name: '紫气护体',   fireRate: 80, dmgRate: 0,   dmgFlat: 0,   desc: '内力化为护盾，减伤20%' }, extraSlots: 1, source: '剑崖奇遇' },
-  { id: 'jiuzhuan_gong',  name: '九转功',   icon: '🔄', type: '内功', grade: '绝学', atk: 20,  def: 30, hp: 900, speed: 4,  skill: { name: '九转回春',   fireRate: 60, dmgRate: 0,   dmgFlat: 0,   desc: '每回合回复气血10%' }, extraSlots: 2, source: '宗门会武' },
-  { id: 'taixu_jing',     name: '太虚经',   icon: '☯️', type: '内功', grade: '稀有', atk: 30,  def: 40, hp: 1200,speed: 5,  skill: { name: '太虚之境',   fireRate: 40, dmgRate: 0,   dmgFlat: 0,   desc: '进入虚化状态，闪避+30%持续2回合' }, extraSlots: 2, source: '上古秘境' },
-  // ── 轻功（高速、闪避） ──
-  { id: 'yanxing_bufa',   name: '雁行步法', icon: '🕊️', type: '轻功', grade: '根基', atk: 5,   def: 5,  hp: 150, speed: 12, skill: { name: '雁过留影',   fireRate: 75, dmgRate: 20,  dmgFlat: 5,   desc: '身形如雁，难以捉摸' }, extraSlots: 1, source: '初始可得' },
-  { id: 'fenglei_bu',     name: '风雷步',   icon: '⚡', type: '轻功', grade: '进阶', atk: 15,  def: 10, hp: 250, speed: 16, skill: { name: '风行雷动',   fireRate: 60, dmgRate: 40,  dmgFlat: 20,  desc: '风雷之势，先发制人' }, extraSlots: 2, source: '战斗掉落' },
-  { id: 'tianchi_bu',     name: '天池步',   icon: '🌊', type: '轻功', grade: '绝学', atk: 25,  def: 18, hp: 350, speed: 20, skill: { name: '踏水无痕',   fireRate: 45, dmgRate: 60,  dmgFlat: 35,  desc: '如履平地，踏水而行' }, extraSlots: 2, source: '天骄会武' },
+  { id:"ma_wx_01", name:"圣火神功", icon:"🟣", type:"内功", grade:"绝世", atk:35, def:0, hp:100, speed:3, skill:{name:"圣火之烈",fireRate:100,dmgRate:100,dmgFlat:5,desc:"自身灼烧效果"}, extraSlots:3, source:"少林" },
+  { id:"ma_wx_02", name:"无名心经", icon:"🟣", type:"内功", grade:"绝世", atk:35, def:0, hp:110, speed:3, skill:{name:"寂静无声",fireRate:100,dmgRate:100,dmgFlat:5,desc:"70%概率禁用对方主运内功"}, extraSlots:3, source:"少林" },
+  { id:"ma_wx_03", name:"金身不灭功", icon:"🟣", type:"内功", grade:"稀有", atk:36, def:0, hp:210, speed:3, skill:{name:"不生不灭",fireRate:25,dmgRate:100,dmgFlat:5,desc:"金身不灭"}, extraSlots:3, source:"少林" },
+  { id:"ma_wx_04", name:"逆运心经", icon:"🟣", type:"内功", grade:"绝学", atk:41, def:0, hp:180, speed:3, skill:{name:"佛光之息",fireRate:100,dmgRate:100,dmgFlat:6,desc:"佛光普照"}, extraSlots:3, source:"少林" },
+  { id:"ma_wx_05", name:"九阴蜈蚣诀", icon:"🟣", type:"内功", grade:"绝学", atk:35, def:0, hp:190, speed:3, skill:{name:"百足之虫",fireRate:100,dmgRate:100,dmgFlat:5,desc:"百足之虫死而不僵"}, extraSlots:3, source:"五毒" },
+  { id:"ma_wx_06", name:"紫霞神功", icon:"🟣", type:"内功", grade:"绝学", atk:39, def:0, hp:180, speed:3, skill:{name:"紫气东来",fireRate:100,dmgRate:100,dmgFlat:6,desc:"紫气东来"}, extraSlots:3, source:"华山" },
+  { id:"ma_wx_07", name:"易筋经", icon:"🟣", type:"内功", grade:"绝学", atk:34, def:0, hp:190, speed:3, skill:{name:"易筋洗髓",fireRate:50,dmgRate:100,dmgFlat:5,desc:"易筋洗髓"}, extraSlots:3, source:"少林" },
+  { id:"ma_wx_08", name:"如意破心经", icon:"🟣", type:"内功", grade:"绝学", atk:47, def:0, hp:200, speed:3, skill:{name:"如意随心",fireRate:100,dmgRate:100,dmgFlat:7,desc:"如意随心"}, extraSlots:3, source:"武当" },
+  { id:"ma_wx_09", name:"无相神功", icon:"🟣", type:"内功", grade:"进阶", atk:35, def:0, hp:130, speed:3, skill:{name:"无相无形",fireRate:100,dmgRate:100,dmgFlat:5,desc:"无相无形"}, extraSlots:2, source:"逍遥" },
+  { id:"ma_wx_10", name:"先天功", icon:"🟣", type:"内功", grade:"进阶", atk:30, def:0, hp:120, speed:3, skill:{name:"先天真气",fireRate:100,dmgRate:100,dmgFlat:4,desc:"先天真气"}, extraSlots:2, source:"全真" },
+  { id:"ma_wx_11", name:"倚天剑法", icon:"🗡️", type:"御剑", grade:"绝世", atk:72, def:6, hp:540, speed:6, skill:{name:"谁与争锋",fireRate:70,dmgRate:130,dmgFlat:15,desc:"谁与争锋"}, extraSlots:3, source:"天山" },
+  { id:"ma_wx_12", name:"涅槃剑法", icon:"🗡️", type:"御剑", grade:"稀有", atk:70, def:6, hp:550, speed:6, skill:{name:"赴汤蹈火",fireRate:100,dmgRate:100,dmgFlat:14,desc:"赴汤蹈火"}, extraSlots:3, source:"丐帮" },
+  { id:"ma_wx_13", name:"无间剑法", icon:"🗡️", type:"御剑", grade:"稀有", atk:65, def:6, hp:540, speed:6, skill:{name:"无间地狱",fireRate:70,dmgRate:120,dmgFlat:13,desc:"无间地狱"}, extraSlots:3, source:"逍遥" },
+  { id:"ma_wx_14", name:"太极剑法", icon:"🗡️", type:"御剑", grade:"绝学", atk:60, def:6, hp:520, speed:6, skill:{name:"借力打力",fireRate:60,dmgRate:110,dmgFlat:12,desc:"借力打力"}, extraSlots:3, source:"华山" },
+  { id:"ma_wx_15", name:"真武剑法", icon:"🗡️", type:"御剑", grade:"绝学", atk:65, def:6, hp:510, speed:6, skill:{name:"人剑合一",fireRate:100,dmgRate:100,dmgFlat:13,desc:"人剑合一"}, extraSlots:3, source:"华山" },
+  { id:"ma_wx_16", name:"炎檀剑法", icon:"🗡️", type:"御剑", grade:"绝学", atk:60, def:6, hp:500, speed:6, skill:{name:"风助火势",fireRate:100,dmgRate:100,dmgFlat:12,desc:"风助火势"}, extraSlots:3, source:"武当" },
+  { id:"ma_wx_17", name:"归西剑法", icon:"🗡️", type:"御剑", grade:"绝学", atk:62, def:6, hp:490, speed:6, skill:{name:"以命换命",fireRate:100,dmgRate:110,dmgFlat:12,desc:"以命换命"}, extraSlots:3, source:"逍遥" },
+  { id:"ma_wx_18", name:"金顶剑法", icon:"🗡️", type:"御剑", grade:"绝学", atk:58, def:6, hp:480, speed:6, skill:{name:"金顶凌峰",fireRate:100,dmgRate:100,dmgFlat:11,desc:"金顶凌峰"}, extraSlots:3, source:"天山" },
+  { id:"ma_wx_19", name:"松泉剑法", icon:"🗡️", type:"御剑", grade:"绝学", atk:55, def:6, hp:470, speed:6, skill:{name:"松枝挂剑",fireRate:100,dmgRate:100,dmgFlat:11,desc:"松枝挂剑"}, extraSlots:3, source:"铁掌" },
+  { id:"ma_wx_20", name:"流云十三式", icon:"🗡️", type:"御剑", grade:"绝学", atk:63, def:6, hp:490, speed:6, skill:{name:"行云流水",fireRate:55,dmgRate:100,dmgFlat:12,desc:"行云流水"}, extraSlots:3, source:"武当" },
+  { id:"ma_wx_21", name:"轻灵剑法", icon:"🗡️", type:"御剑", grade:"进阶", atk:38, def:4, hp:320, speed:6, skill:{name:"剑出影随",fireRate:100,dmgRate:90,dmgFlat:7,desc:"剑出影随"}, extraSlots:2, source:"武当" },
+  { id:"ma_wx_22", name:"意心一剑", icon:"🗡️", type:"御剑", grade:"进阶", atk:40, def:4, hp:310, speed:6, skill:{name:"破釜沉舟",fireRate:45,dmgRate:80,dmgFlat:8,desc:"破釜沉舟"}, extraSlots:2, source:"武当" },
+  { id:"ma_wx_23", name:"怒龙斩", icon:"🔪", type:"刀法", grade:"绝世", atk:82, def:6, hp:480, speed:5, skill:{name:"怒龙出海",fireRate:100,dmgRate:140,dmgFlat:16,desc:"怒龙出海"}, extraSlots:3, source:"丐帮" },
+  { id:"ma_wx_24", name:"碎星刀法", icon:"🔪", type:"刀法", grade:"绝世", atk:78, def:6, hp:490, speed:5, skill:{name:"碎星一击",fireRate:100,dmgRate:130,dmgFlat:15,desc:"碎星一击"}, extraSlots:3, source:"天山" },
+  { id:"ma_wx_25", name:"玄铁刀法", icon:"🔪", type:"刀法", grade:"绝学", atk:70, def:6, hp:460, speed:5, skill:{name:"玄铁重击",fireRate:100,dmgRate:120,dmgFlat:14,desc:"玄铁重击"}, extraSlots:3, source:"武当" },
+  { id:"ma_wx_26", name:"飞雪刀法", icon:"🔪", type:"刀法", grade:"绝学", atk:65, def:6, hp:450, speed:5, skill:{name:"飞雪连天",fireRate:100,dmgRate:110,dmgFlat:13,desc:"飞雪连天"}, extraSlots:3, source:"逍遥" },
+  { id:"ma_wx_27", name:"五虎断门刀", icon:"🔪", type:"刀法", grade:"绝学", atk:68, def:6, hp:440, speed:5, skill:{name:"五虎断门",fireRate:60,dmgRate:120,dmgFlat:13,desc:"五虎断门"}, extraSlots:3, source:"丐帮" },
+  { id:"ma_wx_28", name:"破天三刀", icon:"🔪", type:"刀法", grade:"进阶", atk:50, def:4, hp:300, speed:5, skill:{name:"破天一式",fireRate:60,dmgRate:100,dmgFlat:10,desc:"破天一式"}, extraSlots:2, source:"铁掌" },
+  { id:"ma_wx_29", name:"万毒心经", icon:"💀", type:"拳掌", grade:"绝世", atk:52, def:8, hp:650, speed:4, skill:{name:"万毒噬心",fireRate:100,dmgRate:120,dmgFlat:10,desc:"万毒噬心"}, extraSlots:3, source:"五毒" },
+  { id:"ma_wx_30", name:"降龙伏虎功", icon:"👊", type:"拳掌", grade:"绝世", atk:48, def:8, hp:680, speed:4, skill:{name:"降龙伏虎",fireRate:100,dmgRate:130,dmgFlat:10,desc:"降龙伏虎"}, extraSlots:3, source:"丐帮" },
+  { id:"ma_wx_31", name:"破戒刀法", icon:"👊", type:"拳掌", grade:"绝学", atk:45, def:8, hp:580, speed:4, skill:{name:"破戒一击",fireRate:100,dmgRate:110,dmgFlat:9,desc:"破戒一击"}, extraSlots:3, source:"少林" },
+  { id:"ma_wx_32", name:"铁掌功", icon:"👊", type:"拳掌", grade:"绝学", atk:40, def:8, hp:560, speed:4, skill:{name:"铁掌无敌",fireRate:100,dmgRate:100,dmgFlat:8,desc:"铁掌无敌"}, extraSlots:3, source:"铁掌" },
+  { id:"ma_wx_33", name:"化骨绵掌", icon:"👊", type:"拳掌", grade:"绝学", atk:38, def:8, hp:540, speed:4, skill:{name:"化骨绵掌",fireRate:100,dmgRate:100,dmgFlat:8,desc:"化骨绵掌"}, extraSlots:3, source:"五毒" },
+  { id:"ma_wx_34", name:"天山折梅手", icon:"👊", type:"拳掌", grade:"绝学", atk:42, def:8, hp:550, speed:4, skill:{name:"折梅手",fireRate:70,dmgRate:110,dmgFlat:8,desc:"折梅手"}, extraSlots:3, source:"天山" },
+  { id:"ma_wx_35", name:"大力金刚掌", icon:"👊", type:"拳掌", grade:"绝学", atk:44, def:8, hp:530, speed:4, skill:{name:"金刚掌",fireRate:100,dmgRate:110,dmgFlat:9,desc:"金刚掌"}, extraSlots:3, source:"少林" },
+  { id:"ma_wx_36", name:"铁线拳", icon:"👊", type:"拳掌", grade:"根基", atk:18, def:6, hp:380, speed:4, skill:{name:"铁线横江",fireRate:80,dmgRate:60,dmgFlat:3,desc:"铁线横江"}, extraSlots:1, source:"初始可得" },
+  { id:"ma_wx_37", name:"地堂刀", icon:"👊", type:"拳掌", grade:"进阶", atk:30, def:6, hp:450, speed:4, skill:{name:"地堂扫",fireRate:70,dmgRate:80,dmgFlat:6,desc:"地堂扫"}, extraSlots:2, source:"五毒" },
+  { id:"ma_wx_38", name:"千蛛万毒手", icon:"👊", type:"拳掌", grade:"进阶", atk:28, def:6, hp:440, speed:4, skill:{name:"千蛛噬体",fireRate:100,dmgRate:80,dmgFlat:6,desc:"千蛛噬体"}, extraSlots:2, source:"五毒" },
+  { id:"ma_wx_39", name:"大慈大悲手", icon:"👊", type:"拳掌", grade:"根基", atk:20, def:6, hp:400, speed:4, skill:{name:"慈悲为怀",fireRate:80,dmgRate:70,dmgFlat:4,desc:"慈悲为怀"}, extraSlots:1, source:"少林" },
+  { id:"ma_wx_40", name:"五行轮", icon:"🔔", type:"奇门", grade:"绝学", atk:50, def:4, hp:380, speed:8, skill:{name:"五行轮转",fireRate:100,dmgRate:100,dmgFlat:10,desc:"五行轮转"}, extraSlots:3, source:"五毒" },
+  { id:"ma_wx_41", name:"风火轮", icon:"🔔", type:"奇门", grade:"绝学", atk:48, def:4, hp:360, speed:8, skill:{name:"风火连天",fireRate:100,dmgRate:100,dmgFlat:10,desc:"风火连天"}, extraSlots:3, source:"天山" },
+  { id:"ma_wx_42", name:"离别钩", icon:"🔗", type:"奇门", grade:"绝学", atk:45, def:4, hp:370, speed:8, skill:{name:"离别钩魂",fireRate:70,dmgRate:110,dmgFlat:9,desc:"离别钩魂"}, extraSlots:3, source:"逍遥" },
+  { id:"ma_wx_43", name:"判官笔", icon:"✒️", type:"奇门", grade:"进阶", atk:35, def:4, hp:290, speed:8, skill:{name:"判官夺命",fireRate:60,dmgRate:90,dmgFlat:7,desc:"判官夺命"}, extraSlots:2, source:"武当" },
+  { id:"ma_wx_44", name:"流云飞袖", icon:"🌀", type:"奇门", grade:"进阶", atk:30, def:4, hp:280, speed:8, skill:{name:"流云袖",fireRate:70,dmgRate:80,dmgFlat:6,desc:"流云袖"}, extraSlots:2, source:"天山" },
+  { id:"ma_wx_45", name:"鹤蛇八打", icon:"🔔", type:"奇门", grade:"根基", atk:22, def:3, hp:240, speed:8, skill:{name:"鹤蛇争锋",fireRate:60,dmgRate:70,dmgFlat:4,desc:"鹤蛇争锋"}, extraSlots:1, source:"五毒" },
+  { id:"ma_wx_46", name:"踏雪无痕", icon:"🕊️", type:"轻功", grade:"绝学", atk:32, def:3, hp:300, speed:12, skill:{name:"踏雪寻梅",fireRate:100,dmgRate:90,dmgFlat:6,desc:"踏雪寻梅"}, extraSlots:3, source:"天山" },
+  { id:"ma_wx_47", name:"飞檐走壁", icon:"🕊️", type:"轻功", grade:"绝学", atk:28, def:3, hp:280, speed:12, skill:{name:"飞檐步",fireRate:70,dmgRate:80,dmgFlat:5,desc:"飞檐步"}, extraSlots:3, source:"逍遥" },
+  { id:"ma_wx_48", name:"水上漂", icon:"🌊", type:"轻功", grade:"进阶", atk:22, def:2, hp:220, speed:12, skill:{name:"水上如履",fireRate:60,dmgRate:70,dmgFlat:4,desc:"水上如履"}, extraSlots:2, source:"丐帮" },
+  { id:"ma_wx_49", name:"八步赶蝉", icon:"⚡", type:"轻功", grade:"进阶", atk:25, def:2, hp:210, speed:12, skill:{name:"八步赶蝉",fireRate:60,dmgRate:70,dmgFlat:5,desc:"八步赶蝉"}, extraSlots:2, source:"少林" },
+  { id:"ma_wx_50", name:"燕子三抄水", icon:"🕊️", type:"轻功", grade:"根基", atk:18, def:2, hp:180, speed:12, skill:{name:"燕子抄水",fireRate:55,dmgRate:60,dmgFlat:3,desc:"燕子抄水"}, extraSlots:1, source:"武当" },
 ];
 
 /* ---------- 法宝（3 槽位：weapon/armor/trinket） ----------
