@@ -951,7 +951,7 @@ const Game = (function () {
   }
   // ATB 聚气战斗系统（替代回合制，速度决定出手频率，武学招式触发）
   // 聚气参数（参照无名江湖 ATB 设计）
-  const CFG_ATB = { QI_THRESHOLD: 100, BASE_QI_GAIN: 34, SPEED_QI_K: 0.05, MAX_ROUNDS: 80 };
+  const CFG_ATB = { QI_THRESHOLD: 100, BASE_QI_GAIN: 34, SPEED_QI_K: 0.05, MAX_ROUNDS: 80, DMG_DEF_COEF: 5 };
   function atbCombat(enemy) {
     const p = Object.assign({}, combatStats());
     const ms = martialStats ? martialStats() : {atk:0,def:0,hp:0,speed:0};
@@ -965,12 +965,13 @@ const Game = (function () {
     const log = [];
     const deck = state.martialDeck || [];
     const hasMA = deck.length > 0;
-    // 伤害：基于现有公式 + 武学倍率
+    // 伤害：采用文档公式 base = atk²/(atk+5×def)，×招式倍率 + 固定 + 暴击
     function calcDmg(atk, def, ratePct, flat) {
+      const base = (atk * atk) / Math.max(1, atk + CFG_ATB.DMG_DEF_COEF * def);
+      let dmg = base * (ratePct / 100) + flat;
+      // 伤害浮动（±variance）
       const v = CONFIG.combat.variance;
-      let dmg = atk * (1 - v + Math.random() * v * 2);
-      dmg = Math.max(1, dmg - def * CONFIG.combat.defMit);
-      dmg = dmg * (ratePct / 100) + flat;
+      dmg *= (1 - v + Math.random() * v * 2);
       let isCrit = false;
       if (Math.random() < Math.min(1, p.crit)) { dmg *= CONFIG.combat.critMult; isCrit = true; }
       return { dmg: Math.floor(Math.max(1, dmg)), crit: isCrit };
