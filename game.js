@@ -62,6 +62,7 @@ const Game = (function () {
       martialLevels: {},      // 武学 id -> 等级
       martialSkills: {},      // 武学 id -> [装备的招式id]
       skills: {},             // 招式 id -> count（已获得的数量）
+      skillLevels: {},        // 招式 id -> 等级
     };
   }
 
@@ -697,7 +698,32 @@ const Game = (function () {
     pushLog(`⬆ 武学「${ma.name}」升至 ${lv+1} 级！`, '⬆');
     save(); emit('martial'); return true;
   }
-  // 招式：获得/装配
+  // 招式：获得/装配/升级
+  function gainSkill(id) {
+    const sk = SKILLS.find(s => s.id === id);
+    if (!sk) return false;
+    state.skills[id] = (state.skills[id] || 0) + 1;
+    pushLog(`📜 获得招式「${sk.name}」`, '📜');
+    save(); emit('martial'); return true;
+  }
+  // 招式升级成本
+  const SKILL_UPGRADE_MAX = 10;
+  function upgradeSkillCost(id) {
+    const lv = state.skillLevels[id] || 0;
+    if (lv >= SKILL_UPGRADE_MAX) return null;
+    return Math.floor(8 * Math.pow(1.5, lv));
+  }
+  function upgradeSkill(id) {
+    const lv = state.skillLevels[id] || 0;
+    if (lv >= SKILL_UPGRADE_MAX) return false;
+    const cost = upgradeSkillCost(id);
+    if (state.materials < cost) return false;
+    state.materials -= cost;
+    state.skillLevels[id] = lv + 1;
+    const sk = SKILLS.find(s => s.id === id);
+    pushLog(`⬆ 招式「${sk.name}」升至 ${lv+1} 级！`, '⬆');
+    save(); emit('martial'); return true;
+  }
   function gainSkill(id) {
     const sk = SKILLS.find(s => s.id === id);
     if (!sk) return false;
@@ -1094,7 +1120,6 @@ const Game = (function () {
         }
       }
       // 武学掉落（按品质分级概率，总触发约18%）
-      let maDrop = null, skDrop = null;
       const gradeWeights = { '绝世': 1, '稀有': 3, '绝学': 8, '进阶': 14, '根基': 20 };
       const owned = Object.keys(state.martialArts);
       const missingByGrade = {};
@@ -1361,7 +1386,7 @@ const Game = (function () {
       if (raw) {
         const data = JSON.parse(raw);
         state = Object.assign(defaultState(), data);
-        ['techniques', 'abodes', 'pills', 'pets', 'insightLv', 'achievements', 'log', 'treasures', 'equipped', 'mapProgress', 'storyProgress', 'martialArts', 'martialLevels', 'martialSkills', 'skills'].forEach(k => { state[k] = data[k] || (Array.isArray(data[k]) ? [] : {}); });
+        ['techniques', 'abodes', 'pills', 'pets', 'insightLv', 'achievements', 'log', 'treasures', 'equipped', 'mapProgress', 'storyProgress', 'martialArts', 'martialLevels', 'martialSkills', 'skills', 'skillLevels'].forEach(k => { state[k] = data[k] || (Array.isArray(data[k]) ? [] : {}); });
         // 旧存档兼容：martialDeck 必须是数组（可能被旧代码存为 {}）
         if (!Array.isArray(state.martialDeck)) state.martialDeck = [];
         state.goldenBuff = null;
@@ -1438,7 +1463,7 @@ const Game = (function () {
     get BLESSINGS() { return BLESSINGS; }, get TOWER_TIERS() { return TOWER_TIERS; },
     get MARTIAL_ARTS() { return MARTIAL_ARTS; },
     martialStats, gainMartial, equipMartial, unequipMartial, canEquipMartial, MAX_MARTIAL_DECK,
-    upgradeMartial, upgradeMartialCost, gainSkill, equipSkill, unequipSkill, martialSkillList,
+    upgradeMartial, upgradeMartialCost, gainSkill, equipSkill, unequipSkill, upgradeSkill, upgradeSkillCost, martialSkillList,
     martialAffinity, affinityMult,
     get SKILLS() { return SKILLS; },
     LAYERS_PER_REALM, CHINESE_LAYER

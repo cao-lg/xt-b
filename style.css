@@ -584,6 +584,18 @@ h2.lose { color: #ff9f9f; }
 .reward { margin-top: 10px; font-size: 13px; color: #ffd76f; }
 .reward.drop { color: #c79fff; }
 
+/* ---------------- 招式库网格 ---------------- */
+.sk-grid { display: flex; flex-direction: column; gap: 4px; margin: 6px 0; }
+.sk-item {
+  display: flex; align-items: center; gap: 6px; padding: 8px 10px;
+  border: 1px solid var(--border); border-radius: 8px; background: rgba(0,0,0,0.15);
+}
+.sk-name { font-size: 13px; font-weight: 700; color: var(--jade); min-width: 70px; }
+.sk-info { flex: 1; font-size: 11px; color: var(--text-dim); }
+.sk-upg { min-width: 40px; text-align: right; }
+.sk-upg .btn.small { padding: 3px 8px; font-size: 11px; border-radius: 6px; }
+.sk-upg .btn.small:disabled { opacity: .3; }
+
 /* 法宝：装备槽 */
 .slot-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin: 10px 0; }
 .slot { display: flex; align-items: center; gap: 8px; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 10px; }

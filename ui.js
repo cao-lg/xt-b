@@ -991,6 +991,11 @@
       <div class="ma-filter-bar">${filterTabs}</div>
       <div class="ma-grid">${gridSlots}</div>
       <div class="hint" style="margin-top:6px">💡 点击武学格子查看详情 · 品质：🟤根基 🔵进阶 🟡绝学 🟣稀有 🔴绝世 · 战斗胜利有概率掉落⚠</div>
+      <button class="btn" id="btn-skills" style="margin-top:8px;width:100%">📜 招式库（已获 ${Object.keys(s.skills||{}).filter(k=>s.skills[k]>0).length} 个）</button>
+      <div id="skills-panel" style="display:none;margin-top:6px;">
+        <div class="list-title">📜 已拥有的招式</div>
+        <div class="sk-grid">${renderSkillGrid()}</div>
+      </div>
     `;
 
     // 事件绑定
@@ -1081,10 +1086,36 @@
       _martialFilter = b.dataset.filter;
       renderCurrent();
     }));
+    // 招式库展开/折叠
+    const skillsBtn = $('#btn-skills');
+    const skillsPanel = $('#skills-panel');
+    if (skillsBtn && skillsPanel) skillsBtn.addEventListener('click', () => {
+      skillsPanel.style.display = skillsPanel.style.display === 'none' ? 'block' : 'none';
+    });
+    // 招式升级
+    view.querySelectorAll('[data-skill-upgrade]').forEach(b => b.addEventListener('click', () => {
+      if (Game.upgradeSkill(b.dataset.skillUpgrade)) renderCurrent(); else toast('天材地宝不足');
+    }));
+  }
+  // 招式背包网格
+  function renderSkillGrid() {
+    const s = Game.state;
+    const owned = Game.SKILLS.filter(sk => (s.skills[sk.id] || 0) > 0);
+    if (!owned.length) return '<div class="empty">暂无招式，战斗胜利有概率掉落</div>';
+    return owned.map(sk => {
+      const lv = s.skillLevels[sk.id] || 0;
+      const cost = Game.upgradeSkillCost(sk.id);
+      const mult = 1 + lv * 0.05;
+      const upgBtn = cost ? `<button class="btn small" data-skill-upgrade="${sk.id}" ${s.materials>=cost?'':'disabled'}>${lv}/10</button>` : `<span style="color:var(--jade)">满</span>`;
+      return `<div class="sk-item">
+        <div class="sk-name">${sk.name}</div>
+        <div class="sk-info">${sk.type} · ${Math.round(sk.fireRate*(1+lv*0.03))}% · ${Math.round(sk.dmgRate*mult)}%伤害${sk.healPct?' 回血'+Math.round(sk.healPct*(1+lv*0.03))+'%':''}</div>
+        <div class="sk-upg">${upgBtn}</div>
+      </div>`;
+    }).join('');
   }
   function renderCurrent() {
     switch (currentTab) {
-      case 'cultivate': renderCultivate(); break;
       case 'technique': renderTechniques(); break;
       case 'abode': renderAbodes(); break;
       case 'pill': renderPills(); break;
