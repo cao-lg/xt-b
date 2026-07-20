@@ -1003,8 +1003,6 @@
       const lv = s.martialLevels[id] || 0;
       const lvMult = 1 + lv * 0.10;
       // 弹出详情面板
-      const skills = Game.martialSkillList(id);
-      const skillText = skills.map(sk => `• ${sk.innate?'⭐':'🔧'} ${sk.name}（${sk.fireRate}%触发·${sk.dmgRate}%伤害）${sk.healPct?' 回血'+sk.healPct+'%':''}`).join('<br>');
       const cost = Game.upgradeMartialCost(id);
       const upgBtn = owned && cost
         ? `<button class="btn" data-upgrade="${id}" ${s.materials>=cost.mat&&s.stone>=cost.stone?'':'disabled'}>升级 ${lv}/20 (${cost.mat}🌿 ${Game.formatNum(cost.stone)}💎)</button>`
@@ -1012,13 +1010,35 @@
       const eqBtn = owned && !equipped && deckCount < maxDeck
         ? `<button class="btn" data-martial-eq="${id}">⚔️ 装备</button>`
         : (owned && equipped ? `<button class="btn smelt" data-martial-ueq="${id}">卸下</button>` : '');
+      const skills = Game.martialSkillList(id);
+      // 招式槽位显示
+      const slotCount = m.extraSlots;
+      const extraSlots = skills.filter(sk => !sk.innate);
+      let skillSlotsHtml = '';
+      if (owned) {
+        // 天赋槽
+        skillSlotsHtml += `<div class="ma-slots"><div class="ma-slot-title">⚔ 天赋招式</div>`;
+        const inn = skills.find(sk => sk.innate);
+        if (inn) skillSlotsHtml += `<div class="ma-skill-tag innate">⭐ ${inn.name}（${inn.fireRate}%触发·${Math.round(inn.dmgRate)}%伤害）${inn.healPct?' 回血'+inn.healPct+'%':''}</div>`;
+        // 额外槽
+        skillSlotsHtml += `<div class="ma-slot-title" style="margin-top:6px">🔧 配招槽（${extraSlots.length}/${slotCount}）</div>`;
+        for (let i = 0; i < slotCount; i++) {
+          const sk = extraSlots[i];
+          if (sk) {
+            skillSlotsHtml += `<div class="ma-skill-tag extra">🔧 ${sk.name}（${sk.fireRate}%触发·${Math.round(sk.dmgRate)}%伤害）${sk.healPct?' 回血'+sk.healPct+'%':''} <span class="spd-ft" data-uskill="${id}:${i}" style="cursor:pointer">[卸下]</span></div>`;
+          } else {
+            skillSlotsHtml += `<div class="ma-skill-slot" data-addskill="${id}:${i}"><span class="ma-skill-plus">+</span> 装配招式</div>`;
+          }
+        }
+        skillSlotsHtml += `</div>`;
+      }
       const modalHtml = `
         <div class="ma-detail">
           <div class="ma-dt-icon">${m.icon}</div>
           <div class="ma-dt-name">${m.name} <span style="color:${gradeColors[m.grade]||'#fff'}">${m.grade}</span></div>
           <div class="ma-dt-type">${m.type} · 阴${m.yin}阳${m.yang}调${m.tiao} · ${owned?'已拥有':'未获得'}</div>
           <div class="ma-dt-stats">攻+${Math.round(m.atk*lvMult)} 防+${Math.round(m.def*lvMult)} 气血+${Math.round(m.hp*lvMult)} 速度+${Math.round(m.speed*lvMult)}</div>
-          ${owned ? `<div class="ma-dt-skills">${skillText}</div>` : `<div class="ma-dt-source">获取：${m.source}</div>`}
+          ${owned ? skillSlotsHtml : `<div class="ma-dt-source">获取：${m.source}</div>`}
           <div style="display:flex;gap:8px;justify-content:center;margin-top:10px">${eqBtn}${upgBtn}</div>
           <div style="text-align:center;margin-top:8px"><button class="bb-btn-cancel" data-close>关闭</button></div>
         </div>`;
@@ -1033,6 +1053,29 @@
         if (Game.upgradeMartial(b.dataset.upgrade)) { closeModal(modalEl); renderCurrent(); } else toast('材料不足');
       }));
       modalEl.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', () => closeModal(modalEl)));
+      // 招式装配/卸下
+      modalEl.querySelectorAll('[data-addskill]').forEach(b => b.addEventListener('click', () => {
+        const [maId, slotIdx] = b.dataset.addskill.split(':');
+        const ownedSkills = Game.SKILLS.filter(sk => (s.skills[sk.id] || 0) > 0 && !(s.martialSkills[maId] || []).includes(sk.id));
+        if (ownedSkills.length === 0) { toast('没有可装配的招式（战斗胜利掉落）'); return; }
+        const skillList = ownedSkills.map(sk => 
+          `<div class="sk-pick-item" data-skill="${maId}:${slotIdx}:${sk.id}">
+            <span class="sk-pick-name">${sk.name}</span>
+            <span class="sk-pick-info">${sk.fireRate}%触发·${sk.dmgRate}%伤害·${sk.type}</span>
+          </div>`
+        ).join('');
+        closeModal(modalEl);
+        const picker = modal(`<div class="ma-detail"><div class="ma-dt-name">🔧 装配招式</div><div class="ma-dt-type">可选 ${ownedSkills.length} 个</div><div class="sk-pick-list">${skillList}</div><div style="text-align:center;margin-top:8px"><button class="bb-btn-cancel" data-close>取消</button></div></div>`);
+        picker.querySelectorAll('[data-skill]').forEach(el => {
+          const [maId2, idx2, skId] = el.dataset.skill.split(':');
+          el.addEventListener('click', () => { Game.equipSkill(maId2, skId, parseInt(idx2)); closeModal(picker); renderCurrent(); });
+        });
+        picker.querySelectorAll('[data-close]').forEach(el => el.addEventListener('click', () => closeModal(picker)));
+      }));
+      modalEl.querySelectorAll('[data-uskill]').forEach(b => b.addEventListener('click', () => {
+        const [maId, idx] = b.dataset.uskill.split(':');
+        Game.unequipSkill(maId, parseInt(idx)); closeModal(modalEl); renderCurrent();
+      }));
     }));
     view.querySelectorAll('[data-filter]').forEach(b => b.addEventListener('click', () => {
       _martialFilter = b.dataset.filter;

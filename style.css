@@ -552,6 +552,27 @@ html, body {
 .cleared-tag { font-size: 10px; background: rgba(127,209,193,0.25); color: #7fd1c1; padding: 1px 6px; border-radius: 6px; margin-left: 4px; }
 .fight-btn { background: linear-gradient(180deg, #ff9f6f, #e8633a); color: #fff; box-shadow: 0 4px 12px rgba(230,99,58,0.35); }
 
+/* ---------------- 武学·招式配招UI ---------------- */
+.ma-slots { margin: 6px 0; text-align: left; }
+.ma-slot-title { font-size: 12px; font-weight: 700; color: var(--text-dim); margin-bottom: 4px; }
+.ma-skill-tag { font-size: 11px; padding: 4px 8px; border-radius: 6px; margin: 2px 0; background: rgba(0,0,0,0.2); }
+.ma-skill-tag.innate { color: var(--gold-soft); border-left: 3px solid var(--gold-soft); }
+.ma-skill-tag.extra { color: var(--jade); border-left: 3px solid var(--jade); }
+.ma-skill-slot {
+  font-size: 11px; padding: 6px 8px; border: 1px dashed var(--border); border-radius: 6px;
+  margin: 3px 0; color: var(--text-dim); cursor: pointer; text-align: center; transition: all .15s;
+}
+.ma-skill-slot:hover { border-color: var(--gold-soft); color: var(--text); background: rgba(255,215,111,0.06); }
+.ma-skill-plus { font-size: 14px; font-weight: 700; color: var(--gold-soft); }
+.sk-pick-list { margin: 8px 0; }
+.sk-pick-item {
+  display: flex; justify-content: space-between; padding: 8px 10px; border: 1px solid var(--border);
+  border-radius: 8px; margin: 4px 0; cursor: pointer; transition: all .15s; background: rgba(0,0,0,0.15);
+}
+.sk-pick-item:hover { border-color: var(--gold-soft); background: rgba(255,215,111,0.06); }
+.sk-pick-name { font-size: 13px; font-weight: 700; color: var(--text); }
+.sk-pick-info { font-size: 11px; color: var(--text-dim); }
+
 /* 战斗：日志弹窗 */
 .combat-sub { font-size: 12px; color: var(--text-dim); margin: 4px 0 8px; }
 .combat-log { background: rgba(0,0,0,0.3); border-radius: 10px; padding: 8px 10px; max-height: 220px; overflow-y: auto; font-size: 12px; line-height: 1.7; }
