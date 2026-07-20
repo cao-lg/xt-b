@@ -716,18 +716,31 @@
       body = `<div class="map-desc">${map.desc}</div>${cdText}<div class="level-path">${levels}</div>`;
     }
     view.innerHTML = `
-      <div class="section-title">⚔️ 历练 · 战斗 <small>回合制对战，命中/闪避/暴击皆随机</small></div>
+      <div class="section-title">⚔️ 历练 · 战斗 <small>ATB聚气对战 · 速度越快出手越频繁 · 武学招式自动触发</small></div>
       <div class="player-panel">
         <div class="pp-head">🧘 自身战力 <b>${Game.formatNum(st.power)}</b></div>
         <div class="pp-stats">
           <span>攻 ${st.atk}</span><span>防 ${st.def}</span><span>气血 ${st.hp}</span>
           <span>命中 ${Math.round(st.hit * 100)}%</span><span>闪避 ${Math.round(st.dodge * 100)}%</span><span>暴击 ${Math.round(st.crit * 100)}%</span>
         </div>
+        <div class="pp-speed">⚡ 武学速度 +${Game.martialStats().speed}（装备轻功提升 · 速度差影响发招频率）</div>
         <div class="hint" style="margin-top:8px">攻/防/气血/命中/闪避/暴击 受功法、洞府、丹药、悟道、灵宠、灵根、仙缘、法宝共同影响。</div>
         <details class="breakdown" style="margin-top:8px;font-size:12px;color:var(--text-dim)">
           <summary>📊 各系统战斗属性贡献详情</summary>
           <div style="padding:8px 0 4px 8px;line-height:1.7;color:var(--gold-soft)">${Game.combatFormula().map(l=>`<div>${l}</div>`).join('')}</div>
           <div style="padding:4px 0 4px 8px;line-height:1.7;border-top:1px dashed rgba(120,140,190,0.2);margin-top:6px">${Game.combatBreakdown().map(i => `<div title="${i.desc}"><span>${i.icon} ${i.name}</span><span style="float:right;color:var(--text)">${i.desc}</span></div>`).join('')}</div>
+        </details>
+        <details class="breakdown" style="margin-top:8px;font-size:12px;color:var(--text-dim)">
+          <summary>⚡ ATB聚气战斗机制</summary>
+          <div style="padding:8px 0 4px 8px;line-height:1.8;color:var(--text)">
+            · 每轮双方聚气：<b>qi += 34 + 0.05×速度差</b>（速度差=自身速度-平均速度）<br>
+            · qi ≥ <b>100</b> 即行动，溢出聚气保留（可连续行动）<br>
+            · 行动时随机触发装备武学的<b>天赋招式</b>（按火率判定）<br>
+            · 若火率判定失败则普通攻击（50%伤害）<br>
+            · 装配的配招招式也会一同参与火率判定<br>
+            · 速度高的武学（轻功）让聚气更快→发招更频繁<br>
+            · 内息克制：<span style="color:#7fd1c1">阴→阳+15%</span> <span style="color:#c79aff">阳→阴+15%</span> 调↔无加成
+          </div>
         </details>
       </div>
       <div class="map-tabs">${mapTabs}${towerTab}</div>
