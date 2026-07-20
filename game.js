@@ -59,6 +59,9 @@ const Game = (function () {
       checkInStreak: 0,       // 连续签到天数
       martialArts: {},        // 武学 id -> count（已获得的数量）
       martialDeck: [],        // 已装备武学 id 列表（最多6个）
+      martialLevels: {},      // 武学 id -> 等级
+      martialSkills: {},      // 武学 id -> [装备的招式id]
+      skills: {},             // 招式 id -> count（已获得的数量）
     };
   }
 
@@ -490,7 +493,7 @@ const Game = (function () {
     const gain = legacyGain();
     state.legacy += gain; state.jade += gain; state.reincarnations++;
     state.realmIndex = 0; state.layer = 0; state.xp = 0; state.stone = 0;
-    state.techniques = {}; state.abodes = {}; state.pills = {}; state.martialDeck = [];
+    state.techniques = {}; state.abodes = {}; state.pills = {}; state.martialDeck = []; state.martialLevels = {}; state.martialSkills = {};
     state.pets = {}; state.materials = 0; state.seekCount = 0; state.exploreCount = 0; state.breaks = 0;
     pushLog(`🔁 飞升转世！得仙缘 +${gain}（全局效率 +${Math.round(gain * CONFIG.legacyPerPoint * 100)}%）· 仙玉 +${gain}`, '🔁');
     checkAchievements();
@@ -640,15 +643,98 @@ const Game = (function () {
     state.martialDeck.splice(idx, 1);
     save(); emit('martial'); return true;
   }
-  // 武学属性合计
+  // 武学属性合计（含等级倍率）
   function martialStats() {
     const ids = state.martialDeck;
     let atk = 0, def = 0, hp = 0, speed = 0;
     ids.forEach(id => {
       const m = MARTIAL_ARTS.find(x => x.id === id);
-      if (m) { atk += m.atk; def += m.def; hp += m.hp; speed += m.speed; }
+      if (!m) return;
+      const lv = state.martialLevels[id] || 0;
+      const mult = 1 + lv * 0.10;
+      atk += m.atk * mult; def += m.def * mult; hp += m.hp * mult; speed += m.speed * mult;
     });
     return { atk, def, hp, speed };
+  }
+  // 武学升级：消耗材料+灵石，每级 +10%属性 +5%招式伤害
+  const MAX_MA_LEVEL = 20;
+  const MA_UPGRADE_COST_BASE = { mat: 5, stone: 500 };
+  const MA_UPGRADE_COST_GROWTH = 1.6;
+  function upgradeMartialCost(id) {
+    const lv = state.martialLevels[id] || 0;
+    if (lv >= MAX_MA_LEVEL) return null;
+    return {
+      mat: Math.floor(MA_UPGRADE_COST_BASE.mat * Math.pow(MA_UPGRADE_COST_GROWTH, lv)),
+      stone: Math.floor(MA_UPGRADE_COST_BASE.stone * Math.pow(MA_UPGRADE_COST_GROWTH, lv))
+    };
+  }
+  function upgradeMartial(id) {
+    const cost = upgradeMartialCost(id);
+    if (!cost) return false;
+    if (state.materials < cost.mat || state.stone < cost.stone) return false;
+    if (!state.martialArts[id] || state.martialArts[id] <= 0) return false;
+    const lv = state.martialLevels[id] || 0;
+    if (lv >= MAX_MA_LEVEL) return false;
+    state.materials -= cost.mat; state.stone -= cost.stone;
+    state.martialLevels[id] = lv + 1;
+    const ma = MARTIAL_ARTS.find(m => m.id === id);
+    pushLog(`⬆ 武学「${ma.name}」升至 ${lv+1} 级！`, '⬆');
+    save(); emit('martial'); return true;
+  }
+  // 招式：获得/装配
+  function gainSkill(id) {
+    const sk = SKILLS.find(s => s.id === id);
+    if (!sk) return false;
+    state.skills[id] = (state.skills[id] || 0) + 1;
+    pushLog(`📜 获得招式「${sk.name}」`, '📜');
+    save(); emit('martial'); return true;
+  }
+  function equipSkill(maId, skillId, slotIdx) {
+    const ma = MARTIAL_ARTS.find(m => m.id === maId);
+    if (!ma) return false;
+    if (!state.martialArts[maId] || state.martialArts[maId] <= 0) return false;
+    if (!state.skills[skillId] || state.skills[skillId] <= 0) return false;
+    const equipped = state.martialSkills[maId] || [];
+    if (slotIdx !== undefined && slotIdx < equipped.length) {
+      // 替换指定槽
+      const old = equipped[slotIdx];
+      if (old) state.skills[old] = (state.skills[old] || 0) + 1; // 还回
+      equipped[slotIdx] = skillId;
+    } else {
+      if (equipped.length >= ma.extraSlots) return false;
+      equipped.push(skillId);
+    }
+    state.skills[skillId]--;
+    state.martialSkills[maId] = equipped;
+    pushLog(`⚔️ 装配招式「${SKILLS.find(s=>s.id===skillId).name}」到「${ma.name}」`, '⚔️');
+    save(); emit('martial'); return true;
+  }
+  function unequipSkill(maId, slotIdx) {
+    const equipped = state.martialSkills[maId] || [];
+    if (slotIdx < 0 || slotIdx >= equipped.length) return false;
+    const skillId = equipped[slotIdx];
+    equipped.splice(slotIdx, 1);
+    state.skills[skillId] = (state.skills[skillId] || 0) + 1;
+    state.martialSkills[maId] = equipped;
+    save(); emit('martial'); return true;
+  }
+  // 获取武学装配的招式列表（含等级加成后的属性）
+  function martialSkillList(maId) {
+    const ma = MARTIAL_ARTS.find(m => m.id === maId);
+    if (!ma) return [];
+    const lv = state.martialLevels[maId] || 0;
+    const dmgMult = 1 + lv * 0.05;
+    const innate = {
+      name: ma.skill.name, type: '天赋', fireRate: ma.skill.fireRate,
+      dmgRate: ma.skill.dmgRate * dmgMult, dmgFlat: ma.skill.dmgFlat * dmgMult,
+      desc: ma.skill.desc, innate: true
+    };
+    const extra = (state.martialSkills[maId] || []).map(sid => {
+      const sk = SKILLS.find(s => s.id === sid);
+      if (!sk) return null;
+      return { ...sk, innate: false, dmgRate: sk.dmgRate * dmgMult, dmgFlat: sk.dmgFlat * dmgMult, healPct: sk.healPct };
+    }).filter(Boolean);
+    return [innate, ...extra];
   }
 
   /* ---------- 手动运转周天（含 combo / 暴击） ---------- */
@@ -899,12 +985,20 @@ const Game = (function () {
         pQi -= CFG_ATB.QI_THRESHOLD;
         if (hasMA) {
           const maId = deck[Math.floor(Math.random() * deck.length)];
-          const ma = MARTIAL_ARTS.find(m => m.id === maId);
-          if (ma && Math.random() < (ma.skill.fireRate / 100)) {
-            const r = calcDmg(p.atk, e.def, ma.skill.dmgRate, ma.skill.dmgFlat);
-            eHp -= r.dmg;
-            log.push({ side: 'p', miss: false, crit: r.crit, dmg: r.dmg, skill: ma.skill.name });
-          } else {
+          const skillList = martialSkillList ? martialSkillList(maId) : [];
+          // 从所有招式（天赋+额外）中按火率随机roll一个
+          let triggered = false;
+          for (const sk of skillList) {
+            if (Math.random() < (sk.fireRate / 100)) {
+              const r = calcDmg(p.atk, e.def, sk.dmgRate, sk.dmgFlat);
+              eHp -= r.dmg;
+              // 回血效果
+              if (sk.healPct) pHp = Math.min(p.hp, pHp + Math.floor(p.hp * sk.healPct / 100));
+              log.push({ side: 'p', miss: false, crit: r.crit, dmg: r.dmg, skill: sk.name });
+              triggered = true; break;
+            }
+          }
+          if (!triggered) {
             const r = calcDmg(p.atk, e.def, 50, 0);
             eHp -= r.dmg;
             log.push({ side: 'p', miss: false, crit: r.crit, dmg: r.dmg, skill: '普攻' });
@@ -978,6 +1072,18 @@ const Game = (function () {
         } else if (Math.random() < 0.33) {
           const pick = MARTIAL_ARTS[Math.floor(Math.random() * MARTIAL_ARTS.length)];
           gainMartial(pick.id);
+        }
+      }
+      // 招式掉落（胜利后 8% 概率获得一个招式）
+      if (Math.random() < 0.08) {
+        const ownedSkills = Object.keys(state.skills);
+        const missingSkills = SKILLS.filter(s => !ownedSkills.includes(s.id));
+        if (missingSkills.length > 0) {
+          const pick = missingSkills[Math.floor(Math.random() * missingSkills.length)];
+          gainSkill(pick.id);
+        } else if (Math.random() < 0.33) {
+          const pick = SKILLS[Math.floor(Math.random() * SKILLS.length)];
+          gainSkill(pick.id);
         }
       }
       checkAchievements();
@@ -1218,7 +1324,7 @@ const Game = (function () {
       if (raw) {
         const data = JSON.parse(raw);
         state = Object.assign(defaultState(), data);
-        ['techniques', 'abodes', 'pills', 'pets', 'insightLv', 'achievements', 'log', 'treasures', 'equipped', 'mapProgress', 'storyProgress', 'martialArts', 'martialDeck'].forEach(k => { state[k] = data[k] || (Array.isArray(data[k]) ? [] : {}); });
+        ['techniques', 'abodes', 'pills', 'pets', 'insightLv', 'achievements', 'log', 'treasures', 'equipped', 'mapProgress', 'storyProgress', 'martialArts', 'martialDeck', 'martialLevels', 'martialSkills', 'skills'].forEach(k => { state[k] = data[k] || (Array.isArray(data[k]) ? [] : {}); });
         // 新字段兜底 + 天降机缘：清除可能过期的增益；离线收益不计入 goldenBuff
         state.goldenBuff = null;
         state.nextGoldenAt = (state.nextGoldenAt && state.nextGoldenAt > Date.now())
@@ -1294,6 +1400,8 @@ const Game = (function () {
     get BLESSINGS() { return BLESSINGS; }, get TOWER_TIERS() { return TOWER_TIERS; },
     get MARTIAL_ARTS() { return MARTIAL_ARTS; },
     martialStats, gainMartial, equipMartial, unequipMartial, canEquipMartial, MAX_MARTIAL_DECK,
+    upgradeMartial, upgradeMartialCost, gainSkill, equipSkill, unequipSkill, martialSkillList,
+    get SKILLS() { return SKILLS; },
     LAYERS_PER_REALM, CHINESE_LAYER
   };
 })();

@@ -542,3 +542,19 @@ const ACHIEVEMENTS = [
   { id: 't1',  name: '初得法宝',   desc: '获得第一件法宝',             treasure: 1, icon: '💎' },
   { id: 't2',  name: '法宝大成',   desc: '将任一法宝强化至满级',       enhanceMax: 1, icon: '✨' }
 ];
+
+/* ---------- 招式（武学额外配招，装备到武学 extraSlots） ---------- */
+const SKILLS = [
+  { id: 'menghu_xiashan', name: '猛虎下山', type: '出手', grade: '进阶', fireRate: 55, dmgRate: 70, dmgFlat: 25, desc: '势如猛虎，凌厉一击', parent: '通用' },
+  { id: 'canglong_chuhai', name: '苍龙出海', type: '出手', grade: '绝学', fireRate: 50, dmgRate: 100, dmgFlat: 50, desc: '苍龙出海，势不可挡', parent: '通用' },
+  { id: 'shouzhu_daitu', name: '守株待兔', type: '后手', grade: '根基', fireRate: 40, dmgRate: 60, dmgFlat: 15, desc: '以静制动，后发先至', parent: '通用' },
+  { id: 'yiyi_dailao', name: '以逸待劳', type: '后手', grade: '进阶', fireRate: 45, dmgRate: 75, dmgFlat: 30, desc: '蓄力待发，一击必中', parent: '通用' },
+  { id: 'pofu_chenzhou', name: '破釜沉舟', type: '精进', grade: '绝学', fireRate: 35, dmgRate: 130, dmgFlat: 60, desc: '不留退路，全力一击', parent: '通用' },
+  { id: 'beishui_yizhan', name: '背水一战', type: '精进', grade: '稀有', fireRate: 30, dmgRate: 160, dmgFlat: 80, desc: '置之死地而后生！', parent: '通用' },
+  { id: 'tiaoxi_yangqi', name: '调息养气', type: '运功', grade: '根基', fireRate: 60, dmgRate: 0, dmgFlat: 0, desc: '运转内息，回复气血5%', healPct: 5, parent: '通用' },
+  { id: 'yunzhuan_zhoutian', name: '运转周天', type: '运功', grade: '进阶', fireRate: 50, dmgRate: 0, dmgFlat: 0, desc: '周天运转，回复气血10%', healPct: 10, parent: '通用' },
+  { id: 'neixi_hufa', name: '内息护法', type: '内息', grade: '进阶', fireRate: 50, dmgRate: 40, dmgFlat: 10, desc: '以内息护体，攻守兼备', parent: '通用' },
+  { id: 'qishi_ruhong', name: '气势如虹', type: '气势', grade: '绝学', fireRate: 40, dmgRate: 90, dmgFlat: 40, desc: '气势碾压，威力倍增', parent: '通用' },
+  { id: 'futi_jianjia', name: '附体剑甲', type: '附体', grade: '稀有', fireRate: 35, dmgRate: 110, dmgFlat: 55, desc: '剑甲附体，攻防一体', parent: '通用' },
+  { id: 'futi_shenjue', name: '附体神诀', type: '附体', grade: '绝世', fireRate: 25, dmgRate: 180, dmgFlat: 120, desc: '神诀附体，毁天灭地！', parent: '通用' },
+];
