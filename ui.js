@@ -1114,6 +1114,7 @@
   }
   function renderCurrent() {
     switch (currentTab) {
+      case 'cultivate': renderCultivate(); break;
       case 'technique': renderTechniques(); break;
       case 'abode': renderAbodes(); break;
       case 'pill': renderPills(); break;
