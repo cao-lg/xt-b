@@ -591,6 +591,41 @@ h2.lose { color: #ff9f9f; }
   display: flex; align-items: center; gap: 8px; padding: 8px 10px;
   border: 1px solid var(--border); border-radius: 8px; background: rgba(0,0,0,0.15);
 }
+
+/* ---------------- 战报系统 ---------------- */
+.battle-report { text-align: left; max-height: 70vh; overflow-y: auto; padding: 4px; min-width: 320px; }
+.battle-report .rep-header { font-size: 16px; font-weight: 900; text-align: center; margin-bottom: 8px; color: var(--gold-soft); }
+.battle-report .rep-section { margin: 8px 0; padding: 8px; background: rgba(0,0,0,0.2); border-radius: 8px; border: 1px solid var(--border); }
+.battle-report .rep-section-title { font-size: 12px; font-weight: 700; color: var(--gold-soft); margin-bottom: 6px; }
+.battle-report .rep-hint { font-size: 10px; color: var(--text-dim); margin-bottom: 4px; font-style: italic; }
+.battle-report .rep-prep { display: flex; flex-direction: column; gap: 6px; }
+.battle-report .rep-prep-side { padding: 6px 8px; border-radius: 6px; font-size: 11px; }
+.battle-report .rep-prep-side.p { background: rgba(127,209,193,0.08); border-left: 3px solid #7fd1c1; }
+.battle-report .rep-prep-side.e { background: rgba(255,122,122,0.08); border-left: 3px solid #ff7a7a; }
+.battle-report .rep-prep-name { font-weight: 700; color: var(--text); }
+.battle-report .rep-prep-stats { color: var(--text-dim); margin-top: 2px; }
+.battle-report .rep-qi-table { width: 100%; font-size: 11px; border-collapse: collapse; }
+.battle-report .rep-qi-table th { color: var(--gold-soft); padding: 4px; border-bottom: 1px solid var(--border); text-align: center; }
+.battle-report .rep-qi-table td { padding: 3px 4px; text-align: center; color: var(--text); }
+.battle-report .rep-timeline { display: flex; flex-direction: column; gap: 6px; }
+.battle-report .rep-timeline-row { display: flex; align-items: center; gap: 6px; }
+.battle-report .rep-tl-label { min-width: 60px; font-size: 11px; font-weight: 700; color: var(--text); }
+.battle-report .rep-tl-nodes { display: flex; flex-wrap: wrap; gap: 2px; }
+.battle-report .tl-node { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 22px; padding: 0 4px; border-radius: 4px; font-size: 11px; font-weight: 700; }
+.battle-report .tl-node.p { background: #7fd1c1; color: #003; }
+.battle-report .tl-node.e { background: #ff7a7a; color: #fff; }
+.battle-report .rep-act-list { display: flex; flex-direction: column; gap: 3px; max-height: 240px; overflow-y: auto; }
+.battle-report .rep-act { display: flex; gap: 4px; font-size: 10px; padding: 4px 6px; border-radius: 4px; align-items: center; }
+.battle-report .rep-act.p { background: rgba(127,209,193,0.06); }
+.battle-report .rep-act.e { background: rgba(255,122,122,0.06); }
+.battle-report .rep-seq { min-width: 20px; text-align: center; font-weight: 700; color: var(--gold-soft); }
+.battle-report .rep-who { min-width: 50px; color: var(--text); }
+.battle-report .rep-ma { min-width: 60px; color: var(--text-dim); font-size: 9px; }
+.battle-report .rep-skill { flex: 1; color: var(--jade); }
+.battle-report .rep-dmg { min-width: 30px; text-align: right; font-weight: 700; color: var(--gold-soft); }
+.battle-report .rep-hp { min-width: 80px; text-align: right; font-size: 9px; color: var(--text-dim); }
+.battle-report .rep-formula, .battle-report .rep-aff-text { font-size: 11px; color: var(--text-dim); padding: 4px 6px; background: rgba(0,0,0,0.15); border-radius: 4px; line-height: 1.6; }
+.battle-report .rep-summary { font-size: 11px; color: var(--text); line-height: 1.8; }
 .allskill-item.locked { opacity: .4; }
 .allskill-icon { font-size: 18px; width: 24px; text-align: center; }
 .allskill-body { flex: 1; }

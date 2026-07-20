@@ -822,13 +822,155 @@
       '<div class="combat-sub">'+lv.name+' · 聚气 '+res.rounds+' 轮 · 你剩余气血 <span data-pend>'+Game.formatNum(pHp0)+'</span></div>'+
       '<div class="combat-log">'+lines+more+'</div>'+
       '<div class="combat-reward" style="display:none">'+rewardHtml+'</div>'+
-      '<button class="btn" id="cb-ok" style="display:none">收剑</button>', 'combat');
+      '<div style="display:flex;gap:8px;justify-content:center"><button class="btn" id="cb-report">📜 查看战报</button><button class="btn" id="cb-ok" style="display:none">收剑</button></div>', 'combat');
     $('#cb-ok').addEventListener('click',function(){
       if (r.win) { closeModal(m); setTimeout(() => showBlindBox(), 200); }
       else { closeModal(m); }
     });
+    $('#cb-report').addEventListener('click', () => showBattleReport(r, lv));
     playBattle(res,lv,m,aura,techEl);
     return m;
+  }
+  // 战报：显示双方准备/聚气/出手顺序/伤害公式拆解
+  function showBattleReport(r, lv) {
+    const rep = r.report;
+    if (!rep) { toast('战报数据缺失'); return; }
+    const pName = Game.state.daoName || '你';
+    const eName = lv.name;
+    const pStats = r.player, eStats = r.enemy;
+    // 出手顺序时间线
+    const maxSeq = rep.actions.length;
+    const timeline = rep.actions.map(a => {
+      const isP = a.side === 'p';
+      return `<span class="tl-node ${isP?'p':'e'}" title="第${a.seq}手 · ${isP?pName:eName} · ${a.skill} · ${a.dmg}伤害">${a.seq}</span>`;
+    }).join('');
+    const playerActions = rep.actions.filter(a => a.side==='p');
+    const enemyActions = rep.actions.filter(a => a.side==='e');
+    // 聚气表格（前8轮）
+    const qiRows = rep.rounds.slice(0, 8).map(r => `<tr><td>${r.round}</td><td>${r.pGain}</td><td>${r.pQi}</td><td>${r.eGain}</td><td>${r.eQi}</td></tr>`).join('');
+    // 出手顺序列表
+    const actList = rep.actions.slice(0, 16).map(a => {
+      const isP = a.side==='p';
+      const fired = a.fired ? '✅' : '❌';
+      const affTxt = a.affMod > 1 ? ` <span style="color:#7fd1c1">【${a.pAff||'-'}克${a.eAff||'-'}+15%】</span>` : '';
+      const critTxt = a.crit ? ' 💥暴击' : '';
+      return `<div class="rep-act ${isP?'p':'e'}">
+        <span class="rep-seq">${a.seq}</span>
+        <span class="rep-who">${isP?pName:eName}</span>
+        <span class="rep-ma">${a.ma||''}</span>
+        <span class="rep-skill">${fired} ${a.skill}${affTxt}${critTxt}</span>
+        <span class="rep-dmg">-${a.dmg}</span>
+        <span class="rep-hp">我 ${a.pHp} / 敌 ${a.eHp}</span>
+      </div>`;
+    }).join('');
+    const more = rep.actions.length > 16 ? `<div class="hint">还有 ${rep.actions.length-16} 次行动...</div>` : '';
+    // 准备阶段
+    const prepHtml = `
+      <div class="rep-section">
+        <div class="rep-section-title">📋 准备阶段</div>
+        <div class="rep-prep">
+          <div class="rep-prep-side p">
+            <div class="rep-prep-name">🧘 ${pName}（玩家）</div>
+            <div class="rep-prep-stats">攻 ${Game.formatNum(pStats.atk)} · 防 ${Game.formatNum(pStats.def)} · 气血 ${Game.formatNum(pStats.hp)} · 命中 ${Math.round(pStats.hit*100)}% · 闪避 ${Math.round(pStats.dodge*100)}% · 暴击 ${Math.round(pStats.crit*100)}%</div>
+            <div class="rep-prep-stats">⚡ 速度 ${rep.pSpeed}（基础50 + 武学${rep.pSpeed-50}）</div>
+          </div>
+          <div class="rep-prep-side e">
+            <div class="rep-prep-name">${lv.icon} ${eName}（${lv.boss?'BOSS':'敌方'}）</div>
+            <div class="rep-prep-stats">攻 ${eStats.atk} · 防 ${eStats.def} · 气血 ${Game.formatNum(eStats.hp)} · 命中 ${Math.round(eStats.hit*100)}% · 闪避 ${Math.round(eStats.dodge*100)}% · 暴击 ${Math.round(eStats.crit*100)}%</div>
+            <div class="rep-prep-stats">⚡ 速度 ${rep.eSpeed}（基础30 + 境界${rep.eSpeed-30}）</div>
+          </div>
+        </div>
+      </div>
+    `;
+    // 聚气阶段
+    const qiHtml = `
+      <div class="rep-section">
+        <div class="rep-section-title">⚡ 聚气阶段</div>
+        <div class="rep-hint">每轮双方聚气：qi += 34 + 0.05×速度差。先到100者行动，溢出可连动。</div>
+        <table class="rep-qi-table">
+          <thead><tr><th>轮</th><th>我方+</th><th>累计</th><th>敌方+</th><th>累计</th></tr></thead>
+          <tbody>${qiRows}</tbody>
+        </table>
+      </div>
+    `;
+    // 出手顺序时间线
+    const timelineHtml = `
+      <div class="rep-section">
+        <div class="rep-section-title">🕐 出手顺序（${maxSeq}次行动）</div>
+        <div class="rep-timeline">
+          <div class="rep-timeline-row p">
+            <span class="rep-tl-label">${pName}</span>
+            <span class="rep-tl-nodes">${timeline.replace(/<span class="tl-node ([pe])"/g, (m,c)=>c==='p'?m:'')}</span>
+          </div>
+          <div class="rep-timeline-row e">
+            <span class="rep-tl-label">${eName}</span>
+            <span class="rep-tl-nodes">${timeline.replace(/<span class="tl-node ([pe])"/g, (m,c)=>c==='e'?m:'')}</span>
+          </div>
+        </div>
+      </div>
+    `;
+    // 出手列表
+    const actHtml = `
+      <div class="rep-section">
+        <div class="rep-section-title">⚔ 出手详情（前16次）</div>
+        <div class="rep-act-list">${actList}</div>
+        ${more}
+      </div>
+    `;
+    // 伤害公式说明
+    const dmgFormulaHtml = `
+      <div class="rep-section">
+        <div class="rep-section-title">📐 伤害公式</div>
+        <div class="rep-formula">base = atk²÷(atk+5×def)，dmg = base×(dmgRate%×克制) + dmgFlat，×浮动(±15%)，×暴击(×${(CONFIG.combat.critMult).toFixed(1)})</div>
+      </div>
+    `;
+    // 内息克制说明
+    const affHtml = `
+      <div class="rep-section">
+        <div class="rep-section-title">🌀 内息克制</div>
+        <div class="rep-aff-text">阴→阳 +15% · 阳→阴 +15% · 调↔任何 0%</div>
+        <div class="rep-aff-text">玩家装备武学的内息偏向 = ${getPlayerAff() || '调'} · 命中率/速度/克制均在战斗中实时判定</div>
+      </div>
+    `;
+    // 汇总统计
+    const pSkillHits = playerActions.filter(a => a.fired).length;
+    const pCrits = playerActions.filter(a => a.crit).length;
+    const eSkillHits = enemyActions.filter(a => a.fired).length;
+    const eCrits = enemyActions.filter(a => a.crit).length;
+    const pTotalDmg = playerActions.reduce((s,a) => s + a.dmg, 0);
+    const eTotalDmg = enemyActions.reduce((s,a) => s + a.dmg, 0);
+    const summaryHtml = `
+      <div class="rep-section">
+        <div class="rep-section-title">📊 战斗汇总</div>
+        <div class="rep-summary">
+          <div>我方出手 <b>${playerActions.length}</b> 次 · 触发招式 <b style="color:#7fd1c1">${pSkillHits}</b> 次 · 暴击 <b style="color:#ff7a7a">${pCrits}</b> 次 · 总伤 <b>${pTotalDmg}</b></div>
+          <div>敌方出手 <b>${enemyActions.length}</b> 次 · 触发招式 <b style="color:#7fd1c1">${eSkillHits}</b> 次 · 暴击 <b style="color:#ff7a7a">${eCrits}</b> 次 · 总伤 <b>${eTotalDmg}</b></div>
+          <div>总回合 <b>${r.rounds}</b> · 总行动 <b>${rep.actions.length}</b></div>
+        </div>
+      </div>
+    `;
+    const fullHtml = `
+      <div class="battle-report">
+        <div class="rep-header">📜 战报 · ${pName} vs ${eName}</div>
+        ${prepHtml}
+        ${qiHtml}
+        ${timelineHtml}
+        ${actHtml}
+        ${dmgFormulaHtml}
+        ${affHtml}
+        ${summaryHtml}
+        <div style="text-align:center;margin-top:10px"><button class="bb-btn-cancel" data-close>关闭</button></div>
+      </div>
+    `;
+    const m = modal(fullHtml);
+    m.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', () => closeModal(m)));
+  }
+  function getPlayerAff() {
+    const s = Game.state;
+    if (!s.martialDeck || s.martialDeck.length === 0) return '调';
+    const counts = { '阴':0, '阳':0, '调':0 };
+    s.martialDeck.forEach(id => { const m = Game.MARTIAL_ARTS.find(x => x.id === id); if (m) counts[Game.martialAffinity(m)]++; });
+    return Object.keys(counts).reduce((a,b) => counts[a] > counts[b] ? a : b);
   }
   // 逐回合回放战斗 log，驱动 SVG 卡通演出：弹道 / 粒子 / BOSS 二阶段 / 胜负印章 / 音效
   function playBattle(res, lv, m, aura, techEl) {

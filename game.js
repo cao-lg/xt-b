@@ -1000,11 +1000,14 @@ const Game = (function () {
     // 武学属性叠加到战斗面板
     p.atk += ms.atk; p.def += ms.def; p.hp += ms.hp;
     const e = enemy;
+    const pHpMax = p.hp, eHpMax = e.hp;
     let pHp = p.hp, eHp = e.hp;
     const pSpeed = 50 + ms.speed;
     const eSpeed = 30 + (state ? state.realmIndex * 5 : 0);
     let pQi = 0, eQi = 0, round = 0;
     const log = [];
+    // 战报数据：每轮记录双方聚气/行动
+    const report = { rounds: [], actions: [], pSpeed, eSpeed };
     const deck = Array.isArray(state.martialDeck) ? state.martialDeck : [];
     const hasMA = deck.length > 0;
     // 伤害：采用文档公式 base = atk²/(atk+5×def)，×招式倍率 + 固定 + 暴击
@@ -1018,14 +1021,20 @@ const Game = (function () {
       if (Math.random() < Math.min(1, p.crit)) { dmg *= CONFIG.combat.critMult; isCrit = true; }
       return { dmg: Math.floor(Math.max(1, dmg)), crit: isCrit };
     }
+    let actionSeq = 0;
     while (pHp > 0 && eHp > 0 && round < CFG_ATB.MAX_ROUNDS) {
       round++;
       const avgSpeed = (pSpeed + eSpeed) / 2;
-      pQi += CFG_ATB.BASE_QI_GAIN + CFG_ATB.SPEED_QI_K * (pSpeed - avgSpeed);
-      eQi += CFG_ATB.BASE_QI_GAIN + CFG_ATB.SPEED_QI_K * (eSpeed - avgSpeed);
+      const pGain = CFG_ATB.BASE_QI_GAIN + CFG_ATB.SPEED_QI_K * (pSpeed - avgSpeed);
+      const eGain = CFG_ATB.BASE_QI_GAIN + CFG_ATB.SPEED_QI_K * (eSpeed - avgSpeed);
+      pQi += pGain; eQi += eGain;
+      // 记录本轮聚气
+      report.rounds.push({ round, pGain: +pGain.toFixed(1), eGain: +eGain.toFixed(1), pQi: +pQi.toFixed(1), eQi: +eQi.toFixed(1) });
       // 玩家行动（聚气满时可多次连动）
       while (pQi >= CFG_ATB.QI_THRESHOLD && pHp > 0 && eHp > 0) {
         pQi -= CFG_ATB.QI_THRESHOLD;
+        actionSeq++;
+        let actLog = { seq: actionSeq, round, side: 'p', pHp: Math.floor(pHp), eHp: Math.floor(eHp), skill: '普攻', dmg: 0, crit: false, fired: false, affMod: 1 };
         if (hasMA) {
           const maId = deck[Math.floor(Math.random() * deck.length)];
           const ma = MARTIAL_ARTS.find(m => m.id === maId);
@@ -1044,6 +1053,10 @@ const Game = (function () {
               eHp -= r.dmg;
               if (sk.healPct) pHp = Math.min(p.hp, pHp + Math.floor(p.hp * sk.healPct / 100));
               const affTag = affMod > 1 ? ` [内息克制·${pAff}克${eAff}]` : '';
+              actLog.ma = ma.name; actLog.skill = sk.name + affTag;
+              actLog.dmg = r.dmg; actLog.crit = r.crit; actLog.fired = true;
+              actLog.pAff = pAff; actLog.eAff = eAff; actLog.affMod = affMod;
+              actLog.skillRate = sk.fireRate; actLog.skillDmg = sk.dmgRate;
               log.push({ side: 'p', miss: false, crit: r.crit, dmg: r.dmg, skill: sk.name + affTag });
               triggered = true; break;
             }
@@ -1051,17 +1064,23 @@ const Game = (function () {
           if (!triggered) {
             const r = calcDmg(p.atk, e.def, 50, 0);
             eHp -= r.dmg;
+            actLog.ma = ma.name; actLog.skill = '普攻(火率未达)';
+            actLog.dmg = r.dmg; actLog.crit = r.crit;
             log.push({ side: 'p', miss: false, crit: r.crit, dmg: r.dmg, skill: '普攻' });
           }
         } else {
           const r = calcDmg(p.atk, e.def, 50, 0);
           eHp -= r.dmg;
+          actLog.dmg = r.dmg; actLog.crit = r.crit;
           log.push({ side: 'p', miss: false, crit: r.crit, dmg: r.dmg, skill: '普攻' });
         }
+        actLog.pHp = Math.floor(pHp); actLog.eHp = Math.floor(eHp);
+        report.actions.push(actLog);
       }
       // 敌人行动（带武学 + 内息克制）
       while (eQi >= CFG_ATB.QI_THRESHOLD && pHp > 0 && eHp > 0) {
         eQi -= CFG_ATB.QI_THRESHOLD;
+        actionSeq++;
         const eLv = Math.min(MARTIAL_ARTS.length - 1, Math.floor((enemy.hp || 1000) / 300));
         const minIdx = Math.max(0, eLv - 2);
         const maxIdx = Math.min(MARTIAL_ARTS.length - 1, eLv + 2);
@@ -1074,22 +1093,33 @@ const Game = (function () {
           return Object.keys(counts).reduce((a,b) => counts[a] > counts[b] ? a : b);
         })() : '调';
         const eAffMod = 1 / affinityMult(eAff2, deckAff);
+        let actLog = { seq: actionSeq, round, side: 'e', pHp: Math.floor(pHp), eHp: Math.floor(eHp), skill: '攻击', dmg: 0, crit: false, fired: false, affMod: eAffMod };
         if (eMa2 && Math.random() < (eMa2.skill.fireRate / 100)) {
           const r = calcDmg(e.atk, p.def, eMa2.skill.dmgRate * eAffMod, eMa2.skill.dmgFlat * eAffMod);
           pHp -= r.dmg;
           const affTag = eAffMod > 1 ? ` [内息反克·${eAff2}克${deckAff}]` : '';
+          actLog.ma = eMa2.name; actLog.skill = eMa2.skill.name + affTag;
+          actLog.dmg = r.dmg; actLog.crit = r.crit; actLog.fired = true;
+          actLog.pAff = deckAff; actLog.eAff = eAff2;
+          actLog.skillRate = eMa2.skill.fireRate; actLog.skillDmg = eMa2.skill.dmgRate;
           log.push({ side: 'e', miss: false, crit: r.crit, dmg: r.dmg, skill: eMa2.skill.name + affTag });
         } else {
           const r = calcDmg(e.atk, p.def, 50, 0);
           pHp -= r.dmg;
+          actLog.ma = eMa2 ? eMa2.name : '普通'; actLog.skill = '攻击(火率未达)';
+          actLog.dmg = r.dmg; actLog.crit = r.crit;
           log.push({ side: 'e', miss: false, crit: r.crit, dmg: r.dmg, skill: '攻击' });
         }
+        actLog.pHp = Math.floor(pHp); actLog.eHp = Math.floor(eHp);
+        report.actions.push(actLog);
       }
     }
+    report.pHpMax = pHpMax; report.eHpMax = eHpMax;
+    report.pSpeed = pSpeed; report.eSpeed = eSpeed;
     return {
       win: eHp <= 0, rounds: round,
       pHp: Math.floor(Math.max(0, pHp)), eHp: Math.floor(Math.max(0, eHp)),
-      log, player: p, enemy: e
+      log, player: p, enemy: e, report
     };
   }
   function fight(mapId, idx) {
@@ -1154,8 +1184,8 @@ const Game = (function () {
       pushLog(`💀 战${lv.name}败，道行尚浅，再练练。`, lv.icon);
     }
     lv._mapId = mapId;
-    save(); emit('battle', { res, reward, drop, maDrop, skDrop, level: lv, mapId, idx, win: res.win });
-    return { res, reward, drop, maDrop, skDrop, win: res.win, level: lv };
+    save(); emit('battle', { res, reward, drop, maDrop, skDrop, report: res.report, level: lv, mapId, idx, win: res.win });
+    return { res, reward, drop, maDrop, skDrop, report: res.report, win: res.win, level: lv };
   }
 
   // 战斗盲盒：胜利后触发，选资源+投注额，掷 1~10 倍
