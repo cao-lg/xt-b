@@ -925,6 +925,63 @@
     });
   }
 
+  /* ---------------- 武学（卡牌收集/装配） ---------------- */
+  function renderMartial() {
+    const s = Game.state;
+    const deck = s.martialDeck || [];
+    const ownedIds = Object.keys(s.martialArts || {});
+    const stats = Game.martialStats();
+    const deckCount = deck.length;
+    const maxDeck = Game.MAX_MARTIAL_DECK || 6;
+    // 按装备/类型分组的卡片
+    const equippedCards = deck.map(id => makeMartialCard(id, true)).join('');
+    const unequippedCards = Game.MARTIAL_ARTS
+      .filter(m => ownedIds.includes(m.id) && !deck.includes(m.id))
+      .map(m => makeMartialCard(m.id, false)).join('');
+    const lockedCards = Game.MARTIAL_ARTS
+      .filter(m => !ownedIds.includes(m.id))
+      .map(m => `<div class="card martial-card locked"><div class="icon">❔</div><div class="body"><div class="name">???</div><div class="desc">${m.type} · ${m.grade}</div><div class="sub">${m.source}</div></div></div>`)
+      .join('');
+    view.innerHTML = `
+      <div class="section-title">📖 武学 <small>装配武学（${deckCount}/${maxDeck}），战斗中自动触发招式</small></div>
+      <div class="res-bar">
+        <div class="res-chip"><div class="l">攻 +${stats.atk}</div></div>
+        <div class="res-chip"><div class="l">防 +${stats.def}</div></div>
+        <div class="res-chip"><div class="l">气血 +${stats.hp}</div></div>
+        <div class="res-chip"><div class="l">速度 +${stats.speed}</div></div>
+      </div>
+      ${deckCount > 0 ? `<div class="list-title">⚔️ 已装备（${deckCount}/${maxDeck}）</div><div class="list">${equippedCards}</div>` : '<div class="empty" style="margin:8px 0">尚未装备武学，从下方选择装配</div>'}
+      ${unequippedCards ? `<div class="list-title" style="margin-top:10px">📖 武学库</div><div class="list">${unequippedCards}</div>` : ''}
+      ${lockedCards ? `<div class="list-title" style="margin-top:10px">🔒 未获得</div><div class="list" style="opacity:.6">${lockedCards}</div>` : ''}
+    `;
+    view.querySelectorAll('[data-martial-eq]').forEach(b => b.addEventListener('click', () => {
+      if (Game.equipMartial(b.dataset.martialEq)) renderCurrent(); else toast('已达上限或已装备');
+    }));
+    view.querySelectorAll('[data-martial-ueq]').forEach(b => b.addEventListener('click', () => {
+      Game.unequipMartial(b.dataset.martialUeq); renderCurrent();
+    }));
+  }
+  function makeMartialCard(id, equipped) {
+    const m = Game.MARTIAL_ARTS.find(x => x.id === id);
+    if (!m) return '';
+    const s = Game.state;
+    const count = s.martialArts[id] || 0;
+    const gradeColors = { '根基': '#9fb0c0', '进阶': '#6fb1ff', '绝学': '#ffd76f', '稀有': '#c79fff', '绝世': '#ff6b6b' };
+    const btn = equipped
+      ? `<button class="buy-btn smelt" data-martial-ueq="${id}">卸下</button>`
+      : `<button class="buy-btn" data-martial-eq="${id}">装配</button>`;
+    return `<div class="card martial-card ${equipped ? 'eq' : ''}">
+      <div class="icon">${m.icon}</div>
+      <div class="body">
+        <div class="name">${m.name} <span class="lv">${count > 0 ? count + '本' : ''}</span></div>
+        <div class="desc" style="color:${gradeColors[m.grade] || '#fff'}">${m.type} · ${m.grade}</div>
+        <div class="sub">攻+${m.atk} 防+${m.def} 气血+${m.hp} 速度+${m.speed}</div>
+        <div class="sub" style="color:var(--gold-soft)">⚔ ${m.skill.name}（${m.skill.fireRate}%触发 · ${m.skill.dmgRate}%伤害）</div>
+        <div class="sub">${m.skill.desc}</div>
+      </div>
+      ${btn}
+    </div>`;
+  }
   function renderCurrent() {
     switch (currentTab) {
       case 'cultivate': renderCultivate(); break;
@@ -938,6 +995,7 @@
       case 'bless': renderBless(); break;
       case 'battle': renderBattle(); break;
       case 'treasure': renderTreasure(); break;
+      case 'martial': renderMartial(); break;
       case 'event': renderEvents(); break;
       case 'achv': renderAchievements(); break;
       case 'setting': renderSettings(); break;
@@ -1217,6 +1275,7 @@
     }, 600 + Math.random() * 400);
   }
   Game.on('pet', () => { if (currentTab === 'pet') renderCurrent(); });
+  Game.on('martial', () => { if (currentTab === 'martial') renderCurrent(); });
   Game.on('explore', () => { if (currentTab === 'secret') renderCurrent(); });
   Game.on('insight', () => { if (currentTab === 'insight') renderCurrent(); });
   Game.on('reincarnate', (d) => {

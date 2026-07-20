@@ -56,7 +56,9 @@ const Game = (function () {
       nextGoldenAt: now + randInt(CONFIG.golden.minInterval, CONFIG.golden.maxInterval) * 1000, // 下次机缘出现时间
       lastGoldenAt: now,
       checkInDate: '',       // 上次签到日期（YYYY-MM-DD）
-      checkInStreak: 0       // 连续签到天数
+      checkInStreak: 0,       // 连续签到天数
+      martialArts: {},        // 武学 id -> count（已获得的数量）
+      martialDeck: [],        // 已装备武学 id 列表（最多6个）
     };
   }
 
@@ -69,6 +71,7 @@ const Game = (function () {
 
   /* ---------- 倍率体系 ---------- */
   function getTotalLayers() { return state.realmIndex * LAYERS_PER_REALM + state.layer; }
+  const MAX_MARTIAL_DECK = 6;
 
   // 功法：按固定值累加（修为/秒，不封顶）；鸿蒙紫气诀每级给所有功法 +2% 效率
   function techniqueFlat() {
@@ -487,7 +490,7 @@ const Game = (function () {
     const gain = legacyGain();
     state.legacy += gain; state.jade += gain; state.reincarnations++;
     state.realmIndex = 0; state.layer = 0; state.xp = 0; state.stone = 0;
-    state.techniques = {}; state.abodes = {}; state.pills = {};
+    state.techniques = {}; state.abodes = {}; state.pills = {}; state.martialDeck = [];
     state.pets = {}; state.materials = 0; state.seekCount = 0; state.exploreCount = 0; state.breaks = 0;
     pushLog(`🔁 飞升转世！得仙缘 +${gain}（全局效率 +${Math.round(gain * CONFIG.legacyPerPoint * 100)}%）· 仙玉 +${gain}`, '🔁');
     checkAchievements();
@@ -603,6 +606,49 @@ const Game = (function () {
       else if (a.enhanceMax !== undefined) ok = Object.values(state.treasures).some(x => x && x.level >= CONFIG.treasure.maxLevel);
       if (ok) { state.achievements[a.id] = true; pushLog(`🏆 解锁成就「${a.name}」：${a.desc}`, '🏆'); emit('achievement', a); }
     });
+  }
+
+  /* ---------- 武学系统（卡牌收集/装配） ---------- */
+  function gainMartial(id) {
+    const ma = MARTIAL_ARTS.find(m => m.id === id);
+    if (!ma) return false;
+    state.martialArts[id] = (state.martialArts[id] || 0) + 1;
+    pushLog(`📖 获得武学「${ma.name}」${ma.icon}`, '📖');
+    if (Object.keys(state.martialArts).length === 1) {
+      // 首次获得武学自动装备
+      equipMartial(id);
+    }
+    save(); emit('martial');
+    return true;
+  }
+  function canEquipMartial(id) {
+    const ma = state.martialArts[id] || 0;
+    if (ma <= 0) return false;
+    if (state.martialDeck.includes(id)) return false;
+    if (state.martialDeck.length >= MAX_MARTIAL_DECK) return false;
+    return true;
+  }
+  function equipMartial(id) {
+    if (!canEquipMartial(id)) return false;
+    state.martialDeck.push(id);
+    pushLog(`⚔️ 装备武学「${MARTIAL_ARTS.find(m=>m.id===id).name}」`, '⚔️');
+    save(); emit('martial'); return true;
+  }
+  function unequipMartial(id) {
+    const idx = state.martialDeck.indexOf(id);
+    if (idx < 0) return false;
+    state.martialDeck.splice(idx, 1);
+    save(); emit('martial'); return true;
+  }
+  // 武学属性合计
+  function martialStats() {
+    const ids = state.martialDeck;
+    let atk = 0, def = 0, hp = 0, speed = 0;
+    ids.forEach(id => {
+      const m = MARTIAL_ARTS.find(x => x.id === id);
+      if (m) { atk += m.atk; def += m.def; hp += m.hp; speed += m.speed; }
+    });
+    return { atk, def, hp, speed };
   }
 
   /* ---------- 手动运转周天（含 combo / 暴击） ---------- */
@@ -870,6 +916,18 @@ const Game = (function () {
           checkAchievements();
         }
       }
+      // 武学掉落（胜利后 15% 概率获得一门未拥有的武学，全拥有后概率降至 5%）
+      if (Math.random() < 0.15) {
+        const owned = Object.keys(state.martialArts);
+        const missing = MARTIAL_ARTS.filter(m => !owned.includes(m.id));
+        if (missing.length > 0) {
+          const pick = missing[Math.floor(Math.random() * missing.length)];
+          gainMartial(pick.id);
+        } else if (Math.random() < 0.33) {
+          const pick = MARTIAL_ARTS[Math.floor(Math.random() * MARTIAL_ARTS.length)];
+          gainMartial(pick.id);
+        }
+      }
       checkAchievements();
       pushLog(`⚔️ 战${lv.name}胜！灵石+${formatNum(stone)} 🌿+${mat} 修为+${formatNum(xp)}${drop ? '，得法宝' + drop.icon + drop.name : ''}`, lv.icon);
     } else {
@@ -1108,7 +1166,7 @@ const Game = (function () {
       if (raw) {
         const data = JSON.parse(raw);
         state = Object.assign(defaultState(), data);
-        ['techniques', 'abodes', 'pills', 'pets', 'insightLv', 'achievements', 'log', 'treasures', 'equipped', 'mapProgress', 'storyProgress'].forEach(k => { state[k] = data[k] || (Array.isArray(data[k]) ? [] : {}); });
+        ['techniques', 'abodes', 'pills', 'pets', 'insightLv', 'achievements', 'log', 'treasures', 'equipped', 'mapProgress', 'storyProgress', 'martialArts', 'martialDeck'].forEach(k => { state[k] = data[k] || (Array.isArray(data[k]) ? [] : {}); });
         // 新字段兜底 + 天降机缘：清除可能过期的增益；离线收益不计入 goldenBuff
         state.goldenBuff = null;
         state.nextGoldenAt = (state.nextGoldenAt && state.nextGoldenAt > Date.now())
@@ -1182,6 +1240,8 @@ const Game = (function () {
     get EVENTS() { return EVENTS; }, get ACHIEVEMENTS() { return ACHIEVEMENTS; },
     get QUALITY() { return QUALITY; }, get TREASURES() { return TREASURES; }, get MAPS() { return MAPS; },
     get BLESSINGS() { return BLESSINGS; }, get TOWER_TIERS() { return TOWER_TIERS; },
+    get MARTIAL_ARTS() { return MARTIAL_ARTS; },
+    martialStats, gainMartial, equipMartial, unequipMartial, canEquipMartial, MAX_MARTIAL_DECK,
     LAYERS_PER_REALM, CHINESE_LAYER
   };
 })();

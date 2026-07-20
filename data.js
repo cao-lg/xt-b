@@ -370,6 +370,40 @@ const QUALITY = [
   { id: 5, name: '神器', color: '#c79fff', mult: 5.5,  weight: 0.5 }
 ];
 
+/* ---------- 武学（卡牌 ATB 战斗核心） ----------
+ * type: 御剑/刀法/拳掌/奇门/内功/轻功
+ * grade: 根基/进阶/绝学/稀有/绝世
+ * atk/def/hp/speed：装配后加成的属性
+ * skill：天赋招式（战斗时按 fireRate 概率触发）
+ * extraSlots：可装配额外招式数
+ * source：获取来源提示 */
+const MARTIAL_ARTS = [
+  // ── 御剑（高攻、高速） ──
+  { id: 'yixin_yijian',  name: '意心一剑', icon: '🗡️', type: '御剑', grade: '绝学', atk: 85,  def: 20, hp: 400, speed: 10, skill: { name: '一剑西来',   fireRate: 60, dmgRate: 85,  dmgFlat: 40,  desc: '以意御剑，化繁为简' }, extraSlots: 2, source: '剑崖奇遇' },
+  { id: 'luochen_jianfa',name: '落尘剑法', icon: '⚔️', type: '御剑', grade: '进阶', atk: 50,  def: 12, hp: 250, speed: 7,  skill: { name: '飞花逐月',   fireRate: 70, dmgRate: 60,  dmgFlat: 20,  desc: '剑出如落花，看似柔实则刚' }, extraSlots: 2, source: '剑崖奇遇' },
+  { id: 'tiandu_shijian',name: '天都十剑', icon: '🌟', type: '御剑', grade: '稀有', atk: 130, def: 30, hp: 550, speed: 12, skill: { name: '天都剑阵',   fireRate: 45, dmgRate: 120, dmgFlat: 80,  desc: '十剑齐出，天地变色' }, extraSlots: 3, source: '剑崖奇遇' },
+  // ── 刀法（高攻、高暴击） ──
+  { id: 'baidao_luanwu',  name: '百刀乱舞', icon: '🔪', type: '刀法', grade: '进阶', atk: 55,  def: 8,  hp: 300, speed: 6,  skill: { name: '乱劈风',     fireRate: 75, dmgRate: 55,  dmgFlat: 15,  desc: '狂风般的乱刀，压制对手' }, extraSlots: 2, source: '战斗掉落' },
+  { id: 'renwang_dao',    name: '人王刀',   icon: '🗡️', type: '刀法', grade: '绝学', atk: 100, def: 18, hp: 450, speed: 8,  skill: { name: '一刀两断',   fireRate: 55, dmgRate: 95,  dmgFlat: 60,  desc: '霸道至简的一刀' }, extraSlots: 2, source: '战斗掉落' },
+  { id: 'beiming_dao',    name: '北冥刀诀', icon: '🌊', type: '刀法', grade: '稀有', atk: 140, def: 25, hp: 600, speed: 9,  skill: { name: '北冥吞天',   fireRate: 40, dmgRate: 150, dmgFlat: 100, desc: '如北冥之海，吞噬一切' }, extraSlots: 3, source: '战斗掉落' },
+  // ── 拳掌（高防、中血） ──
+  { id: 'tiexian_quan',   name: '铁线拳',   icon: '👊', type: '拳掌', grade: '根基', atk: 20,  def: 30, hp: 350, speed: 4,  skill: { name: '铁线横江',   fireRate: 80, dmgRate: 35,  dmgFlat: 10,  desc: '以身为线，以拳为锁' }, extraSlots: 1, source: '初始可得' },
+  { id: 'qixing_zhang',   name: '七星掌',   icon: '🖐️', type: '拳掌', grade: '进阶', atk: 40,  def: 35, hp: 500, speed: 5,  skill: { name: '七星印月',   fireRate: 65, dmgRate: 50,  dmgFlat: 25,  desc: '掌影如七星，连绵不绝' }, extraSlots: 2, source: '战斗掉落' },
+  { id: 'tianmo_quan',    name: '天魔拳',   icon: '💀', type: '拳掌', grade: '绝学', atk: 80,  def: 40, hp: 700, speed: 6,  skill: { name: '天魔解体',   fireRate: 50, dmgRate: 110, dmgFlat: 70,  desc: '以伤换伤，越战越勇' }, extraSlots: 2, source: '魔渊关卡' },
+  // ── 奇门（特效、高速） ──
+  { id: 'wuxing_ling',    name: '五行铃',   icon: '🔔', type: '奇门', grade: '根基', atk: 25,  def: 15, hp: 200, speed: 9,  skill: { name: '五行颠倒',   fireRate: 70, dmgRate: 40,  dmgFlat: 15,  desc: '铃声扰神，五行错乱' }, extraSlots: 1, source: '初始可得' },
+  { id: 'qianji_suo',     name: '千机锁',   icon: '🔗', type: '奇门', grade: '绝学', atk: 60,  def: 25, hp: 400, speed: 11, skill: { name: '锁天链',     fireRate: 55, dmgRate: 70,  dmgFlat: 45,  desc: '千机百变，锁天困地' }, extraSlots: 2, source: '秘境夺宝' },
+  { id: 'shenji_nu',      name: '神机弩',   icon: '🏹', type: '奇门', grade: '稀有', atk: 110, def: 12, hp: 350, speed: 14, skill: { name: '追魂箭',     fireRate: 50, dmgRate: 130, dmgFlat: 90,  desc: '一击必中，追魂夺命' }, extraSlots: 2, source: '星陨秘境' },
+  // ── 内功（高血、增伤/减伤） ──
+  { id: 'ziqi_donglai',   name: '紫气东来', icon: '🟣', type: '内功', grade: '进阶', atk: 10,  def: 20, hp: 600, speed: 3,  skill: { name: '紫气护体',   fireRate: 80, dmgRate: 0,   dmgFlat: 0,   desc: '内力化为护盾，减伤20%' }, extraSlots: 1, source: '剑崖奇遇' },
+  { id: 'jiuzhuan_gong',  name: '九转功',   icon: '🔄', type: '内功', grade: '绝学', atk: 20,  def: 30, hp: 900, speed: 4,  skill: { name: '九转回春',   fireRate: 60, dmgRate: 0,   dmgFlat: 0,   desc: '每回合回复气血10%' }, extraSlots: 2, source: '宗门会武' },
+  { id: 'taixu_jing',     name: '太虚经',   icon: '☯️', type: '内功', grade: '稀有', atk: 30,  def: 40, hp: 1200,speed: 5,  skill: { name: '太虚之境',   fireRate: 40, dmgRate: 0,   dmgFlat: 0,   desc: '进入虚化状态，闪避+30%持续2回合' }, extraSlots: 2, source: '上古秘境' },
+  // ── 轻功（高速、闪避） ──
+  { id: 'yanxing_bufa',   name: '雁行步法', icon: '🕊️', type: '轻功', grade: '根基', atk: 5,   def: 5,  hp: 150, speed: 12, skill: { name: '雁过留影',   fireRate: 75, dmgRate: 20,  dmgFlat: 5,   desc: '身形如雁，难以捉摸' }, extraSlots: 1, source: '初始可得' },
+  { id: 'fenglei_bu',     name: '风雷步',   icon: '⚡', type: '轻功', grade: '进阶', atk: 15,  def: 10, hp: 250, speed: 16, skill: { name: '风行雷动',   fireRate: 60, dmgRate: 40,  dmgFlat: 20,  desc: '风雷之势，先发制人' }, extraSlots: 2, source: '战斗掉落' },
+  { id: 'tianchi_bu',     name: '天池步',   icon: '🌊', type: '轻功', grade: '绝学', atk: 25,  def: 18, hp: 350, speed: 20, skill: { name: '踏水无痕',   fireRate: 45, dmgRate: 60,  dmgFlat: 35,  desc: '如履平地，踏水而行' }, extraSlots: 2, source: '天骄会武' },
+];
+
 /* ---------- 法宝（3 槽位：weapon/armor/trinket） ----------
  * base: 基础属性 {atk 攻 / def 防 / hp 气血 / hit 命中 / dodge 闪避 / crit 暴击}
  * quality: 品质档位(见 QUALITY)                                                      */
