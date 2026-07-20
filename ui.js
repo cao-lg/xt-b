@@ -786,6 +786,8 @@
     var rewardHtml = '';
     if (r.win&&r.reward) rewardHtml='<div class="reward">战利品：灵石+'+Game.formatNum(r.reward.stone)+' 🌿+'+r.reward.mat+' 修为+'+Game.formatNum(r.reward.xp)+'</div>';
     if (r.win&&r.drop) rewardHtml+='<div class="reward drop">获得法宝 '+r.drop.icon+r.drop.name+' <span style="color:'+qColor(r.drop.quality)+'">'+qName(r.drop.quality)+'</span>'+(r.drop.first?'（新）':'')+'</div>';
+    if (r.win&&r.maDrop) rewardHtml+='<div class="reward drop" style="color:var(--gold-soft)">📖 获得武学 '+r.maDrop.icon+r.maDrop.name+'</div>';
+    if (r.win&&r.skDrop) rewardHtml+='<div class="reward drop" style="color:var(--jade)">📜 获得招式 '+r.skDrop.name+'</div>';
     var m = modal(
       '<h2 class="'+(r.win?'win':'lose')+'">'+lv.icon+' '+(r.win?'胜！':'败')+'</h2>'+
       '<div class="battle-stage" style="--aura:'+aura+';--accent:'+th.accent+';--fig:'+th.fig+';--fig2:'+th.fig2+';--particle:'+th.particle+';--bg:'+th.bg+';--ground:'+th.ground+'">'+

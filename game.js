@@ -1090,52 +1090,44 @@ const Game = (function () {
           checkAchievements();
         }
       }
-      // 武学掉落（按品质分级概率）
-      const gradeWeights = { '绝世': 1, '稀有': 3, '绝学': 7, '进阶': 12, '根基': 18 };
+      // 武学掉落（按品质分级概率，总触发约18%）
+      let maDrop = null, skDrop = null;
+      const gradeWeights = { '绝世': 1, '稀有': 3, '绝学': 8, '进阶': 14, '根基': 20 };
       const owned = Object.keys(state.martialArts);
       const missingByGrade = {};
-      MARTIAL_ARTS.forEach(m => {
-        if (!owned.includes(m.id)) {
-          if (!missingByGrade[m.grade]) missingByGrade[m.grade] = [];
-          missingByGrade[m.grade].push(m);
-        }
-      });
+      MARTIAL_ARTS.forEach(m => { if (!owned.includes(m.id)) { if (!missingByGrade[m.grade]) missingByGrade[m.grade] = []; missingByGrade[m.grade].push(m); } });
       const missingAll = Object.values(missingByGrade).flat();
-      if (missingAll.length > 0) {
-        // 按品质权重选择
+      if (missingAll.length > 0 && Math.random() < 0.18) {
         const totalW = Object.keys(missingByGrade).reduce((s, g) => s + (gradeWeights[g] || 1) * missingByGrade[g].length, 0);
-        let roll = Math.random() * totalW;
-        let picked = null;
+        let roll = Math.random() * totalW, picked = null;
         for (const g of Object.keys(missingByGrade).sort((a,b)=> (gradeWeights[b]||1)-(gradeWeights[a]||1))) {
           const w = (gradeWeights[g] || 1) * missingByGrade[g].length;
-          roll -= w;
-          if (roll <= 0) { picked = missingByGrade[g][Math.floor(Math.random() * missingByGrade[g].length)]; break; }
+          roll -= w; if (roll <= 0) { picked = missingByGrade[g][Math.floor(Math.random() * missingByGrade[g].length)]; break; }
         }
-        if (picked && Math.random() < 0.12) gainMartial(picked.id); // 总触发概率≈12%
-      } else if (Math.random() < 0.04) {
+        if (picked) { gainMartial(picked.id); maDrop = { id: picked.id, name: picked.name, icon: picked.icon, grade: picked.grade }; }
+      } else if (!missingAll.length && Math.random() < 0.05) {
         const pick = MARTIAL_ARTS[Math.floor(Math.random() * MARTIAL_ARTS.length)];
-        gainMartial(pick.id);
+        gainMartial(pick.id); maDrop = { id: pick.id, name: pick.name, icon: pick.icon, grade: pick.grade };
       }
-      // 招式掉落（胜利后 8% 概率获得一个招式）
-      if (Math.random() < 0.08) {
+      // 招式掉落（胜利后 10% 概率）
+      if (Math.random() < 0.10) {
         const ownedSkills = Object.keys(state.skills);
         const missingSkills = SKILLS.filter(s => !ownedSkills.includes(s.id));
-        if (missingSkills.length > 0) {
-          const pick = missingSkills[Math.floor(Math.random() * missingSkills.length)];
-          gainSkill(pick.id);
-        } else if (Math.random() < 0.33) {
-          const pick = SKILLS[Math.floor(Math.random() * SKILLS.length)];
-          gainSkill(pick.id);
-        }
+        if (missingSkills.length > 0) { const pick = missingSkills[Math.floor(Math.random() * missingSkills.length)]; gainSkill(pick.id); skDrop = { name: pick.name }; }
+        else if (Math.random() < 0.33) { const pick = SKILLS[Math.floor(Math.random() * SKILLS.length)]; gainSkill(pick.id); skDrop = { name: pick.name }; }
       }
       checkAchievements();
-      pushLog(`⚔️ 战${lv.name}胜！灵石+${formatNum(stone)} 🌿+${mat} 修为+${formatNum(xp)}${drop ? '，得法宝' + drop.icon + drop.name : ''}`, lv.icon);
+      let logParts = [`灵石+${formatNum(stone)}`, `🌿+${mat}`, `修为+${formatNum(xp)}`];
+      if (drop) logParts.push(`法宝${drop.icon}${drop.name}`);
+      if (maDrop) logParts.push(`武学${maDrop.icon}${maDrop.name}`);
+      if (skDrop) logParts.push(`招式${skDrop.name}`);
+      pushLog(`⚔️ 战${lv.name}胜！${logParts.join('，')}`, lv.icon);
     } else {
       pushLog(`💀 战${lv.name}败，道行尚浅，再练练。`, lv.icon);
     }
     lv._mapId = mapId;
-    save(); emit('battle', { res, reward, drop, level: lv, mapId, idx, win: res.win });
-    return { res, reward, drop, win: res.win, level: lv };
+    save(); emit('battle', { res, reward, drop, maDrop, skDrop, level: lv, mapId, idx, win: res.win });
+    return { res, reward, drop, maDrop, skDrop, win: res.win, level: lv };
   }
 
   // 战斗盲盒：胜利后触发，选资源+投注额，掷 1~10 倍
