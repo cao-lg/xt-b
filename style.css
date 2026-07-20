@@ -241,6 +241,48 @@ html, body {
 .martial-card { border-left: 3px solid transparent; }
 .martial-card.eq { border-left-color: var(--gold-soft); background: rgba(255,215,111,0.04); }
 .martial-card.locked { opacity: .45; }
+
+/* ---------------- 武学·背包格子式布局 ---------------- */
+.ma-equip-row { display: flex; gap: 6px; margin: 8px 0; flex-wrap: wrap; }
+.ma-slot {
+  width: 68px; height: 76px; border-radius: 8px; border: 2px solid var(--border);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  position: relative; cursor: pointer; background: rgba(0,0,0,0.2);
+  transition: all .15s; gap: 2px;
+}
+.ma-slot:hover { border-color: var(--gold-soft); transform: scale(1.04); }
+.ma-slot.ma-empty { opacity: .3; cursor: default; border-style: dashed; }
+.ma-slot.ma-empty:hover { border-color: var(--border); transform: none; }
+.ma-slot .ma-slot-num { position: absolute; top: 2px; left: 5px; font-size: 9px; color: var(--text-dim); }
+.ma-slot .ma-slot-icon { font-size: 24px; line-height: 1; }
+.ma-slot .ma-slot-lv { position: absolute; top: 1px; right: 4px; font-size: 9px; color: var(--gold-soft); font-weight: 700; }
+.ma-slot .ma-slot-name { font-size: 9px; color: var(--text); text-align: center; line-height: 1.1; max-width: 62px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ma-slot .ma-slot-badge { position: absolute; bottom: 16px; right: 2px; font-size: 10px; }
+.ma-slot.ma-equipped { background: rgba(255,215,111,0.06); }
+
+.ma-filter-bar { display: flex; gap: 4px; margin: 6px 0; flex-wrap: wrap; }
+.ma-filter {
+  padding: 4px 10px; border: 1px solid var(--border); border-radius: 14px;
+  background: var(--panel); color: var(--text-dim); cursor: pointer; font-size: 12px;
+  transition: all .15s;
+}
+.ma-filter:hover { border-color: var(--gold-soft); color: var(--text); }
+.ma-filter.sel { border-color: #7fd1c1; color: #7fd1c1; font-weight: 700; background: rgba(127,209,193,0.1); }
+
+.ma-grid { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+.ma-grid-slot { width: 62px; height: 70px; font-size: 22px; }
+.ma-grid-slot .ma-slot-icon { font-size: 22px; }
+.ma-grid-slot .ma-slot-name { font-size: 8px; }
+
+/* 武学详情弹窗 */
+.ma-detail { text-align: center; min-width: 240px; }
+.ma-detail .ma-dt-icon { font-size: 40px; margin-bottom: 6px; }
+.ma-detail .ma-dt-name { font-size: 18px; font-weight: 900; }
+.ma-detail .ma-dt-type { font-size: 12px; color: var(--text-dim); margin: 4px 0; }
+.ma-detail .ma-dt-stats { font-size: 13px; color: var(--gold-soft); margin: 4px 0; }
+.ma-detail .ma-dt-skills { font-size: 12px; color: var(--text); text-align: left; margin: 6px 0; padding: 8px; background: rgba(0,0,0,0.2); border-radius: 8px; line-height: 1.6; }
+.ma-detail .ma-dt-source { font-size: 12px; color: var(--text-dim); margin: 6px 0; }
+.ma-detail .btn { margin: 4px; }
 .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .stat-grid .cell { background: rgba(0,0,0,0.25); border-radius: 10px; padding: 10px; }
 .stat-grid .cell b { color: var(--gold-soft); font-size: 16px; }

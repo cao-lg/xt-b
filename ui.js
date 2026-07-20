@@ -926,7 +926,8 @@
     });
   }
 
-  /* ---------------- 武学（卡牌收集/装配） ---------------- */
+  /* ---------------- 武学（背包格子式布局） ---------------- */
+  let _martialFilter = '全部';
   function renderMartial() {
     const s = Game.state;
     const deck = Array.isArray(s.martialDeck) ? s.martialDeck : [];
@@ -934,77 +935,107 @@
     const stats = Game.martialStats();
     const deckCount = deck.length;
     const maxDeck = Game.MAX_MARTIAL_DECK || 6;
-    // 按装备/类型分组的卡片
-    const equippedCards = deck.map(id => makeMartialCard(id, true)).join('');
-    const unequippedCards = Game.MARTIAL_ARTS
-      .filter(m => ownedIds.includes(m.id) && !deck.includes(m.id))
-      .map(m => makeMartialCard(m.id, false)).join('');
-    const lockedCards = Game.MARTIAL_ARTS
-      .filter(m => !ownedIds.includes(m.id))
-      .map(m => `<div class="card martial-card locked"><div class="icon">❔</div><div class="body"><div class="name">???</div><div class="desc">${m.type} · ${m.grade}</div><div class="sub">${m.source}</div></div></div>`)
-      .join('');
+    const gradeColors = { '根基': '#9fb0c0', '进阶': '#6fb1ff', '绝学': '#ffd76f', '稀有': '#c79fff', '绝世': '#ff6b6b' };
+    const gradeIcons = { '根基': '🟤', '进阶': '🔵', '绝学': '🟡', '稀有': '🟣', '绝世': '🔴' };
+
+    // 装备栏（横排槽位）
+    const equipSlots = Array.from({length: maxDeck}, (_, i) => {
+      const id = deck[i];
+      if (!id) return `<div class="ma-slot ma-empty" data-idx="${i}"><span class="ma-slot-num">${i+1}</span></div>`;
+      const m = Game.MARTIAL_ARTS.find(x => x.id === id);
+      if (!m) return `<div class="ma-slot ma-empty"><span class="ma-slot-num">${i+1}</span></div>`;
+      const lv = s.martialLevels[id] || 0;
+      return `<div class="ma-slot ma-equipped" data-ma="${id}" style="border-color:${gradeColors[m.grade]||'var(--border)'}">
+        <span class="ma-slot-icon">${m.icon}</span>
+        <span class="ma-slot-lv">Lv${lv}</span>
+        <span class="ma-slot-name">${m.name}</span>
+      </div>`;
+    }).join('');
+
+    // 筛选标签
+    const types = ['全部', '御剑', '刀法', '拳掌', '奇门', '内功', '轻功'];
+    const typeIcons = { '全部':'📚', '御剑':'🗡️', '刀法':'🔪', '拳掌':'👊', '奇门':'🔔', '内功':'🟣', '轻功':'🕊️' };
+    const filterTabs = types.map(t =>
+      `<button class="ma-filter ${t === _martialFilter ? 'sel' : ''}" data-filter="${t}">${typeIcons[t]||''} ${t}</button>`
+    ).join('');
+
+    // 武学背包网格
+    const allMA = Game.MARTIAL_ARTS.filter(m => _martialFilter === '全部' || m.type === _martialFilter);
+    const gridSlots = allMA.map(m => {
+      const owned = ownedIds.includes(m.id);
+      const equipped = deck.includes(m.id);
+      const lv = s.martialLevels[m.id] || 0;
+      const borderColor = equipped ? '#ffd76f' : owned ? gradeColors[m.grade]||'var(--border)' : 'var(--border)';
+      const opacity = owned ? 1 : 0.4;
+      const badge = equipped ? '⚔️' : owned ? gradeIcons[m.grade]||'' : '❔';
+      return `<div class="ma-slot ma-grid-slot ${owned?'owned':''} ${equipped?'eq':''}"
+        data-ma="${m.id}" style="border-color:${borderColor};opacity:${opacity}"
+        title="${m.name} · ${m.type}/${m.grade}${equipped?' [已装备]':''}">
+        <span class="ma-slot-icon">${owned ? m.icon : '❔'}</span>
+        <span class="ma-slot-badge">${badge}</span>
+        <span class="ma-slot-name">${owned ? m.name : '???'}</span>
+      </div>`;
+    }).join('');
+
     view.innerHTML = `
-      <div class="section-title">📖 武学 <small>装配武学（${deckCount}/${maxDeck}），战斗中自动触发招式</small></div>
+      <div class="section-title">📖 武学 <small>装配（${deckCount}/${maxDeck}）· 战斗中自动触发招式</small></div>
       <div class="res-bar">
         <div class="res-chip"><div class="l">攻 +${stats.atk}</div></div>
         <div class="res-chip"><div class="l">防 +${stats.def}</div></div>
         <div class="res-chip"><div class="l">气血 +${stats.hp}</div></div>
         <div class="res-chip"><div class="l">速度 +${stats.speed}</div></div>
       </div>
-      ${deckCount > 0 ? `<div class="list-title">⚔️ 已装备（${deckCount}/${maxDeck}）</div><div class="list">${equippedCards}</div>` : '<div class="empty" style="margin:8px 0">尚未装备武学，从下方选择装配</div>'}
-      ${unequippedCards ? `<div class="list-title" style="margin-top:10px">📖 武学库</div><div class="list">${unequippedCards}</div>` : ''}
-      ${lockedCards ? `<div class="list-title" style="margin-top:10px">🔒 未获得</div><div class="list" style="opacity:.6">${lockedCards}</div>` : ''}
+      <div class="ma-equip-row">${equipSlots}</div>
+      <div class="ma-filter-bar">${filterTabs}</div>
+      <div class="ma-grid">${gridSlots}</div>
+      <div class="hint" style="margin-top:6px">💡 点击武学格子查看详情 · 品质：🟤根基 🔵进阶 🟡绝学 🟣稀有 🔴绝世</div>
     `;
-    view.querySelectorAll('[data-martial-eq]').forEach(b => b.addEventListener('click', () => {
-      if (Game.equipMartial(b.dataset.martialEq)) renderCurrent(); else toast('已达上限或已装备');
+
+    // 事件绑定
+    view.querySelectorAll('[data-ma]').forEach(el => el.addEventListener('click', () => {
+      const id = el.dataset.ma;
+      const m = Game.MARTIAL_ARTS.find(x => x.id === id);
+      if (!m) return;
+      const owned = ownedIds.includes(m.id);
+      const equipped = deck.includes(m.id);
+      const lv = s.martialLevels[id] || 0;
+      const lvMult = 1 + lv * 0.10;
+      // 弹出详情面板
+      const skills = Game.martialSkillList(id);
+      const skillText = skills.map(sk => `• ${sk.innate?'⭐':'🔧'} ${sk.name}（${sk.fireRate}%触发·${sk.dmgRate}%伤害）${sk.healPct?' 回血'+sk.healPct+'%':''}`).join('<br>');
+      const cost = Game.upgradeMartialCost(id);
+      const upgBtn = owned && cost
+        ? `<button class="btn" data-upgrade="${id}" ${s.materials>=cost.mat&&s.stone>=cost.stone?'':'disabled'}>升级 ${lv}/20 (${cost.mat}🌿 ${Game.formatNum(cost.stone)}💎)</button>`
+        : (owned ? `<span style="color:var(--jade)">已满级</span>` : '');
+      const eqBtn = owned && !equipped && deckCount < maxDeck
+        ? `<button class="btn" data-martial-eq="${id}">⚔️ 装备</button>`
+        : (owned && equipped ? `<button class="btn smelt" data-martial-ueq="${id}">卸下</button>` : '');
+      const modalHtml = `
+        <div class="ma-detail">
+          <div class="ma-dt-icon">${m.icon}</div>
+          <div class="ma-dt-name">${m.name} <span style="color:${gradeColors[m.grade]||'#fff'}">${m.grade}</span></div>
+          <div class="ma-dt-type">${m.type} · 阴${m.yin}阳${m.yang}调${m.tiao} · ${owned?'已拥有':'未获得'}</div>
+          <div class="ma-dt-stats">攻+${Math.round(m.atk*lvMult)} 防+${Math.round(m.def*lvMult)} 气血+${Math.round(m.hp*lvMult)} 速度+${Math.round(m.speed*lvMult)}</div>
+          ${owned ? `<div class="ma-dt-skills">${skillText}</div>` : `<div class="ma-dt-source">获取：${m.source}</div>`}
+          <div style="display:flex;gap:8px;justify-content:center;margin-top:10px">${eqBtn}${upgBtn}</div>
+          <div style="text-align:center;margin-top:8px"><button class="bb-btn-cancel" data-close>关闭</button></div>
+        </div>`;
+      const modalEl = modal(modalHtml);
+      modalEl.querySelectorAll('[data-martial-eq]').forEach(b => b.addEventListener('click', () => {
+        if (Game.equipMartial(b.dataset.martialEq)) { closeModal(modalEl); renderCurrent(); } else toast('已达上限');
+      }));
+      modalEl.querySelectorAll('[data-martial-ueq]').forEach(b => b.addEventListener('click', () => {
+        Game.unequipMartial(b.dataset.martialUeq); closeModal(modalEl); renderCurrent();
+      }));
+      modalEl.querySelectorAll('[data-upgrade]').forEach(b => b.addEventListener('click', () => {
+        if (Game.upgradeMartial(b.dataset.upgrade)) { closeModal(modalEl); renderCurrent(); } else toast('材料不足');
+      }));
+      modalEl.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', () => closeModal(modalEl)));
     }));
-    view.querySelectorAll('[data-martial-ueq]').forEach(b => b.addEventListener('click', () => {
-      Game.unequipMartial(b.dataset.martialUeq); renderCurrent();
+    view.querySelectorAll('[data-filter]').forEach(b => b.addEventListener('click', () => {
+      _martialFilter = b.dataset.filter;
+      renderCurrent();
     }));
-    view.querySelectorAll('[data-upgrade]').forEach(b => b.addEventListener('click', () => {
-      if (Game.upgradeMartial(b.dataset.upgrade)) renderCurrent(); else toast('材料或灵石不足');
-    }));
-    view.querySelectorAll('[data-uskill]').forEach(b => {
-      const [maId, slotIdx] = b.dataset.uskill.split(':');
-      b.addEventListener('click', () => { Game.unequipSkill(maId, parseInt(slotIdx)); renderCurrent(); });
-    });
-  }
-  function makeMartialCard(id, equipped) {
-    const m = Game.MARTIAL_ARTS.find(x => x.id === id);
-    if (!m) return '';
-    const s = Game.state;
-    const count = s.martialArts[id] || 0;
-    const lv = s.martialLevels[id] || 0;
-    const lvMult = 1 + lv * 0.10;
-    const gradeColors = { '根基': '#9fb0c0', '进阶': '#6fb1ff', '绝学': '#ffd76f', '稀有': '#c79fff', '绝世': '#ff6b6b' };
-    const skills = Game.martialSkillList(id);
-    const skillHtml = skills.map((sk, i) =>
-      `<div class="sub" style="color:${sk.innate?'var(--gold-soft)':'var(--jade)'};margin-left:6px">
-        ${sk.innate ? '⭐' : '🔧'} ${sk.name}（${sk.fireRate}%触发·${sk.dmgRate}%伤害）${sk.healPct?' 回血'+sk.healPct+'%':''}
-        ${!sk.innate ? `<span class="spd-ft" data-uskill="${id}:${i-1}" style="cursor:pointer">[卸下]</span>` : ''}
-      </div>`
-    ).join('');
-    // 升级按钮
-    const cost = Game.upgradeMartialCost(id);
-    const upgBtn = cost && equipped
-      ? `<button class="buy-btn" data-upgrade="${id}" ${s.materials>=cost.mat&&s.stone>=cost.stone?'':'disabled'}>升级 ${lv}/20<div class="price">${cost.mat}🌿 ${Game.formatNum(cost.stone)}💎</div></button>`
-      : (equipped ? `<span class="sub" style="color:var(--jade)">已满级</span>` : '');
-    // 装配/卸下按钮
-    const eqBtn = equipped
-      ? `<button class="buy-btn smelt" data-martial-ueq="${id}">卸下</button>`
-      : `<button class="buy-btn" data-martial-eq="${id}">装配</button>`;
-    return `<div class="card martial-card ${equipped ? 'eq' : ''}">
-      <div class="icon">${m.icon}</div>
-      <div class="body">
-        <div class="name">${m.name} <span class="lv">Lv.${lv} ${count > 0 ? '·'+count+'本' : ''}</span></div>
-        <div class="desc" style="color:${gradeColors[m.grade] || '#fff'}">${m.type} · ${m.grade} · 阴${m.yin}阳${m.yang}调${m.tiao} · 配招${m.extraSlots}槽</div>
-        <div class="sub">攻+${Math.round(m.atk*lvMult)} 防+${Math.round(m.def*lvMult)} 气血+${Math.round(m.hp*lvMult)} 速度+${Math.round(m.speed*lvMult)}</div>
-        <div class="sub" style="margin-top:4px">⚔ 招式</div>
-        ${skillHtml}
-        ${m.extraSlots > skills.length - 1 ? `<div class="sub" style="color:var(--text-dim);margin-left:6px">🔲 空闲槽 ${m.extraSlots - (skills.length - 1)} 个</div>` : ''}
-      </div>
-      <div style="display:flex;flex-direction:column;gap:4px">${eqBtn}${upgBtn}</div>
-    </div>`;
   }
   function renderCurrent() {
     switch (currentTab) {
