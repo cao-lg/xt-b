@@ -612,6 +612,18 @@ const Game = (function () {
   }
 
   /* ---------- 武学系统（卡牌收集/装配） ---------- */
+  // 武学内息偏向：基于yin/yang/tiao值判定
+  function martialAffinity(ma) {
+    if (ma.tiao >= 3) return '调'; // 调≥强 → 调和
+    return ma.yin > ma.yang ? '阴' : ma.yang > ma.yin ? '阳' : '调';
+  }
+  // 克制倍率：阴→阳(+15%), 阳→阴(+15%), 调↔任何(无加成)
+  function affinityMult(atkAff, defAff) {
+    if (atkAff === '调' || defAff === '调') return 1;
+    if (atkAff === '阴' && defAff === '阳') return 1.15;
+    if (atkAff === '阳' && defAff === '阴') return 1.15;
+    return 1;
+  }
   function gainMartial(id) {
     const ma = MARTIAL_ARTS.find(m => m.id === id);
     if (!ma) return false;
@@ -986,16 +998,23 @@ const Game = (function () {
         pQi -= CFG_ATB.QI_THRESHOLD;
         if (hasMA) {
           const maId = deck[Math.floor(Math.random() * deck.length)];
+          const ma = MARTIAL_ARTS.find(m => m.id === maId);
+          const pAff = ma ? martialAffinity(ma) : '调';
+          // 敌人内息偏向（从敌人血量等级匹配一个武学作为代表）
+          const eIdx = Math.min(MARTIAL_ARTS.length - 1, Math.floor((enemy.hp || 1000) / 200));
+          const eMa = MARTIAL_ARTS[eIdx];
+          const eAff = eMa ? martialAffinity(eMa) : '调';
+          const affMod = affinityMult(pAff, eAff);
           const skillList = martialSkillList ? martialSkillList(maId) : [];
           // 从所有招式（天赋+额外）中按火率随机roll一个
           let triggered = false;
           for (const sk of skillList) {
             if (Math.random() < (sk.fireRate / 100)) {
-              const r = calcDmg(p.atk, e.def, sk.dmgRate, sk.dmgFlat);
+              const r = calcDmg(p.atk, e.def, sk.dmgRate * affMod, sk.dmgFlat * affMod);
               eHp -= r.dmg;
-              // 回血效果
               if (sk.healPct) pHp = Math.min(p.hp, pHp + Math.floor(p.hp * sk.healPct / 100));
-              log.push({ side: 'p', miss: false, crit: r.crit, dmg: r.dmg, skill: sk.name });
+              const affTag = affMod > 1 ? ` [内息克制·${pAff}克${eAff}]` : '';
+              log.push({ side: 'p', miss: false, crit: r.crit, dmg: r.dmg, skill: sk.name + affTag });
               triggered = true; break;
             }
           }
@@ -1010,19 +1029,26 @@ const Game = (function () {
           log.push({ side: 'p', miss: false, crit: r.crit, dmg: r.dmg, skill: '普攻' });
         }
       }
-      // 敌人行动（带武学：按关卡境界匹配，不同地图类型不同）
+      // 敌人行动（带武学 + 内息克制）
       while (eQi >= CFG_ATB.QI_THRESHOLD && pHp > 0 && eHp > 0) {
         eQi -= CFG_ATB.QI_THRESHOLD;
-        // 根据敌人境界选武学：hp/500 决定权重重心，越高越可能用高品
         const eLv = Math.min(MARTIAL_ARTS.length - 1, Math.floor((enemy.hp || 1000) / 300));
         const minIdx = Math.max(0, eLv - 2);
         const maxIdx = Math.min(MARTIAL_ARTS.length - 1, eLv + 2);
-        const eMaIdx = minIdx + Math.floor(Math.random() * (maxIdx - minIdx + 1));
-        const eMa = MARTIAL_ARTS[eMaIdx];
-        if (eMa && Math.random() < (eMa.skill.fireRate / 100)) {
-          const r = calcDmg(e.atk, p.def, eMa.skill.dmgRate, eMa.skill.dmgFlat);
+        const eMa2 = MARTIAL_ARTS[minIdx + Math.floor(Math.random() * (maxIdx - minIdx + 1))];
+        const eAff2 = eMa2 ? martialAffinity(eMa2) : '调';
+        // 玩家方取装备武学的平均内息偏向
+        const deckAff = state.martialDeck.length > 0 ? (() => {
+          const counts = { '阴':0, '阳':0, '调':0 };
+          state.martialDeck.forEach(id => { const mm = MARTIAL_ARTS.find(x => x.id === id); if(mm) counts[martialAffinity(mm)]++; });
+          return Object.keys(counts).reduce((a,b) => counts[a] > counts[b] ? a : b);
+        })() : '调';
+        const eAffMod = 1 / affinityMult(eAff2, deckAff);
+        if (eMa2 && Math.random() < (eMa2.skill.fireRate / 100)) {
+          const r = calcDmg(e.atk, p.def, eMa2.skill.dmgRate * eAffMod, eMa2.skill.dmgFlat * eAffMod);
           pHp -= r.dmg;
-          log.push({ side: 'e', miss: false, crit: r.crit, dmg: r.dmg, skill: eMa.skill.name });
+          const affTag = eAffMod > 1 ? ` [内息反克·${eAff2}克${deckAff}]` : '';
+          log.push({ side: 'e', miss: false, crit: r.crit, dmg: r.dmg, skill: eMa2.skill.name + affTag });
         } else {
           const r = calcDmg(e.atk, p.def, 50, 0);
           pHp -= r.dmg;
@@ -1063,17 +1089,31 @@ const Game = (function () {
           checkAchievements();
         }
       }
-      // 武学掉落（胜利后 15% 概率获得一门未拥有的武学，全拥有后概率降至 5%）
-      if (Math.random() < 0.15) {
-        const owned = Object.keys(state.martialArts);
-        const missing = MARTIAL_ARTS.filter(m => !owned.includes(m.id));
-        if (missing.length > 0) {
-          const pick = missing[Math.floor(Math.random() * missing.length)];
-          gainMartial(pick.id);
-        } else if (Math.random() < 0.33) {
-          const pick = MARTIAL_ARTS[Math.floor(Math.random() * MARTIAL_ARTS.length)];
-          gainMartial(pick.id);
+      // 武学掉落（按品质分级概率）
+      const gradeWeights = { '绝世': 1, '稀有': 3, '绝学': 7, '进阶': 12, '根基': 18 };
+      const owned = Object.keys(state.martialArts);
+      const missingByGrade = {};
+      MARTIAL_ARTS.forEach(m => {
+        if (!owned.includes(m.id)) {
+          if (!missingByGrade[m.grade]) missingByGrade[m.grade] = [];
+          missingByGrade[m.grade].push(m);
         }
+      });
+      const missingAll = Object.values(missingByGrade).flat();
+      if (missingAll.length > 0) {
+        // 按品质权重选择
+        const totalW = Object.keys(missingByGrade).reduce((s, g) => s + (gradeWeights[g] || 1) * missingByGrade[g].length, 0);
+        let roll = Math.random() * totalW;
+        let picked = null;
+        for (const g of Object.keys(missingByGrade).sort((a,b)=> (gradeWeights[b]||1)-(gradeWeights[a]||1))) {
+          const w = (gradeWeights[g] || 1) * missingByGrade[g].length;
+          roll -= w;
+          if (roll <= 0) { picked = missingByGrade[g][Math.floor(Math.random() * missingByGrade[g].length)]; break; }
+        }
+        if (picked && Math.random() < 0.12) gainMartial(picked.id); // 总触发概率≈12%
+      } else if (Math.random() < 0.04) {
+        const pick = MARTIAL_ARTS[Math.floor(Math.random() * MARTIAL_ARTS.length)];
+        gainMartial(pick.id);
       }
       // 招式掉落（胜利后 8% 概率获得一个招式）
       if (Math.random() < 0.08) {
@@ -1402,6 +1442,7 @@ const Game = (function () {
     get MARTIAL_ARTS() { return MARTIAL_ARTS; },
     martialStats, gainMartial, equipMartial, unequipMartial, canEquipMartial, MAX_MARTIAL_DECK,
     upgradeMartial, upgradeMartialCost, gainSkill, equipSkill, unequipSkill, martialSkillList,
+    martialAffinity, affinityMult,
     get SKILLS() { return SKILLS; },
     LAYERS_PER_REALM, CHINESE_LAYER
   };

@@ -997,7 +997,7 @@
       <div class="icon">${m.icon}</div>
       <div class="body">
         <div class="name">${m.name} <span class="lv">Lv.${lv} ${count > 0 ? '·'+count+'本' : ''}</span></div>
-        <div class="desc" style="color:${gradeColors[m.grade] || '#fff'}">${m.type} · ${m.grade} · 配招${m.extraSlots}槽</div>
+        <div class="desc" style="color:${gradeColors[m.grade] || '#fff'}">${m.type} · ${m.grade} · 阴${m.yin}阳${m.yang}调${m.tiao} · 配招${m.extraSlots}槽</div>
         <div class="sub">攻+${Math.round(m.atk*lvMult)} 防+${Math.round(m.def*lvMult)} 气血+${Math.round(m.hp*lvMult)} 速度+${Math.round(m.speed*lvMult)}</div>
         <div class="sub" style="margin-top:4px">⚔ 招式</div>
         ${skillHtml}
