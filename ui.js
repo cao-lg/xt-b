@@ -991,11 +991,8 @@
       <div class="ma-filter-bar">${filterTabs}</div>
       <div class="ma-grid">${gridSlots}</div>
       <div class="hint" style="margin-top:6px">💡 点击武学格子查看详情 · 品质：🟤根基 🔵进阶 🟡绝学 🟣稀有 🔴绝世 · 战斗胜利有概率掉落⚠</div>
-      <button class="btn" id="btn-skills" style="margin-top:8px;width:100%">📜 招式库（已获 ${Object.keys(s.skills||{}).filter(k=>s.skills[k]>0).length} 个）</button>
-      <div id="skills-panel" style="display:none;margin-top:6px;">
-        <div class="list-title">📜 已拥有的招式</div>
-        <div class="sk-grid">${renderSkillGrid()}</div>
-      </div>
+      <div class="section-title" style="margin-top:12px">📜 招式库 <small>装配到武学配招槽·战斗中触发</small></div>
+      <div class="allskills-grid">${renderSkillGrid()}</div>
     `;
 
     // 事件绑定
@@ -1086,31 +1083,32 @@
       _martialFilter = b.dataset.filter;
       renderCurrent();
     }));
-    // 招式库展开/折叠
-    const skillsBtn = $('#btn-skills');
-    const skillsPanel = $('#skills-panel');
-    if (skillsBtn && skillsPanel) skillsBtn.addEventListener('click', () => {
-      skillsPanel.style.display = skillsPanel.style.display === 'none' ? 'block' : 'none';
-    });
     // 招式升级
     view.querySelectorAll('[data-skill-upgrade]').forEach(b => b.addEventListener('click', () => {
       if (Game.upgradeSkill(b.dataset.skillUpgrade)) renderCurrent(); else toast('天材地宝不足');
     }));
   }
-  // 招式背包网格
+  // 招式背包（显示全部12招式，已拥有可升级、未获得灰色）
   function renderSkillGrid() {
     const s = Game.state;
-    const owned = Game.SKILLS.filter(sk => (s.skills[sk.id] || 0) > 0);
-    if (!owned.length) return '<div class="empty">暂无招式，战斗胜利有概率掉落</div>';
-    return owned.map(sk => {
+    const ownedSkills = Object.keys(s.skills||{}).filter(k => s.skills[k] > 0);
+    return Game.SKILLS.map(sk => {
+      const owned = ownedSkills.includes(sk.id);
       const lv = s.skillLevels[sk.id] || 0;
       const cost = Game.upgradeSkillCost(sk.id);
       const mult = 1 + lv * 0.05;
-      const upgBtn = cost ? `<button class="btn small" data-skill-upgrade="${sk.id}" ${s.materials>=cost?'':'disabled'}>${lv}/10</button>` : `<span style="color:var(--jade)">满</span>`;
-      return `<div class="sk-item">
-        <div class="sk-name">${sk.name}</div>
-        <div class="sk-info">${sk.type} · ${Math.round(sk.fireRate*(1+lv*0.03))}% · ${Math.round(sk.dmgRate*mult)}%伤害${sk.healPct?' 回血'+Math.round(sk.healPct*(1+lv*0.03))+'%':''}</div>
-        <div class="sk-upg">${upgBtn}</div>
+      const fireRate = Math.round(sk.fireRate * (1 + lv * 0.03));
+      const dmgRate = Math.round(sk.dmgRate * mult);
+      const upgBtn = owned && cost
+        ? `<button class="btn small" data-skill-upgrade="${sk.id}" ${s.materials>=cost?'':'disabled'}>Lv.${lv}/10 ↑</button>`
+        : (owned ? `<span style="color:var(--jade);font-size:11px">满级</span>` : '');
+      return `<div class="allskill-item ${owned?'':'locked'}">
+        <div class="allskill-icon">${owned ? '📜' : '🔒'}</div>
+        <div class="allskill-body">
+          <div class="allskill-name">${sk.name} ${owned?`<span class="lv">Lv.${lv}</span>`:'<span style="color:var(--text-dim)">??</span>'}</div>
+          <div class="allskill-info">${sk.type} · ${owned ? `${fireRate}%触发·${dmgRate}%伤害${sk.healPct?' 回血'+Math.round(sk.healPct*(1+lv*0.03))+'%':''}` : sk.desc.substring(0,20)}</div>
+        </div>
+        <div class="allskill-upg">${upgBtn}</div>
       </div>`;
     }).join('');
   }

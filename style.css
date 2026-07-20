@@ -584,17 +584,21 @@ h2.lose { color: #ff9f9f; }
 .reward { margin-top: 10px; font-size: 13px; color: #ffd76f; }
 .reward.drop { color: #c79fff; }
 
-/* ---------------- 招式库网格 ---------------- */
-.sk-grid { display: flex; flex-direction: column; gap: 4px; margin: 6px 0; }
-.sk-item {
-  display: flex; align-items: center; gap: 6px; padding: 8px 10px;
+/* ---------------- 招式库（全部12招式网格） ---------------- */
+.allskills-grid { display: flex; flex-direction: column; gap: 4px; margin: 6px 0; }
+.allskill-item {
+  display: flex; align-items: center; gap: 8px; padding: 8px 10px;
   border: 1px solid var(--border); border-radius: 8px; background: rgba(0,0,0,0.15);
 }
-.sk-name { font-size: 13px; font-weight: 700; color: var(--jade); min-width: 70px; }
-.sk-info { flex: 1; font-size: 11px; color: var(--text-dim); }
-.sk-upg { min-width: 40px; text-align: right; }
-.sk-upg .btn.small { padding: 3px 8px; font-size: 11px; border-radius: 6px; }
-.sk-upg .btn.small:disabled { opacity: .3; }
+.allskill-item.locked { opacity: .4; }
+.allskill-icon { font-size: 18px; width: 24px; text-align: center; }
+.allskill-body { flex: 1; }
+.allskill-name { font-size: 13px; font-weight: 700; color: var(--jade); }
+.allskill-name .lv { font-size: 11px; color: var(--gold-soft); margin-left: 4px; }
+.allskill-info { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+.allskill-upg { min-width: 60px; text-align: right; }
+.allskill-upg .btn.small { padding: 3px 8px; font-size: 11px; border-radius: 6px; }
+.allskill-upg .btn.small:disabled { opacity: .3; }
 
 /* 法宝：装备槽 */
 .slot-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin: 10px 0; }
