@@ -256,7 +256,14 @@ html, body {
 .ma-slot .ma-slot-num { position: absolute; top: 2px; left: 5px; font-size: 9px; color: var(--text-dim); }
 .ma-slot .ma-slot-icon { font-size: 24px; line-height: 1; }
 .ma-slot .ma-slot-lv { position: absolute; top: 1px; right: 4px; font-size: 9px; color: var(--gold-soft); font-weight: 700; }
-.ma-slot .ma-slot-name { font-size: 9px; color: var(--text); text-align: center; line-height: 1.1; max-width: 62px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ma-slot .ma-slot-label { position: absolute; top: 1px; right: 4px; font-size: 9px; color: var(--gold-soft); font-weight: 700; }
+.ma-slot .ma-slot-title { position: absolute; bottom: 1px; left: 4px; font-size: 8px; color: var(--text-dim); }
+.ma-equip-area { margin: 8px 0; }
+.ma-equip-row { display: flex; gap: 4px; flex-wrap: wrap; }
+.ma-sub-row { display: flex; align-items: center; gap: 4px; }
+.ma-row-label { font-size: 10px; color: var(--text-dim); min-width: 28px; text-align: center; font-weight: 700; }
+.ma-row-label.active { color: var(--gold-soft); }
+.ma-slot-wrap { display: flex; align-items: center; gap: 2px; }
 .ma-slot .ma-slot-badge { position: absolute; bottom: 16px; right: 2px; font-size: 10px; }
 .ma-slot.ma-equipped { background: rgba(255,215,111,0.06); }
 
@@ -548,6 +555,9 @@ html, body {
 .level-body { flex: 1; min-width: 0; }
 .level-body .name { font-size: 14px; font-weight: 700; }
 .enemy-stats { font-size: 11px; color: var(--text-dim); margin-top: 3px; }
+.e-deck-line { font-size: 11px; color: var(--text-dim); margin-top: 3px; display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.e-ma-chip { display: inline-flex; align-items: center; gap: 2px; padding: 2px 6px; border: 1px solid; border-radius: 12px; font-size: 10px; background: rgba(0,0,0,0.2); }
+.e-ma-chip span { color: var(--text); }
 .reward-line { font-size: 11px; color: #7fe0a8; margin-top: 3px; }
 .boss-tag { font-size: 10px; background: var(--danger); color: #fff; padding: 1px 6px; border-radius: 6px; margin-left: 4px; }
 .cleared-tag { font-size: 10px; background: rgba(127,209,193,0.25); color: #7fd1c1; padding: 1px 6px; border-radius: 6px; margin-left: 4px; }
@@ -626,6 +636,9 @@ h2.lose { color: #ff9f9f; }
 .battle-report .rep-hp { min-width: 80px; text-align: right; font-size: 9px; color: var(--text-dim); }
 .battle-report .rep-formula, .battle-report .rep-aff-text { font-size: 11px; color: var(--text-dim); padding: 4px 6px; background: rgba(0,0,0,0.15); border-radius: 4px; line-height: 1.6; }
 .battle-report .rep-summary { font-size: 11px; color: var(--text); line-height: 1.8; }
+.battle-report .rep-round-bar { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
+.battle-report .rep-round-btn { padding: 3px 8px; font-size: 11px; border-radius: 12px; background: var(--panel); border: 1px solid var(--border); color: var(--text-dim); cursor: pointer; }
+.battle-report .rep-round-btn.sel { border-color: var(--gold-soft); color: var(--gold-soft); font-weight: 700; }
 /* 按武学分组的战报统计 */
 .battle-report .rep-m-list { display: flex; flex-direction: column; gap: 6px; }
 .battle-report .rep-m-card { background: rgba(0,0,0,0.15); border-radius: 8px; padding: 6px 8px; border-left: 3px solid var(--gold-soft); }

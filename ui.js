@@ -705,25 +705,29 @@
           : `<button class="buy-btn" disabled>${lockText}</button>`;
         const ep = Math.floor(lv.atk * 2 + lv.def * 1.5 + lv.hp * 0.25);
         const diff = difficultyRating(lv, st.power);
+        // 敌人装备武学预览
+        const eDeck = (Game.genEnemyDeck ? Game.genEnemyDeck(lv) : []).map(id => Game.MARTIAL_ARTS.find(m => m.id === id)).filter(Boolean);
+        const eDeckHtml = eDeck.length ? eDeck.map(m => `<span class="e-ma-chip" style="border-color:${gradeColors[m.grade]||'var(--border)'}">${m.icon}<span>${m.name}</span></span>`).join('') : '<span style="color:var(--text-dim)">无</span>';
         return `<div class="level-row ${cleared ? 'cleared' : ''} ${unlocked ? '' : 'locked'} ${isCurrent ? 'current' : ''}">
           <div class="level-idx">${i + 1}</div>
           <div class="level-body">
             <div class="name">${lv.icon} ${lv.name} ${lv.boss ? '<span class="boss-tag">BOSS</span>' : ''} ${cleared ? '<span class="cleared-tag">已通关</span>' : ''} <span class="${diff.cls}" title="推荐战力 ${Game.formatNum(ep)} / 你的战力 ${Game.formatNum(st.power)}">难度 ${diff.text}</span></div>
             <div class="enemy-stats">攻${lv.atk} 防${lv.def} 气血${lv.hp} 命中${Math.round(lv.hit * 100)}% 闪避${Math.round(lv.dodge * 100)}% 暴击${Math.round(lv.crit * 100)}% · 推荐战力 ${Game.formatNum(ep)}</div>
+            <div class="e-deck-line">敌方装备：${eDeckHtml}</div>
             <div class="reward-line">奖励 灵石${Game.formatNum(lv.reward.stone[0])}~${Game.formatNum(lv.reward.stone[1])} · 🌿${lv.reward.mat[0]}~${lv.reward.mat[1]} · 修为 ≈ ${Game.formatNum(Math.floor((Game.currentSpeed ? Game.currentSpeed() : 0) * (lv.boss ? 18 : 6)))}${lv.drop && lv.drop.chance ? ` · 法宝${Math.round(lv.drop.chance * 100)}%` : ''} · 武学≈10% 招式≈8%</div>
           </div>${btn}</div>`;
       }).join('');
       body = `<div class="map-desc">${map.desc}</div>${cdText}<div class="level-path">${levels}</div>`;
     }
     view.innerHTML = `
-      <div class="section-title">⚔️ 历练 · 战斗 <small>ATB聚气对战 · 速度越快出手越频繁 · 武学招式自动触发</small></div>
+      <div class="section-title">⚔️ 历练 · 战斗 <small>外功轮流+内功轻功每轮全触发 · 阳克阴/阴克调/调克阳</small></div>
       <div class="player-panel">
         <div class="pp-head">🧘 自身战力 <b>${Game.formatNum(st.power)}</b></div>
         <div class="pp-stats">
           <span>攻 ${st.atk}</span><span>防 ${st.def}</span><span>气血 ${st.hp}</span>
           <span>命中 ${Math.round(st.hit * 100)}%</span><span>闪避 ${Math.round(st.dodge * 100)}%</span><span>暴击 ${Math.round(st.crit * 100)}%</span>
         </div>
-        <div class="pp-speed">⚡ 武学速度 +${Game.martialStats().speed}（装备轻功提升 · 速度差影响发招频率）</div>
+        <div class="pp-speed">⚡ 轻功影响武学出手频率（装备轻功每轮全触发）</div>
         <div class="hint" style="margin-top:8px">攻/防/气血/命中/闪避/暴击 受功法、洞府、丹药、悟道、灵宠、灵根、仙缘、法宝共同影响。</div>
         <details class="breakdown" style="margin-top:8px;font-size:12px;color:var(--text-dim)">
           <summary>📊 各系统战斗属性贡献详情</summary>
@@ -731,15 +735,14 @@
           <div style="padding:4px 0 4px 8px;line-height:1.7;border-top:1px dashed rgba(120,140,190,0.2);margin-top:6px">${Game.combatBreakdown().map(i => `<div title="${i.desc}"><span>${i.icon} ${i.name}</span><span style="float:right;color:var(--text)">${i.desc}</span></div>`).join('')}</div>
         </details>
         <details class="breakdown" style="margin-top:8px;font-size:12px;color:var(--text-dim)">
-          <summary>⚡ ATB聚气战斗机制</summary>
+          <summary>⚡ 战斗机制</summary>
           <div style="padding:8px 0 4px 8px;line-height:1.8;color:var(--text)">
-            · 每轮双方聚气：<b>qi += 34 + 0.05×速度差</b>（速度差=自身速度-平均速度）<br>
-            · qi ≥ <b>100</b> 即行动，溢出聚气保留（可连续行动）<br>
-            · 行动时随机触发装备武学的<b>天赋招式</b>（按火率判定）<br>
-            · 若火率判定失败则普通攻击（50%伤害）<br>
-            · 装配的配招招式也会一同参与火率判定<br>
-            · 速度高的武学（轻功）让聚气更快→发招更频繁<br>
-            · 内息克制：<span style="color:#7fd1c1">阴→阳+15%</span> <span style="color:#c79aff">阳→阴+15%</span> 调↔无加成
+            · 每轮<b>外功</b>（御剑/刀法/拳掌/奇门）轮流行动，一轮一门<br>
+            · 每轮所有<b>内功</b>和<b>轻功</b>都会触发<br>
+            · 外功循环顺序：按你装备的武学排列顺序轮流<br>
+            · 每门武学的所有招式（天赋+配招）逐项按<b>火率</b>判定<br>
+            · 火率判定成功则发动招式，失败则该招式本回合跳过<br>
+            · 内息克制（三循环）：<span style="color:#c79aff">阳→阴+15%</span> <span style="color:#7fd1c1">阴→调+15%</span> <span style="color:#ffd76f">调→阳+15%</span>
           </div>
         </details>
       </div>
@@ -847,8 +850,11 @@
     ).join('');
     const playerActions = rep.actions.filter(a => a.side==='p');
     const enemyActions = rep.actions.filter(a => a.side==='e');
-    // 聚气表格（前8轮）
-    const qiRows = rep.rounds.slice(0, 8).map(r => `<tr><td>${r.round}</td><td>${r.pGain}</td><td>${r.pQi}</td><td>${r.eGain}</td><td>${r.eQi}</td></tr>`).join('');
+    // 每轮行动汇总（替代旧的聚气表）
+    const roundSummaries = rep.rounds.map(rd => {
+      const pCount = rd.pGain, eCount = rd.eGain;
+      return `<tr><td>${rd.round}</td><td>${pCount}</td><td>${eCount}</td></tr>`;
+    }).join('');
     // 全部出手详情（不限制16）
     const actList = rep.actions.map(a => {
       const isP = a.side==='p';
@@ -856,10 +862,10 @@
       const affTxt = a.affMod > 1 ? ` <span style="color:#7fd1c1">【${a.pAff||'-'}克${a.eAff||'-'}+15%】</span>` : '';
       const critTxt = a.crit ? ' 💥暴击' : '';
       return `<div class="rep-act ${isP?'p':'e'}">
-        <span class="rep-seq">${a.seq}</span>
+        <span class="rep-seq">R${a.round}·${a.seq}</span>
         <span class="rep-who">${isP?pName:eName}</span>
         <span class="rep-ma">${a.ma||''}</span>
-        <span class="rep-skill">${fired} ${a.skill}${affTxt}${critTxt}</span>
+        <span class="rep-skill">${fired} ${a.skName||''}${affTxt}${critTxt}</span>
         <span class="rep-dmg">-${a.dmg}</span>
         <span class="rep-hp">我 ${a.pHp} / 敌 ${a.eHp}</span>
       </div>`;
@@ -868,16 +874,16 @@
     const deck = Array.isArray(Game.state.martialDeck) ? Game.state.martialDeck : [];
     const martialStats = {};
     playerActions.forEach(a => {
-      if (a.ma) {
+      if (a.ma && a.skName) {
         if (!martialStats[a.ma]) martialStats[a.ma] = { total: 0, fired: 0, dmg: 0, skills: {} };
         martialStats[a.ma].total++;
+        if (!martialStats[a.ma].skills[a.skName]) martialStats[a.ma].skills[a.skName] = { count: 0, dmg: 0, fired: 0 };
+        martialStats[a.ma].skills[a.skName].count++;
         if (a.fired) {
           martialStats[a.ma].fired++;
           martialStats[a.ma].dmg += a.dmg;
-          if (!martialStats[a.ma].skills[a.skill]) martialStats[a.ma].skills[a.skill] = { count: 0, dmg: 0, fired: 0 };
-          martialStats[a.ma].skills[a.skill].count++;
-          martialStats[a.ma].skills[a.skill].fired++;
-          martialStats[a.ma].skills[a.skill].dmg += a.dmg;
+          martialStats[a.ma].skills[a.skName].fired++;
+          martialStats[a.ma].skills[a.skName].dmg += a.dmg;
         }
       }
     });
@@ -931,14 +937,14 @@
         </div>
       </div>
     `;
-    // 聚气阶段
+    // 聚气阶段改为每轮行动数
     const qiHtml = `
       <div class="rep-section">
-        <div class="rep-section-title">⚡ 聚气阶段</div>
-        <div class="rep-hint">每轮双方聚气：qi += 34 + 0.05×速度差。先到100者行动，溢出可连动。</div>
+        <div class="rep-section-title">🌀 每轮行动数</div>
+        <div class="rep-hint">外功轮流一次+所有内功轻功每轮触发</div>
         <table class="rep-qi-table">
-          <thead><tr><th>轮</th><th>我方+</th><th>累计</th><th>敌方+</th><th>累计</th></tr></thead>
-          <tbody>${qiRows}</tbody>
+          <thead><tr><th>轮</th><th>我方行动</th><th>敌方行动</th></tr></thead>
+          <tbody>${roundSummaries}</tbody>
         </table>
       </div>
     `;
@@ -966,10 +972,17 @@
       </div>
     `;
     // 全部出手详情（滚动列表）
+    // 按回合筛选按钮 + 全部行动详情
+    const allRounds = [...new Set(rep.actions.map(a => a.round))].sort((a,b) => a-b);
+    const roundBtns = `<button class="bb-btn-cancel rep-round-btn sel" data-round="all">全部(${rep.actions.length})</button>` + allRounds.map(r => {
+      const count = rep.actions.filter(a => a.round === r).length;
+      return `<button class="bb-btn-cancel rep-round-btn" data-round="${r}">R${r}(${count})</button>`;
+    }).join('');
     const actHtml = `
       <div class="rep-section">
-        <div class="rep-section-title">⚔ 全部出手详情（${rep.actions.length}次）</div>
-        <div class="rep-act-list">${actList}</div>
+        <div class="rep-section-title">⚔ 出手详情（点击回合筛选）</div>
+        <div class="rep-round-bar">${roundBtns}</div>
+        <div class="rep-act-list" id="rep-act-list">${actList}</div>
       </div>
     `;
     // 伤害公式说明
@@ -982,9 +995,9 @@
     // 内息克制说明
     const affHtml = `
       <div class="rep-section">
-        <div class="rep-section-title">🌀 内息克制</div>
-        <div class="rep-aff-text">阴→阳 +15% · 阳→阴 +15% · 调↔任何 0%</div>
-        <div class="rep-aff-text">玩家装备武学的内息偏向 = ${getPlayerAff() || '调'} · 命中率/速度/克制均在战斗中实时判定</div>
+        <div class="rep-section-title">🌀 内息克制（三循环）</div>
+        <div class="rep-aff-text"><span style="color:#c79aff">阳→阴</span> <span style="color:#7fd1c1">阴→调</span> <span style="color:#ffd76f">调→阳</span> 各 +15% · 反之被克制方 -15%</div>
+        <div class="rep-aff-text">玩家装备武学的内息偏向 = ${getPlayerAff() || '调'} · 每次攻击自动判定克制关系</div>
       </div>
     `;
     // 汇总统计
@@ -1019,6 +1032,16 @@
       </div>
     `;
     const m = modal(fullHtml, 'battle-report');
+    // 回合筛选按钮
+    m.querySelectorAll('[data-round]').forEach(btn => btn.addEventListener('click', () => {
+      const r = btn.dataset.round;
+      m.querySelectorAll('[data-round]').forEach(b => b.classList.toggle('sel', b.dataset.round === r));
+      const list = m.querySelector('#rep-act-list');
+      list.querySelectorAll('.rep-act').forEach(act => {
+        const round = act.querySelector('.rep-round')?.textContent;
+        act.style.display = (r === 'all' || round === r) ? '' : 'none';
+      });
+    }));
     m.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', () => closeModal(m)));
   }
   function getPlayerAff() {
@@ -1147,24 +1170,40 @@
     const deck = Array.isArray(s.martialDeck) ? s.martialDeck : [];
     const ownedIds = Object.keys(s.martialArts || {});
     const stats = Game.martialStats();
-    const deckCount = deck.length;
-    const maxDeck = Game.MAX_MARTIAL_DECK || 6;
+    const maxDeck = Game.MAX_MARTIAL_DECK || 12;
     const gradeColors = { '根基': '#9fb0c0', '进阶': '#6fb1ff', '绝学': '#ffd76f', '稀有': '#c79fff', '绝世': '#ff6b6b' };
     const gradeIcons = { '根基': '🟤', '进阶': '🔵', '绝学': '🟡', '稀有': '🟣', '绝世': '🔴' };
+    const slotMult = (idx) => { if (idx < 6) return 1; if (idx === 7 || idx === 10) return 1; return 0.5; };
 
-    // 装备栏（横排槽位）
-    const equipSlots = Array.from({length: maxDeck}, (_, i) => {
+    // 两排装备槽
+    function makeSlot(i) {
       const id = deck[i];
-      if (!id) return `<div class="ma-slot ma-empty" data-idx="${i}"><span class="ma-slot-num">${i+1}</span></div>`;
+      if (!id) return `<div class="ma-slot ma-empty" data-slot="${i}"><span class="ma-slot-num">${i+1}</span>${i===7?'<span class="ma-slot-label">主</span>':i===10?'<span class="ma-slot-label">主</span>':''}</div>`;
       const m = Game.MARTIAL_ARTS.find(x => x.id === id);
-      if (!m) return `<div class="ma-slot ma-empty"><span class="ma-slot-num">${i+1}</span></div>`;
+      if (!m) return `<div class="ma-slot ma-empty" data-slot="${i}"><span class="ma-slot-num">${i+1}</span></div>`;
       const lv = s.martialLevels[id] || 0;
+      const mult = slotMult(i);
+      const lbl = i===7?'<span class="ma-slot-label">主</span>':i===10?'<span class="ma-slot-label">主</span>':mult<1?'<span class="ma-slot-label" style="color:var(--text-dim)">副</span>':'';
       return `<div class="ma-slot ma-equipped" data-ma="${id}" style="border-color:${gradeColors[m.grade]||'var(--border)'}">
         <span class="ma-slot-icon">${m.icon}</span>
-        <span class="ma-slot-lv">Lv${lv}</span>
+        <span class="ma-slot-lv">Lv${lv}</span>${lbl}
         <span class="ma-slot-name">${m.name}</span>
+        <span class="ma-slot-title">${i<6?'外功':i<9?'内功':'轻功'}</span>
       </div>`;
-    }).join('');
+    }
+    // 第一行：6外功
+    const row1 = Array.from({length:6}, (_,i) => `<div class="ma-slot-wrap">${i===0?'<div class="ma-row-label">外功</div>':''}${makeSlot(i)}</div>`).join('');
+    // 第二行前半：3内功 + 后半：3轻功
+    const row2a = Array.from({length:3}, (_,i) => makeSlot(6+i)).join('');
+    const row2b = Array.from({length:3}, (_,i) => makeSlot(9+i)).join('');
+    const equipHtml = `
+      <div class="ma-equip-area">
+        <div class="ma-equip-row">${row1}</div>
+        <div class="ma-equip-row" style="margin-top:2px">
+          <div class="ma-sub-row"><span class="ma-row-label ${deck[7]?'active':''}">内功</span>${row2a}</div>
+          <div class="ma-sub-row"><span class="ma-row-label ${deck[10]?'active':''}">轻功</span>${row2b}</div>
+        </div>
+      </div>`;
 
     // 筛选标签
     const types = ['全部', '御剑', '刀法', '拳掌', '奇门', '内功', '轻功'];
@@ -1192,14 +1231,15 @@
     }).join('');
 
     view.innerHTML = `
-      <div class="section-title">📖 武学 <small>装配（${deckCount}/${maxDeck}）· 战斗中自动触发招式</small></div>
+      <div class="section-title">📖 武学 <small>装配武学·外功轮流+内功轻功全触发</small></div>
       <div class="res-bar">
         <div class="res-chip"><div class="l">攻 +${stats.atk}</div></div>
         <div class="res-chip"><div class="l">防 +${stats.def}</div></div>
         <div class="res-chip"><div class="l">气血 +${stats.hp}</div></div>
         <div class="res-chip"><div class="l">速度 +${stats.speed}</div></div>
       </div>
-      <div class="ma-equip-row">${equipSlots}</div>
+      ${equipHtml}
+      <div style="font-size:10px;color:var(--text-dim);margin:4px 0">💡 主内功/主轻功100%属性，副内功/副轻功50% · 外功每轮轮流出手</div>
       <div class="ma-filter-bar">${filterTabs}</div>
       <div class="ma-grid">${gridSlots}</div>
       <div class="hint" style="margin-top:6px">💡 点击武学格子查看详情 · 品质：🟤根基 🔵进阶 🟡绝学 🟣稀有 🔴绝世 · 战斗胜利有概率掉落⚠</div>
@@ -1257,9 +1297,14 @@
           <div style="text-align:center;margin-top:8px"><button class="bb-btn-cancel" data-close>关闭</button></div>
         </div>`;
       const modalEl = modal(modalHtml);
-      modalEl.querySelectorAll('[data-martial-eq]').forEach(b => b.addEventListener('click', () => {
-        if (Game.equipMartial(b.dataset.martialEq)) { closeModal(modalEl); renderCurrent(); } else toast('已达上限');
-      }));
+    const view = document.getElementById('view') || document.querySelector('#view');
+    view.innerHTML = `...`;
+    view.querySelectorAll('[data-martial-eq]').forEach(b => b.addEventListener('click', () => {
+      const mid = b.dataset.martialEq;
+      const slot = Game.findEmptySlot(mid);
+      if (slot < 0) { toast('没有可用槽位'); return; }
+      if (Game.equipMartial(mid, slot)) { closeModal(modalEl); renderCurrent(); } else toast('装备失败');
+    }));
       modalEl.querySelectorAll('[data-martial-ueq]').forEach(b => b.addEventListener('click', () => {
         Game.unequipMartial(b.dataset.martialUeq); closeModal(modalEl); renderCurrent();
       }));

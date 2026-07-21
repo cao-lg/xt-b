@@ -702,6 +702,19 @@ const Game = (function () {
     }
     return -1;
   }
+  // 怪物生成装备武学（按敌人 hp/境界 选 1-3 门外功 + 0-1 内功 + 0-1 轻功）
+  function genEnemyDeck(enemy) {
+    const hpTier = Math.min(5, Math.floor((enemy.hp || 1000) / 1500));
+    const lv = enemy.boss ? 1 : 0;
+    const idx = Math.min(MARTIAL_ARTS.length - 1, (hpTier * 6) + lv);
+    const base = MARTIAL_ARTS[idx];
+    // 随机抽 1-3 门外功（围绕 base 的类型选）
+    const outers = MARTIAL_ARTS.filter(m => m.type === base.type);
+    const outer = outers[(idx + (enemy.hp % 7)) % outers.length];
+    const inner = hpTier >= 3 ? MARTIAL_ARTS.filter(m => m.type === '内功')[(idx + 2) % 10] : null;
+    const light = hpTier >= 2 ? MARTIAL_ARTS.filter(m => m.type === '轻功')[(idx + 1) % 5] : null;
+    return [outer.id, inner && inner.id, light && light.id].filter(Boolean);
+  }
   // 槽位倍率：外功100%，主内功/主轻功100%，副50%
   function slotMult(idx) { if (idx < 6) return 1; if (idx === 7 || idx === 10) return 1; return 0.5; }
   // 武学属性合计（含等级倍率 + 主/副内功轻功减半）
@@ -1048,12 +1061,19 @@ const Game = (function () {
     let pHp = p.hp, eHp = e.hp;
     const log = [];
     const report = { rounds: [], actions: [], pSpeed: 50 + ms.speed, eSpeed: 30 + (state ? state.realmIndex * 5 : 0) };
-    // 按装备槽位+类型双过滤（防止旧存档错位）
+    // 玩家装备武学（按槽位+类型双过滤）
     const deckArr = state.martialDeck || [];
     const isWaiType = m => ['御剑','刀法','拳掌','奇门'].includes(m.type);
     const waigong = [0,1,2,3,4,5].map(i => deckArr[i]).filter(id => id).map(id => MARTIAL_ARTS.find(m => m.id === id)).filter(isWaiType);
     const neigong = [6,7,8].map(i => deckArr[i]).filter(id => id).map(id => MARTIAL_ARTS.find(m => m.id === id)).filter(m => m.type === '内功');
     const qinggong = [9,10,11].map(i => deckArr[i]).filter(id => id).map(id => MARTIAL_ARTS.find(m => m.id === id)).filter(m => m.type === '轻功');
+    // 敌人装备武学
+    const eDeckRaw = genEnemyDeck(enemy);
+    const eWaigong = eDeckRaw.slice(0, 1).map(id => MARTIAL_ARTS.find(m => m.id === id)).filter(Boolean);
+    const eNeigong = [];
+    const eQinggong = [];
+    // 补全敌人 deck 为 12 元素（用于战报显示）
+    const eDeckFull = Array.from({length:12}, (_, i) => eDeckRaw[i] || null);
     const hasMA = waigong.length > 0 || neigong.length > 0 || qinggong.length > 0;
     let waigongIdx = 0;
 
@@ -1078,9 +1098,10 @@ const Game = (function () {
           else { pHp -= r.dmg; }
           const affTag = affMod > 1 ? ` [内息${isP?'克制':'反克'}·${pAff}克${eAff}]` : '';
           log.push({ side, miss: false, crit: r.crit, dmg: r.dmg, skill: sk.name + affTag });
-          actLogs.push({ ma: ma.name, skName: sk.name + affTag, fired: true, dmg: r.dmg, crit: r.crit, fireRate: sk.fireRate, healPct: sk.healPct, heal: sk.healPct ? (healTotal > 0 ? healTotal : 0) : 0 });
+          // skName 用原始名（不附加标签），affTag 独立字段
+          actLogs.push({ ma: ma.name, skName: sk.name, fired: true, dmg: r.dmg, crit: r.crit, fireRate: sk.fireRate, healPct: sk.healPct, affTag });
         } else {
-          actLogs.push({ ma: ma.name, skName: sk.name + '[火率未达]', fired: false, dmg: 0, crit: false, fireRate: sk.fireRate });
+          actLogs.push({ ma: ma.name, skName: sk.name, fired: false, dmg: 0, crit: false, fireRate: sk.fireRate, affTag: '' });
         }
       }
       return actLogs;
@@ -1137,33 +1158,48 @@ const Game = (function () {
         const a = { seq: ++actionSeq, round, side: 'p', pHp: Math.floor(pHp), eHp: Math.floor(eHp), ma: '基础', skName: '普通攻击', fired: true, dmg: r.dmg, crit: r.crit };
         roundActs.push(a); log.push({ side: 'p', miss: false, crit: r.crit, dmg: r.dmg, skill: '普通攻击' });
       }
-      // 敌人行动（每轮一次）
+      // 敌人行动（每轮触发装备的所有武学）
       {
-        const eLv = Math.min(MARTIAL_ARTS.length - 1, Math.floor((enemy.hp || 1000) / 300));
-        const minIdx = Math.max(0, eLv - 2);
-        const maxIdx = Math.min(MARTIAL_ARTS.length - 1, eLv + 2);
-        const eMa2 = MARTIAL_ARTS[minIdx + Math.floor(Math.random() * (maxIdx - minIdx + 1))];
-        const eAff2 = eMa2 ? martialAffinity(eMa2) : '调';
+        // 玩家方的主流偏向
         const deckAff = Array.isArray(state.martialDeck) && state.martialDeck.length > 0 ? (() => {
           const counts = { '阴':0, '阳':0, '调':0 };
           state.martialDeck.forEach(id => { const mm = MARTIAL_ARTS.find(x => x.id === id); if(mm) counts[martialAffinity(mm)]++; });
           return Object.keys(counts).reduce((a,b) => counts[a] > counts[b] ? a : b);
         })() : '调';
-        const eAffMod = 1 / affinityMult(eAff2, deckAff);
-        if (eMa2 && Math.random() < (eMa2.skill.fireRate / 100)) {
-          const r = calcDmg(e.atk, p.def, eMa2.skill.dmgRate * eAffMod, eMa2.skill.dmgFlat * eAffMod);
-          pHp -= r.dmg;
-          const affTag = eAffMod > 1 ? ` [内息反克·${eAff2}克${deckAff}]` : '';
-          log.push({ side: 'e', miss: false, crit: r.crit, dmg: r.dmg, skill: eMa2.skill.name + affTag });
-          const a = { seq: ++actionSeq, round, side: 'e', pHp: Math.floor(pHp), eHp: Math.floor(eHp), ma: eMa2.name, skName: eMa2.skill.name + affTag, fired: true, dmg: r.dmg, crit: r.crit };
-          roundActs.push(a);
+        const eActs = [];
+        // 敌人外功轮流（如果有多门）
+        const eOuters = eWaigong;
+        if (eOuters.length > 0) {
+          const eOuter = eOuters[(round - 1) % eOuters.length];
+          const eAff2 = martialAffinity(eOuter);
+          const eAffMod2 = 1 / affinityMult(eAff2, deckAff);
+          const acts = triggerMA(eOuter, 'e', false, eAffMod2, eAff2, deckAff);
+          acts.forEach(a => { a.seq = ++actionSeq; a.round = round; a.side = 'e'; a.affMod = eAffMod2; a.pAff = deckAff; a.eAff = eAff2; a.pHp = Math.floor(pHp); a.eHp = Math.floor(eHp); });
+          eActs.push(...acts);
         } else {
-          const r = calcDmg(e.atk, p.def, 50, 0);
-          pHp -= r.dmg;
-          log.push({ side: 'e', miss: false, crit: r.crit, dmg: r.dmg, skill: '攻击' });
-          const a = { seq: ++actionSeq, round, side: 'e', pHp: Math.floor(pHp), eHp: Math.floor(eHp), ma: eMa2 ? eMa2.name : '', skName: '攻击(火率未达)', fired: false, dmg: r.dmg, crit: r.crit };
-          roundActs.push(a);
+          // 无外功：基础攻击
+          const r = calcDmg(e.atk, p.def, 50, 0); pHp -= r.dmg;
+          const a = { seq: ++actionSeq, round, side: 'e', pHp: Math.floor(pHp), eHp: Math.floor(eHp), ma: '基础', skName: '普通攻击', fired: true, dmg: r.dmg, crit: r.crit, fireRate: 0, affTag: '' };
+          eActs.push(a);
+          log.push({ side: 'e', miss: false, crit: r.crit, dmg: r.dmg, skill: '普通攻击' });
         }
+        // 敌人内功（每轮触发）
+        for (const ng of eNeigong) {
+          const eAff = martialAffinity(ng);
+          const eAffMod = 1 / affinityMult(eAff, deckAff);
+          const acts = triggerMA(ng, 'e', false, eAffMod, eAff, deckAff);
+          acts.forEach(a => { a.seq = ++actionSeq; a.round = round; a.side = 'e'; a.affMod = eAffMod; a.pAff = deckAff; a.eAff = eAff; a.pHp = Math.floor(pHp); a.eHp = Math.floor(eHp); });
+          eActs.push(...acts);
+        }
+        // 敌人轻功（每轮触发）
+        for (const qg of eQinggong) {
+          const eAff = martialAffinity(qg);
+          const eAffMod = 1 / affinityMult(eAff, deckAff);
+          const acts = triggerMA(qg, 'e', false, eAffMod, eAff, deckAff);
+          acts.forEach(a => { a.seq = ++actionSeq; a.round = round; a.side = 'e'; a.affMod = eAffMod; a.pAff = deckAff; a.eAff = eAff; a.pHp = Math.floor(pHp); a.eHp = Math.floor(eHp); });
+          eActs.push(...acts);
+        }
+        roundActs.push(...eActs);
       }
       // 汇总本轮行动
       report.rounds.push({ round, pQi: '—', eQi: '—', pGain: roundActs.filter(a=>a.side==='p').length, eGain: roundActs.filter(a=>a.side==='e').length });
@@ -1548,7 +1584,7 @@ const Game = (function () {
     get MARTIAL_ARTS() { return MARTIAL_ARTS; },
     martialStats, gainMartial, equipMartial, unequipMartial, canEquipMartial, MAX_MARTIAL_DECK,
     upgradeMartial, upgradeMartialCost, gainSkill, equipSkill, unequipSkill, upgradeSkill, upgradeSkillCost, martialSkillList,
-    martialAffinity, affinityMult, findEmptySlot, slotMult,
+    martialAffinity, affinityMult, findEmptySlot, slotMult, genEnemyDeck,
     get SKILLS() { return SKILLS; },
     LAYERS_PER_REALM, CHINESE_LAYER
   };
