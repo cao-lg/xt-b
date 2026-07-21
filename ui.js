@@ -837,13 +837,14 @@
     if (!rep) { toast('战报数据缺失'); return; }
     const pName = Game.state.daoName || '你';
     const eName = lv.name;
-    const pStats = r.player, eStats = r.enemy;
-    // 出手顺序时间线
-    const maxSeq = rep.actions.length;
-    const timeline = rep.actions.map(a => {
-      const isP = a.side === 'p';
-      return `<span class="tl-node ${isP?'p':'e'}" title="第${a.seq}手 · ${isP?pName:eName} · ${a.skill} · ${a.dmg}伤害">${a.seq}</span>`;
-    }).join('');
+    const pStats = (r.res || r).player, eStats = (r.res || r).enemy;
+    // 出手顺序时间线（分离玩家/敌方的节点）
+    const pTimeline = rep.actions.filter(a => a.side === 'p').map(a =>
+      `<span class="tl-node p" title="第${a.seq}手 · ${pName} · ${a.skill} · ${a.dmg}伤害">${a.seq}</span>`
+    ).join('');
+    const eTimeline = rep.actions.filter(a => a.side === 'e').map(a =>
+      `<span class="tl-node e" title="第${a.seq}手 · ${eName} · ${a.skill} · ${a.dmg}伤害">${a.seq}</span>`
+    ).join('');
     const playerActions = rep.actions.filter(a => a.side==='p');
     const enemyActions = rep.actions.filter(a => a.side==='e');
     // 聚气表格（前8轮）
@@ -896,15 +897,15 @@
     // 出手顺序时间线
     const timelineHtml = `
       <div class="rep-section">
-        <div class="rep-section-title">🕐 出手顺序（${maxSeq}次行动）</div>
+        <div class="rep-section-title">🕐 出手顺序（${rep.actions.length}次行动）</div>
         <div class="rep-timeline">
           <div class="rep-timeline-row p">
             <span class="rep-tl-label">${pName}</span>
-            <span class="rep-tl-nodes">${timeline.replace(/<span class="tl-node ([pe])"/g, (m,c)=>c==='p'?m:'')}</span>
+            <span class="rep-tl-nodes">${pTimeline}</span>
           </div>
           <div class="rep-timeline-row e">
             <span class="rep-tl-label">${eName}</span>
-            <span class="rep-tl-nodes">${timeline.replace(/<span class="tl-node ([pe])"/g, (m,c)=>c==='e'?m:'')}</span>
+            <span class="rep-tl-nodes">${eTimeline}</span>
           </div>
         </div>
       </div>
@@ -967,9 +968,10 @@
   }
   function getPlayerAff() {
     const s = Game.state;
-    if (!s.martialDeck || s.martialDeck.length === 0) return '调';
+    const deck = Array.isArray(s.martialDeck) ? s.martialDeck : [];
+    if (deck.length === 0) return '调';
     const counts = { '阴':0, '阳':0, '调':0 };
-    s.martialDeck.forEach(id => { const m = Game.MARTIAL_ARTS.find(x => x.id === id); if (m) counts[Game.martialAffinity(m)]++; });
+    deck.forEach(id => { const m = Game.MARTIAL_ARTS.find(x => x.id === id); if (m) counts[Game.martialAffinity(m)]++; });
     return Object.keys(counts).reduce((a,b) => counts[a] > counts[b] ? a : b);
   }
   // 逐回合回放战斗 log，驱动 SVG 卡通演出：弹道 / 粒子 / BOSS 二阶段 / 胜负印章 / 音效
