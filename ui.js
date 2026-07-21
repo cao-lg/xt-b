@@ -310,6 +310,7 @@
       // 自动秒更新顶栏（不重绘全页）
       if (currentTab === 'cultivate') renderCultivate();
     }, AUTO_CLICK_INTERVAL);
+    window.__autoStarted = true; window.__autoStart = _autoStart;
   }
   function stopAutoCultivate() {
     if (_autoInterval) { clearInterval(_autoInterval); _autoInterval = null; }
