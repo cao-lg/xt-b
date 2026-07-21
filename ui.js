@@ -1260,11 +1260,12 @@
       // 弹出详情面板
       const cost = Game.upgradeMartialCost(id);
       const upgBtn = owned && cost
-        ? `<button class="btn" data-upgrade="${id}" ${s.materials>=cost.mat&&s.stone>=cost.stone?'':'disabled'}>升级 ${lv}/20 (${cost.mat}🌿 ${Game.formatNum(cost.stone)}💎)</button>`
+        ? `<button class="btn" data-upgrade="${id}" ${s.martialArts[id]>=cost.copy&&s.materials>=cost.mat&&s.stone>=cost.stone?'':'disabled'}>升级 ${lv}/20 (${cost.copy}本 ${cost.mat}🌿 ${Game.formatNum(cost.stone)}💎)</button>`
         : (owned ? `<span style="color:var(--jade)">已满级</span>` : '');
       const eqBtn = owned && !equipped && deckCount < maxDeck
         ? `<button class="btn" data-martial-eq="${id}">⚔️ 装备</button>`
         : (owned && equipped ? `<button class="btn smelt" data-martial-ueq="${id}">卸下</button>` : '');
+      const resetBtn = owned && lv > 0 ? `<button class="btn smelt" data-reset-ma="${id}">🔄重置</button>` : '';
       const skills = Game.martialSkillList(id);
       // 招式槽位显示
       const slotCount = m.extraSlots;
@@ -1294,23 +1295,18 @@
           <div class="ma-dt-type">${m.type} · 阴${m.yin}阳${m.yang}调${m.tiao} · ${owned?'已拥有':'未获得'}</div>
           <div class="ma-dt-stats">攻+${Math.round(m.atk*lvMult)} 防+${Math.round(m.def*lvMult)} 气血+${Math.round(m.hp*lvMult)} 速度+${Math.round(m.speed*lvMult)}</div>
           ${owned ? skillSlotsHtml : `<div class="ma-dt-source">获取：${m.source}</div>`}
-          <div style="display:flex;gap:8px;justify-content:center;margin-top:10px">${eqBtn}${upgBtn}</div>
+          <div style="display:flex;gap:8px;justify-content:center;margin-top:10px">${eqBtn}${upgBtn}${resetBtn}</div>
           <div style="text-align:center;margin-top:8px"><button class="bb-btn-cancel" data-close>关闭</button></div>
         </div>`;
       const modalEl = modal(modalHtml);
-    const view = document.getElementById('view') || document.querySelector('#view');
-    view.innerHTML = `...`;
-    view.querySelectorAll('[data-martial-eq]').forEach(b => b.addEventListener('click', () => {
-      const mid = b.dataset.martialEq;
-      const slot = Game.findEmptySlot(mid);
-      if (slot < 0) { toast('没有可用槽位'); return; }
-      if (Game.equipMartial(mid, slot)) { closeModal(modalEl); renderCurrent(); } else toast('装备失败');
-    }));
       modalEl.querySelectorAll('[data-martial-ueq]').forEach(b => b.addEventListener('click', () => {
         Game.unequipMartial(b.dataset.martialUeq); closeModal(modalEl); renderCurrent();
       }));
       modalEl.querySelectorAll('[data-upgrade]').forEach(b => b.addEventListener('click', () => {
         if (Game.upgradeMartial(b.dataset.upgrade)) { closeModal(modalEl); renderCurrent(); } else toast('材料不足');
+      }));
+      modalEl.querySelectorAll('[data-reset-ma]').forEach(b => b.addEventListener('click', () => {
+        if (Game.resetMartial(b.dataset.resetMa)) { closeModal(modalEl); renderCurrent(); } else toast('重置失败');
       }));
       modalEl.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', () => closeModal(modalEl)));
       // 招式装配/卸下

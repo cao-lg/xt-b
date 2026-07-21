@@ -738,7 +738,9 @@ const Game = (function () {
   function upgradeMartialCost(id) {
     const lv = state.martialLevels[id] || 0;
     if (lv >= MAX_MA_LEVEL) return null;
+    // 需要 lv+1 本同名武学 + 天材地宝 + 灵石
     return {
+      copy: lv + 1,
       mat: Math.floor(MA_UPGRADE_COST_BASE.mat * Math.pow(MA_UPGRADE_COST_GROWTH, lv)),
       stone: Math.floor(MA_UPGRADE_COST_BASE.stone * Math.pow(MA_UPGRADE_COST_GROWTH, lv))
     };
@@ -746,14 +748,13 @@ const Game = (function () {
   function upgradeMartial(id) {
     const cost = upgradeMartialCost(id);
     if (!cost) return false;
-    if (state.materials < cost.mat || state.stone < cost.stone) return false;
-    if (!state.martialArts[id] || state.martialArts[id] <= 0) return false;
-    const lv = state.martialLevels[id] || 0;
-    if (lv >= MAX_MA_LEVEL) return false;
+    const maCount = state.martialArts[id] || 0;
+    if (maCount < cost.copy || state.materials < cost.mat || state.stone < cost.stone) return false;
+    state.martialArts[id] = maCount - cost.copy;
     state.materials -= cost.mat; state.stone -= cost.stone;
-    state.martialLevels[id] = lv + 1;
+    state.martialLevels[id] = (state.martialLevels[id] || 0) + 1;
     const ma = MARTIAL_ARTS.find(m => m.id === id);
-    pushLog(`⬆ 武学「${ma.name}」升至 ${lv+1} 级！`, '⬆');
+    pushLog(`⬆ 武学「${ma.name}」升至 ${state.martialLevels[id]} 级！（消耗${cost.copy}本）`, '⬆');
     save(); emit('martial'); return true;
   }
   // 招式：获得/装配/升级
@@ -769,17 +770,19 @@ const Game = (function () {
   function upgradeSkillCost(id) {
     const lv = state.skillLevels[id] || 0;
     if (lv >= SKILL_UPGRADE_MAX) return null;
-    return Math.floor(8 * Math.pow(1.5, lv));
+    return { copy: lv + 1, mat: Math.floor(8 * Math.pow(1.5, lv)) };
   }
   function upgradeSkill(id) {
     const lv = state.skillLevels[id] || 0;
     if (lv >= SKILL_UPGRADE_MAX) return false;
     const cost = upgradeSkillCost(id);
-    if (state.materials < cost) return false;
-    state.materials -= cost;
+    const skCount = state.skills[id] || 0;
+    if (skCount < cost.copy || state.materials < cost.mat) return false;
+    state.skills[id] = skCount - cost.copy;
+    state.materials -= cost.mat;
     state.skillLevels[id] = lv + 1;
     const sk = SKILLS.find(s => s.id === id);
-    pushLog(`⬆ 招式「${sk.name}」升至 ${lv+1} 级！`, '⬆');
+    pushLog(`⬆ 招式「${sk.name}」升至 ${lv+1} 级！（消耗${cost.copy}本）`, '⬆');
     save(); emit('martial'); return true;
   }
   function gainSkill(id) {
@@ -1415,6 +1418,7 @@ const Game = (function () {
     const t = TREASURES.find(x => x.id === tid); const own = state.treasures[tid]; if (!t || !own) return null;
     const lv = own.level, qm = qualityMult(tid);
     return {
+      copy: lv + 1,
       mat: Math.floor(CONFIG.treasure.enhanceMatBase * Math.pow(CONFIG.treasure.enhanceGrowth, lv) * qm),
       stone: Math.floor(CONFIG.treasure.enhanceStoneBase * Math.pow(CONFIG.treasure.enhanceGrowth, lv) * qm)
     };
@@ -1423,26 +1427,84 @@ const Game = (function () {
     const t = TREASURES.find(x => x.id === tid); const own = state.treasures[tid];
     if (!t || !own || own.level >= CONFIG.treasure.maxLevel) return false;
     const cost = enhanceCost(tid);
-    if (state.materials < cost.mat || state.stone < cost.stone) return false;
+    if (!cost) return false;
+    if (own.count < cost.copy || state.materials < cost.mat || state.stone < cost.stone) return false;
+    own.count -= cost.copy;
     state.materials -= cost.mat; state.stone -= cost.stone; own.level++;
     if (own.level >= CONFIG.treasure.maxLevel) checkAchievements();
-    pushLog(`🔨 ${t.name}强化至 ${own.level} 级`, t.icon); save(); emit('treasure', { action: 'enhance', tid, level: own.level }); return true;
+    pushLog(`🔨 ${t.name}强化至 ${own.level} 级（消耗${cost.copy}件）`, t.icon); save(); emit('treasure', { action: 'enhance', tid, level: own.level }); return true;
   }
-  // 熔炼：已装备件永不卸下；其余（多余）件一次性全部熔炼为天材地宝
+  // 熔炼：保留最后1件，绝不熔掉唯一法宝
   function smeltTreasure(tid) {
     const t = TREASURES.find(x => x.id === tid); const own = state.treasures[tid];
     if (!t || !own || own.count <= 0) return false;
     const equipped = state.equipped[t.slot] === tid;
-    // 保护最后 1 件：当仅持有 1 件时（无论是否装备）一律保留，绝不直接删掉唯一法宝
-    const keep = own.count <= 1 ? own.count : (equipped ? 1 : 0);
+    // 绝对保护：即使0级未装备也保留最后1件
+    if (own.count <= 1) { pushLog(`⚠ 仅剩最后1件${t.name}，无法熔炼`, t.icon); return false; }
+    const keep = equipped ? 1 : 0;
     const melt = own.count - keep;
-    if (melt <= 0) return false;            // 仅剩 1 件，已为你保留，不熔
+    if (melt <= 0) return false;
     own.count -= melt;
     const gain = CONFIG.treasure.smeltMatPerQuality * t.quality * melt;
     state.materials += gain;
     pushLog(`🔥 熔炼${t.name}（${melt} 件），得天材地宝 +${gain}`, t.icon); save(); emit('treasure', { action: 'smelt', tid, gain }); return true;
   }
-  // 法宝觉醒：满级后方可觉醒，消耗天材地宝随机赋予词缀（条数封顶）；已满 3 条则「再觉醒=重 roll 全部」
+  // ---------- 重置（退还所有升级消耗） ----------
+  // 法宝重置：退还所有同名法宝 + 天材地宝 + 灵石
+  function resetTreasure(tid) {
+    const own = state.treasures[tid];
+    if (!own || own.level <= 0) return false;
+    // 计算累计消耗：每级消耗 lv+1 件 + 天材地宝 + 灵石
+    const t = TREASURES.find(x => x.id === tid);
+    let totalCopy = 0, totalMat = 0, totalStone = 0;
+    for (let lv = 0; lv < own.level; lv++) {
+      const qm = qualityMult(tid);
+      totalCopy += lv + 1;
+      totalMat += Math.floor(CONFIG.treasure.enhanceMatBase * Math.pow(CONFIG.treasure.enhanceGrowth, lv) * qm);
+      totalStone += Math.floor(CONFIG.treasure.enhanceStoneBase * Math.pow(CONFIG.treasure.enhanceGrowth, lv) * qm);
+    }
+    own.count += totalCopy;
+    state.materials += totalMat;
+    state.stone += totalStone;
+    own.level = 0;
+    pushLog(`🔄 ${t.name}重置，退还 ${totalCopy}件 + ${totalMat}🌿 + ${totalStone}💎`, t.icon);
+    save(); emit('treasure', { action: 'reset', tid });
+    return true;
+  }
+  // 武学重置
+  function resetMartial(id) {
+    const lv = state.martialLevels[id] || 0;
+    if (lv <= 0) return false;
+    let totalCopy = 0, totalMat = 0, totalStone = 0;
+    for (let i = 0; i < lv; i++) {
+      totalCopy += i + 1;
+      totalMat += Math.floor(MA_UPGRADE_COST_BASE.mat * Math.pow(MA_UPGRADE_COST_GROWTH, i));
+      totalStone += Math.floor(MA_UPGRADE_COST_BASE.stone * Math.pow(MA_UPGRADE_COST_GROWTH, i));
+    }
+    state.martialArts[id] = (state.martialArts[id] || 0) + totalCopy;
+    state.materials += totalMat;
+    state.stone += totalStone;
+    state.martialLevels[id] = 0;
+    const ma = MARTIAL_ARTS.find(m => m.id === id);
+    pushLog(`🔄 武学「${ma.name}」重置，退还 ${totalCopy}本 + ${totalMat}🌿 + ${totalStone}💎`, '🔄');
+    save(); emit('martial'); return true;
+  }
+  // 招式重置
+  function resetSkill(id) {
+    const lv = state.skillLevels[id] || 0;
+    if (lv <= 0) return false;
+    let totalCopy = 0, totalMat = 0;
+    for (let i = 0; i < lv; i++) {
+      totalCopy += i + 1;
+      totalMat += Math.floor(8 * Math.pow(1.5, i));
+    }
+    state.skills[id] = (state.skills[id] || 0) + totalCopy;
+    state.materials += totalMat;
+    state.skillLevels[id] = 0;
+    const sk = SKILLS.find(s => s.id === id);
+    pushLog(`🔄 招式「${sk.name}」重置，退还 ${totalCopy}本 + ${totalMat}🌿`, '🔄');
+    save(); emit('martial'); return true;
+  }
   function awakenCost(tid) {
     const own = state.treasures[tid]; if (!own) return null;
     const n = (own.affixes || []).length;
@@ -1571,7 +1633,7 @@ const Game = (function () {
     blessMult, blessCost, buyBlessing, towerTitle,
     formatNum, formatSpeed, formatTime,
     combatStats, currentSpeed, qualityMult, treasureStats, canBattle, battleCooldownLeft, isLevelUnlocked, fight, atbCombat, simulateCombat: atbCombat, towerEnemy, towerFight, softCap, combatBreakdown, combatFormula,
-    hasTreasure, equipTreasure, unequip, enhanceCost, enhanceTreasure, smeltTreasure, awakenTreasure, awakenCost,
+    hasTreasure, equipTreasure, unequip, enhanceCost, enhanceTreasure, smeltTreasure, resetTreasure, resetMartial, resetSkill, awakenTreasure, awakenCost,
     applyGolden, goldenActive, rollBlindBox, blindBoxBets,
     checkIn, hasCheckedInToday, nextCheckInReward,
     get state() { return state; },
