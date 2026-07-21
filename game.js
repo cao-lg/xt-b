@@ -75,7 +75,15 @@ const Game = (function () {
 
   /* ---------- 倍率体系 ---------- */
   function getTotalLayers() { return state.realmIndex * LAYERS_PER_REALM + state.layer; }
-  const MAX_MARTIAL_DECK = 6;
+  const MAX_MARTIAL_DECK = 12;
+  // 武学槽位定义：0-5外功, 6-8内功(7=主), 9-11轻功(10=主)
+  const MARTIAL_SLOT_TYPES = ['外功','外功','外功','外功','外功','外功','内功','内功','内功','轻功','轻功','轻功'];
+  function isPrimarySlot(idx) { return idx === 7 || idx === 10; }
+  function slotMult(idx) {
+    if (idx < 6) return 1; // 外功 100%
+    if (isPrimarySlot(idx)) return 1; // 主内功/主轻功 100%
+    return 0.5; // 副内功/副轻功 50%
+  }
 
   // 功法：按固定值累加（修为/秒，不封顶）；鸿蒙紫气诀每级给所有功法 +2% 效率
   function techniqueFlat() {
@@ -638,38 +646,74 @@ const Game = (function () {
     save(); emit('martial');
     return true;
   }
-  function canEquipMartial(id) {
+  function canEquipMartial(id, slotIdx) {
     const ma = state.martialArts[id] || 0;
     if (ma <= 0) return false;
+    const m = MARTIAL_ARTS.find(x => x.id === id);
+    if (!m) return false;
     const deck = Array.isArray(state.martialDeck) ? state.martialDeck : [];
-    if (deck.includes(id)) return false;
-    if (deck.length >= MAX_MARTIAL_DECK) return false;
+    if (deck.includes(id)) return false; // 已经装备了不重复装
+    // 指定槽位：检查类型匹配和槽位是否已占用
+    if (slotIdx !== undefined) {
+      if (slotIdx < 0 || slotIdx >= MAX_MARTIAL_DECK) return false;
+      const expected = MARTIAL_SLOT_TYPES[slotIdx];
+      if (expected !== m.type && !(expected === '外功' && ['御剑','刀法','拳掌','奇门'].includes(m.type))) return false; // 外功槽位可以装任何外功类型
+      if (deck[slotIdx]) return false; // 槽位已有武学
+    } else {
+      // 无指定槽位：找一个空位
+      if (deck.length >= MAX_MARTIAL_DECK) return false;
+    }
     return true;
   }
-  function equipMartial(id) {
-    if (!canEquipMartial(id)) return false;
-    state.martialDeck.push(id);
+  function equipMartial(id, slotIdx) {
+    const deck = Array.isArray(state.martialDeck) ? [...state.martialDeck] : [];
+    // 确保deque长度足够
+    while (deck.length < MAX_MARTIAL_DECK) deck.push(null);
+    if (slotIdx === undefined) {
+      // 自动找空位
+      slotIdx = deck.indexOf(null);
+      if (slotIdx < 0) return false;
+    }
+    if (!canEquipMartial(id, slotIdx)) return false;
+    if (deck.includes(id)) return false;
+    deck[slotIdx] = id;
+    state.martialDeck = deck;
     pushLog(`⚔️ 装备武学「${MARTIAL_ARTS.find(m=>m.id===id).name}」`, '⚔️');
     save(); emit('martial'); return true;
   }
   function unequipMartial(id) {
-    const deck = Array.isArray(state.martialDeck) ? state.martialDeck : [];
+    const deck = Array.isArray(state.martialDeck) ? [...state.martialDeck] : [];
     const idx = deck.indexOf(id);
     if (idx < 0) return false;
-    deck.splice(idx, 1);
+    deck[idx] = null;
     state.martialDeck = deck;
     save(); emit('martial'); return true;
   }
-  // 武学属性合计（含等级倍率）
+  // 找空槽位：根据武学类型找第一个可用空位
+  function findEmptySlot(maId) {
+    const m = MARTIAL_ARTS.find(x => x.id === maId);
+    if (!m) return -1;
+    const deck = Array.isArray(state.martialDeck) ? state.martialDeck : [];
+    const isWai = ['御剑','刀法','拳掌','奇门'].includes(m.type);
+    for (let i = 0; i < MAX_MARTIAL_DECK; i++) {
+      if (deck[i]) continue;
+      const expected = MARTIAL_SLOT_TYPES[i];
+      if (expected === m.type || (expected === '外功' && isWai)) return i;
+    }
+    return -1;
+  }
+  // 槽位倍率：外功100%，主内功/主轻功100%，副50%
+  function slotMult(idx) { if (idx < 6) return 1; if (idx === 7 || idx === 10) return 1; return 0.5; }
+  // 武学属性合计（含等级倍率 + 主/副内功轻功减半）
   function martialStats() {
-    const ids = state.martialDeck;
-    if (!ids || !Array.isArray(ids)) return { atk:0, def:0, hp:0, speed:0 };
+    const ids = Array.isArray(state.martialDeck) ? state.martialDeck : [];
     let atk = 0, def = 0, hp = 0, speed = 0;
-    ids.forEach(id => {
+    ids.forEach((id, idx) => {
+      if (!id) return;
       const m = MARTIAL_ARTS.find(x => x.id === id);
       if (!m) return;
       const lv = state.martialLevels[id] || 0;
-      const mult = 1 + lv * 0.10;
+      const mult = (1 + lv * 0.10) * slotMult(idx);
       atk += m.atk * mult; def += m.def * mult; hp += m.hp * mult; speed += m.speed * mult;
     });
     return { atk, def, hp, speed };
@@ -1004,12 +1048,12 @@ const Game = (function () {
     let pHp = p.hp, eHp = e.hp;
     const log = [];
     const report = { rounds: [], actions: [], pSpeed: 50 + ms.speed, eSpeed: 30 + (state ? state.realmIndex * 5 : 0) };
-    // 按类型分组武学
-    const allMA = (state.martialDeck || []).map(id => MARTIAL_ARTS.find(m => m.id === id)).filter(Boolean);
-    const waigong = allMA.filter(m => ['御剑','刀法','拳掌','奇门'].includes(m.type));
-    const neigong = allMA.filter(m => m.type === '内功');
-    const qinggong = allMA.filter(m => m.type === '轻功');
-    const hasMA = allMA.length > 0;
+    // 按装备槽位分组（外功0-5，内功6-8，轻功9-11）
+    const deckArr = state.martialDeck || [];
+    const waigong = [0,1,2,3,4,5].map(i => deckArr[i] ? MARTIAL_ARTS.find(m => m.id === deckArr[i]) : null).filter(Boolean);
+    const neigong = [6,7,8].map(i => deckArr[i] ? MARTIAL_ARTS.find(m => m.id === deckArr[i]) : null).filter(Boolean);
+    const qinggong = [9,10,11].map(i => deckArr[i] ? MARTIAL_ARTS.find(m => m.id === deckArr[i]) : null).filter(Boolean);
+    const hasMA = waigong.length > 0 || neigong.length > 0 || qinggong.length > 0;
     let waigongIdx = 0;
 
     function calcDmg(atk, def, ratePct, flat) {
@@ -1501,7 +1545,7 @@ const Game = (function () {
     get MARTIAL_ARTS() { return MARTIAL_ARTS; },
     martialStats, gainMartial, equipMartial, unequipMartial, canEquipMartial, MAX_MARTIAL_DECK,
     upgradeMartial, upgradeMartialCost, gainSkill, equipSkill, unequipSkill, upgradeSkill, upgradeSkillCost, martialSkillList,
-    martialAffinity, affinityMult,
+    martialAffinity, affinityMult, findEmptySlot, slotMult,
     get SKILLS() { return SKILLS; },
     LAYERS_PER_REALM, CHINESE_LAYER
   };
