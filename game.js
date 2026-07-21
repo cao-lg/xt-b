@@ -1134,35 +1134,42 @@ const Game = (function () {
           acts.forEach(a => { a.seq = ++actionSeq; a.round = round; a.side = 'p'; a.affMod = affMod; a.pAff = pAff; a.eAff = eAff; a.pHp = Math.floor(pHp); a.eHp = Math.floor(eHp); });
           roundActs.push(...acts);
         } else {
-          // 无外功：基础攻击
           const r = calcDmg(p.atk, e.def, 50, 0); eHp -= r.dmg;
           const a = { seq: ++actionSeq, round, side: 'p', pHp: Math.floor(pHp), eHp: Math.floor(eHp), ma: '基础', skName: '基础攻击', fired: true, dmg: r.dmg, crit: r.crit };
           roundActs.push(a);  log.push({ side: 'p', miss: false, crit: r.crit, dmg: r.dmg, skill: '基础攻击' });
         }
-        // ② 所有内功触发
+        // ⚠ 外功打完了检查敌人是否死亡
+        if (eHp <= 0) { pHp = Math.floor(pHp); eHp = Math.floor(Math.max(0, eHp)); break; }
+        // ② 所有内功触发（每轮全触发，敌人活着才触发）
         for (const ng of neigong) {
+          if (eHp <= 0) break;
           const pAff = martialAffinity(ng);
           const affMod = affinityMult(pAff, eAff);
           const acts = triggerMA(ng, 'p', true, affMod, pAff, eAff);
           acts.forEach(a => { a.seq = ++actionSeq; a.round = round; a.side = 'p'; a.affMod = affMod; a.pAff = pAff; a.eAff = eAff; a.pHp = Math.floor(pHp); a.eHp = Math.floor(eHp); });
           roundActs.push(...acts);
         }
+        // ⚠ 内功打完了检查敌人是否死亡
+        if (eHp <= 0) { pHp = Math.floor(pHp); eHp = Math.floor(Math.max(0, eHp)); break; }
         // ③ 所有轻功触发
         for (const qg of qinggong) {
+          if (eHp <= 0) break;
           const pAff = martialAffinity(qg);
           const affMod = affinityMult(pAff, eAff);
           const acts = triggerMA(qg, 'p', true, affMod, pAff, eAff);
           acts.forEach(a => { a.seq = ++actionSeq; a.round = round; a.side = 'p'; a.affMod = affMod; a.pAff = pAff; a.eAff = eAff; a.pHp = Math.floor(pHp); a.eHp = Math.floor(eHp); });
           roundActs.push(...acts);
         }
+        // ⚠ 轻功打完了检查敌人是否死亡
+        if (eHp <= 0) { pHp = Math.floor(pHp); eHp = Math.floor(Math.max(0, eHp)); break; }
       } else {
         // 无武学：基础攻击
         const r = calcDmg(p.atk, e.def, 50, 0); eHp -= r.dmg;
         const a = { seq: ++actionSeq, round, side: 'p', pHp: Math.floor(pHp), eHp: Math.floor(eHp), ma: '基础', skName: '普通攻击', fired: true, dmg: r.dmg, crit: r.crit };
         roundActs.push(a); log.push({ side: 'p', miss: false, crit: r.crit, dmg: r.dmg, skill: '普通攻击' });
       }
-      // 敌人行动（每轮触发装备的所有武学）
-      {
+      // 敌人行动（每轮触发装备的所有武学，玩家活着才触发）
+      if (pHp > 0 && eHp > 0) {
         // 玩家方的主流偏向
         const deckAff = Array.isArray(state.martialDeck) && state.martialDeck.length > 0 ? (() => {
           const counts = { '阴':0, '阳':0, '调':0 };
