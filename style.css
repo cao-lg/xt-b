@@ -614,7 +614,7 @@ h2.lose { color: #ff9f9f; }
 .battle-report .tl-node { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 22px; padding: 0 4px; border-radius: 4px; font-size: 11px; font-weight: 700; }
 .battle-report .tl-node.p { background: #7fd1c1; color: #003; }
 .battle-report .tl-node.e { background: #ff7a7a; color: #fff; }
-.battle-report .rep-act-list { display: flex; flex-direction: column; gap: 3px; max-height: 240px; overflow-y: auto; }
+.battle-report .rep-act-list { display: flex; flex-direction: column; gap: 3px; max-height: 50vh; overflow-y: auto; }
 .battle-report .rep-act { display: flex; gap: 4px; font-size: 10px; padding: 4px 6px; border-radius: 4px; align-items: center; }
 .battle-report .rep-act.p { background: rgba(127,209,193,0.06); }
 .battle-report .rep-act.e { background: rgba(255,122,122,0.06); }
@@ -626,6 +626,19 @@ h2.lose { color: #ff9f9f; }
 .battle-report .rep-hp { min-width: 80px; text-align: right; font-size: 9px; color: var(--text-dim); }
 .battle-report .rep-formula, .battle-report .rep-aff-text { font-size: 11px; color: var(--text-dim); padding: 4px 6px; background: rgba(0,0,0,0.15); border-radius: 4px; line-height: 1.6; }
 .battle-report .rep-summary { font-size: 11px; color: var(--text); line-height: 1.8; }
+/* 按武学分组的战报统计 */
+.battle-report .rep-m-list { display: flex; flex-direction: column; gap: 6px; }
+.battle-report .rep-m-card { background: rgba(0,0,0,0.15); border-radius: 8px; padding: 6px 8px; border-left: 3px solid var(--gold-soft); }
+.battle-report .rep-m-head { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; font-size: 11px; }
+.battle-report .rep-m-icon { font-size: 16px; }
+.battle-report .rep-m-name { font-weight: 700; color: var(--gold-soft); }
+.battle-report .rep-m-grade { font-size: 10px; color: var(--text-dim); }
+.battle-report .rep-m-stat { color: var(--text-dim); font-size: 10px; margin-left: auto; }
+.battle-report .rep-m-skills { display: flex; flex-direction: column; gap: 2px; }
+.battle-report .rep-m-skill { display: flex; gap: 6px; font-size: 10px; padding: 2px 4px; align-items: center; }
+.battle-report .rep-m-sname { flex: 1; color: var(--jade); }
+.battle-report .rep-m-srate { min-width: 60px; color: var(--text-dim); }
+.battle-report .rep-m-sstate { min-width: 100px; text-align: right; font-size: 10px; }
 .allskill-item.locked { opacity: .4; }
 .allskill-icon { font-size: 18px; width: 24px; text-align: center; }
 .allskill-body { flex: 1; }

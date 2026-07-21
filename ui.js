@@ -827,7 +827,7 @@
       if (r.win) { closeModal(m); setTimeout(() => showBlindBox(), 200); }
       else { closeModal(m); }
     });
-    $('#cb-report').addEventListener('click', () => showBattleReport(r, lv));
+    $('#cb-report').addEventListener('click', () => { closeModal(m); showBattleReport(r, lv); });
     playBattle(res,lv,m,aura,techEl);
     return m;
   }
@@ -849,8 +849,8 @@
     const enemyActions = rep.actions.filter(a => a.side==='e');
     // 聚气表格（前8轮）
     const qiRows = rep.rounds.slice(0, 8).map(r => `<tr><td>${r.round}</td><td>${r.pGain}</td><td>${r.pQi}</td><td>${r.eGain}</td><td>${r.eQi}</td></tr>`).join('');
-    // 出手顺序列表
-    const actList = rep.actions.slice(0, 16).map(a => {
+    // 全部出手详情（不限制16）
+    const actList = rep.actions.map(a => {
       const isP = a.side==='p';
       const fired = a.fired ? '✅' : '❌';
       const affTxt = a.affMod > 1 ? ` <span style="color:#7fd1c1">【${a.pAff||'-'}克${a.eAff||'-'}+15%】</span>` : '';
@@ -864,7 +864,55 @@
         <span class="rep-hp">我 ${a.pHp} / 敌 ${a.eHp}</span>
       </div>`;
     }).join('');
-    const more = rep.actions.length > 16 ? `<div class="hint">还有 ${rep.actions.length-16} 次行动...</div>` : '';
+    // 按武学装备顺序统计（玩家方）
+    const deck = Array.isArray(Game.state.martialDeck) ? Game.state.martialDeck : [];
+    const martialStats = {};
+    playerActions.forEach(a => {
+      if (a.ma) {
+        if (!martialStats[a.ma]) martialStats[a.ma] = { total: 0, fired: 0, dmg: 0, skills: {} };
+        martialStats[a.ma].total++;
+        if (a.fired) {
+          martialStats[a.ma].fired++;
+          martialStats[a.ma].dmg += a.dmg;
+          if (!martialStats[a.ma].skills[a.skill]) martialStats[a.ma].skills[a.skill] = { count: 0, dmg: 0, fired: 0 };
+          martialStats[a.ma].skills[a.skill].count++;
+          martialStats[a.ma].skills[a.skill].fired++;
+          martialStats[a.ma].skills[a.skill].dmg += a.dmg;
+        }
+      }
+    });
+    // 按装备顺序显示每个武学
+    const deckMaHtml = deck.map(maId => {
+      const ma = Game.MARTIAL_ARTS.find(m => m.id === maId);
+      if (!ma) return '';
+      const skillList = Game.martialSkillList(maId);
+      const stats = martialStats[ma.name] || { total: 0, fired: 0, dmg: 0, skills: {} };
+      const skillRows = skillList.map(sk => {
+        const s = stats.skills[sk.name] || { count: 0, fired: 0, dmg: 0 };
+        const lvDmgMult = 1 + (Game.state.martialLevels[maId] || 0) * 0.05;
+        const skillLv = Game.state.skillLevels && Game.state.skillLevels[sk.id] || 0;
+        const realFire = Math.round(sk.fireRate * (1 + skillLv * 0.03));
+        const hitRate = s.count > 0 ? Math.round(s.fired / s.count * 100) : 0;
+        const status = s.fired > 0
+          ? `<span style="color:#7fd1c1">✅${s.fired}/${s.count}次 伤${s.dmg}</span>`
+          : `<span style="color:var(--text-dim)">❌未触发 (0/${s.count}次)</span>`;
+        return `<div class="rep-m-skill">
+          <span class="rep-m-sname">${sk.innate?'⭐':'🔧'} ${sk.name}（${sk.type}）</span>
+          <span class="rep-m-srate">火率${realFire}%</span>
+          <span class="rep-m-sstate">${status}${hitRate>0?' ('+hitRate+'%)':''}</span>
+        </div>`;
+      }).join('');
+      const fireRate = stats.total > 0 ? Math.round(stats.fired / stats.total * 100) : 0;
+      return `<div class="rep-m-card">
+        <div class="rep-m-head">
+          <span class="rep-m-icon">${ma.icon}</span>
+          <span class="rep-m-name">${ma.name}</span>
+          <span class="rep-m-grade">${ma.grade}</span>
+          <span class="rep-m-stat">被选中 ${stats.total} 次 · 触发 ${stats.fired} 次 (${fireRate}%) · 造成 ${stats.dmg} 伤害</span>
+        </div>
+        <div class="rep-m-skills">${skillRows || '<div class="hint">该武学本场未被选中</div>'}</div>
+      </div>`;
+    }).join('') || '<div class="hint">未装备武学</div>';
     // 准备阶段
     const prepHtml = `
       <div class="rep-section">
@@ -910,12 +958,18 @@
         </div>
       </div>
     `;
-    // 出手列表
+    // 按武学分组统计（按装备顺序）
+    const deckSection = `
+      <div class="rep-section">
+        <div class="rep-section-title">📚 按武学统计（装备顺序）</div>
+        <div class="rep-m-list">${deckMaHtml}</div>
+      </div>
+    `;
+    // 全部出手详情（滚动列表）
     const actHtml = `
       <div class="rep-section">
-        <div class="rep-section-title">⚔ 出手详情（前16次）</div>
+        <div class="rep-section-title">⚔ 全部出手详情（${rep.actions.length}次）</div>
         <div class="rep-act-list">${actList}</div>
-        ${more}
       </div>
     `;
     // 伤害公式说明
@@ -956,6 +1010,7 @@
         ${prepHtml}
         ${qiHtml}
         ${timelineHtml}
+        ${deckSection}
         ${actHtml}
         ${dmgFormulaHtml}
         ${affHtml}
@@ -963,7 +1018,7 @@
         <div style="text-align:center;margin-top:10px"><button class="bb-btn-cancel" data-close>关闭</button></div>
       </div>
     `;
-    const m = modal(fullHtml);
+    const m = modal(fullHtml, 'battle-report');
     m.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', () => closeModal(m)));
   }
   function getPlayerAff() {
