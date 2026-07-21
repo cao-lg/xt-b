@@ -707,7 +707,8 @@
         const diff = difficultyRating(lv, st.power);
         // 敌人装备武学预览
         const eDeck = (Game.genEnemyDeck ? Game.genEnemyDeck(lv) : []).map(id => Game.MARTIAL_ARTS.find(m => m.id === id)).filter(Boolean);
-        const eDeckHtml = eDeck.length ? eDeck.map(m => `<span class="e-ma-chip" style="border-color:${gradeColors[m.grade]||'var(--border)'}">${m.icon}<span>${m.name}</span></span>`).join('') : '<span style="color:var(--text-dim)">无</span>';
+        const eGradeColors = { '根基': '#9fb0c0', '进阶': '#6fb1ff', '绝学': '#ffd76f', '稀有': '#c79fff', '绝世': '#ff6b6b' };
+        const eDeckHtml = eDeck.length ? eDeck.map(m => `<span class="e-ma-chip" style="border-color:${eGradeColors[m.grade]||'var(--border)'}">${m.icon}<span>${m.name}</span></span>`).join('') : '<span style="color:var(--text-dim)">无</span>';
         return `<div class="level-row ${cleared ? 'cleared' : ''} ${unlocked ? '' : 'locked'} ${isCurrent ? 'current' : ''}">
           <div class="level-idx">${i + 1}</div>
           <div class="level-body">
