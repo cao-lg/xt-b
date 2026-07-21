@@ -1058,12 +1058,12 @@
     m.querySelectorAll('[data-copy-report]').forEach(b => b.addEventListener('click', () => {
       let txt = `📜 战报 · ${pName} vs ${eName}\n`;
       txt += `═`.repeat(30) + `\n`;
-      txt += `胜负：${r.win ? '✅玩家胜' : '❌玩家败'} · 回合 ${r.rounds} · 行动 ${rep.actions.length}\n`;
+      txt += `胜负：${r.win ? '✅玩家胜' : '❌玩家败'} · 回合 ${rep.rounds.length} · 行动 ${rep.actions.length}\n`;
       txt += `玩家：攻${pStats.atk} 防${pStats.def} 血${pStats.hp} 速度${rep.pSpeed}\n`;
       txt += `敌人：攻${eStats.atk} 防${eStats.def} 血${eStats.hp} 速度${rep.eSpeed}\n`;
       txt += `═`.repeat(30) + `\n`;
       txt += `【聚气过程】\n`;
-      rep.rounds.forEach(r => { txt += `R${r.round}: 玩家qi+${r.pGain}=${r.pQi} ${r.pAct?'⚔️':''} | 敌人qi+${r.eGain}=${r.eQi} ${r.eAct?'⚔️':''}\n`; });
+      rep.rounds.forEach(rd => { txt += `R${rd.round}: 玩家qi+${rd.pGain}=${rd.pQi} ${rd.pAct?'⚔️':''} | 敌人qi+${rd.eGain}=${rd.eQi} ${rd.eAct?'⚔️':''}\n`; });
       txt += `═`.repeat(30) + `\n`;
       txt += `【行动详情】\n`;
       rep.actions.forEach(a => {
