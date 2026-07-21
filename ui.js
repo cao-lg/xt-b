@@ -310,11 +310,10 @@
       // 自动秒更新顶栏（不重绘全页）
       if (currentTab === 'cultivate') renderCultivate();
     }, AUTO_CLICK_INTERVAL);
-    window.__autoStarted = true; window.__autoStart = _autoStart;
   }
   function stopAutoCultivate() {
     if (_autoInterval) { clearInterval(_autoInterval); _autoInterval = null; }
-    if (Game.state) Game.state.autoCultivate = false;
+    // 注意：不要在这里设置 autoCultivate=false，否则自己把自己关掉
   }
 
   /* ---------------- 功法 / 洞府 / 丹药 ---------------- */
@@ -1767,29 +1766,24 @@
 
   /* ---------------- 启动 ---------------- */
   function init() {
-    try {
     const offline = Game.start();
-    console.log('[DEBUG-init] autoCultivate='+Game.state.autoCultivate+' realm='+Game.state.realmIndex);
     if (window.SFX) window.SFX.setEnabled(!!Game.state.sfx);
     document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => switchTab(t.dataset.tab)));
     switchTab('cultivate');
     updateTopbar();
     if (offline) showOffline(offline);
     if (!Game.state.rootId) showRootPicker();
-    // 签到摩擦优化：开屏自动领取（非阻塞 banner 反馈），不再强制弹窗；手动查看请点顶栏📅
     if (!Game.hasCheckedInToday()) Game.checkIn();
     const bci = $('#btn-checkin'); if (bci) bci.addEventListener('click', showCheckIn);
     const ss = $('#stat-speed'); if (ss) ss.addEventListener('click', toggleSpeedDetail);
     function loop() { updateTopbar(); requestAnimationFrame(loop); }
     requestAnimationFrame(loop);
-    // 自动修炼：恢复上次状态
-    if (Game.state && Game.state.realmIndex >= 1) {
-    // 筑基+：自动开启（除非用户明确关闭过）
-    if (Game.state.autoCultivate !== false) Game.state.autoCultivate = true;
-    if (Game.state.autoCultivate) { _autoStart = Date.now(); startAutoCultivate(); }
-    console.log('[DEBUG-init-end] state.ac='+Game.state.autoCultivate+' __autoStarted='+window.__autoStarted);
+    // 筑基+：自动开启
+    if (Game.state && Game.state.realmIndex >= 1 && Game.state.autoCultivate !== false) {
+      Game.state.autoCultivate = true;
+      _autoStart = Date.now();
+      startAutoCultivate();
     }
-    } catch(e) { console.error('[INIT-ERROR]', e); }
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
