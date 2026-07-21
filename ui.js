@@ -277,6 +277,7 @@
         <div class="buff-line" id="buff-line">${buildBuffLine()}</div>
         <button class="btn" id="btn-cultivate">🧘 运转周天（手动修炼）</button>
         <button class="btn btn-break" id="btn-break">${breakTxt}</button>
+        ${s.realmIndex >= 1 ? `<button class="btn ${s.autoCultivate ? 'auto-on' : ''}" id="btn-auto">${s.autoCultivate ? '⏹ 停止自动' : '⏩ 筑基·自动'}${s.autoCultivate ? '（' + Math.floor((Date.now() - (_autoStart || Date.now())) / 1000) + 's）' : ''}</button>` : ''}
         ${trib}
         <div class="hint">
           修为攒满即可<b>破境</b>；跨大境界需<b>渡劫飞升</b>，有成功率与风险。<br/>
@@ -296,6 +297,33 @@
       updateComboMeter(r);
     });
     $('#btn-break').addEventListener('click', () => { if (Game.canBreak()) Game.doBreak(); });
+    const autoBtn = $('#btn-auto');
+    if (autoBtn) autoBtn.addEventListener('click', () => {
+      Game.state.autoCultivate = !Game.state.autoCultivate;
+      if (Game.state.autoCultivate) { _autoStart = Date.now(); startAutoCultivate(); }
+      else stopAutoCultivate();
+      renderCurrent();
+    });
+  }
+  // 自动修炼（筑基后）
+  let _autoInterval = null, _autoStart = 0;
+  const AUTO_CLICK_INTERVAL = 1000; // 每秒自动点击一次
+  function startAutoCultivate() {
+    stopAutoCultivate();
+    _autoStart = Date.now();
+    _autoInterval = setInterval(() => {
+      if (!Game.state || !Game.state.autoCultivate) { stopAutoCultivate(); return; }
+      Game.clickCultivate();
+      // 自动秒更新顶栏（不重绘全页）
+      if (currentTab === 'cultivate') {
+        const bt = $('#btn-auto');
+        if (bt) bt.textContent = `⏹ 停止自动（${Math.floor((Date.now() - _autoStart) / 1000)}s）`;
+      }
+    }, AUTO_CLICK_INTERVAL);
+  }
+  function stopAutoCultivate() {
+    if (_autoInterval) { clearInterval(_autoInterval); _autoInterval = null; }
+    if (Game.state) Game.state.autoCultivate = false;
   }
 
   /* ---------------- 功法 / 洞府 / 丹药 ---------------- */
@@ -1753,6 +1781,9 @@
     const ss = $('#stat-speed'); if (ss) ss.addEventListener('click', toggleSpeedDetail);
     function loop() { updateTopbar(); requestAnimationFrame(loop); }
     requestAnimationFrame(loop);
+    // 自动修炼：恢复上次状态
+    if (Game.state && Game.state.autoCultivate && Game.state.realmIndex >= 1) { _autoStart = Date.now(); startAutoCultivate(); }
+    // 页面隐藏时停止自动修炼
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();

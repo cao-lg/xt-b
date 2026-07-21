@@ -57,6 +57,7 @@ const Game = (function () {
       lastGoldenAt: now,
       checkInDate: '',       // 上次签到日期（YYYY-MM-DD）
       checkInStreak: 0,       // 连续签到天数
+      autoCultivate: false,    // 自动修炼（筑基后可用）
       martialArts: {},        // 武学 id -> count（已获得的数量）
       martialDeck: [],        // 已装备武学 id 列表（最多6个）
       martialLevels: {},      // 武学 id -> 等级
