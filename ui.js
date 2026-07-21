@@ -277,7 +277,7 @@
         <div class="buff-line" id="buff-line">${buildBuffLine()}</div>
         <button class="btn" id="btn-cultivate">🧘 运转周天（手动修炼）</button>
         <button class="btn btn-break" id="btn-break">${breakTxt}</button>
-        ${s.realmIndex >= 1 ? `<button class="btn ${s.autoCultivate ? 'auto-on' : ''}" id="btn-auto">${s.autoCultivate ? '⏹ 停止自动' : '⏩ 筑基·自动'}${s.autoCultivate ? '（' + Math.floor((Date.now() - (_autoStart || Date.now())) / 1000) + 's）' : ''}</button>` : ''}
+        ${s.realmIndex >= 1 && s.autoCultivate ? `<div class="cd-text" style="color:var(--jade);margin-top:8px">⚡ 筑基·自动修炼中（已运行 ${Math.floor((Date.now() - (_autoStart || Date.now())) / 1000)}s）</div>` : (s.realmIndex >= 1 ? `<div class="cd-text" style="color:var(--text-dim);margin-top:8px">筑基·自动修炼已关闭（设置中开启）</div>` : '')}
         ${trib}
         <div class="hint">
           修为攒满即可<b>破境</b>；跨大境界需<b>渡劫飞升</b>，有成功率与风险。<br/>
@@ -297,13 +297,6 @@
       updateComboMeter(r);
     });
     $('#btn-break').addEventListener('click', () => { if (Game.canBreak()) Game.doBreak(); });
-    const autoBtn = $('#btn-auto');
-    if (autoBtn) autoBtn.addEventListener('click', () => {
-      Game.state.autoCultivate = !Game.state.autoCultivate;
-      if (Game.state.autoCultivate) { _autoStart = Date.now(); startAutoCultivate(); }
-      else stopAutoCultivate();
-      renderCurrent();
-    });
   }
   // 自动修炼（筑基后）
   let _autoInterval = null, _autoStart = 0;
@@ -315,10 +308,7 @@
       if (!Game.state || !Game.state.autoCultivate) { stopAutoCultivate(); return; }
       Game.clickCultivate();
       // 自动秒更新顶栏（不重绘全页）
-      if (currentTab === 'cultivate') {
-        const bt = $('#btn-auto');
-        if (bt) bt.textContent = `⏹ 停止自动（${Math.floor((Date.now() - _autoStart) / 1000)}s）`;
-      }
+      if (currentTab === 'cultivate') renderCultivate();
     }, AUTO_CLICK_INTERVAL);
   }
   function stopAutoCultivate() {
@@ -655,6 +645,7 @@
     view.innerHTML = `
       <div class="section-title">⚙️ 设置</div>
       <div class="setting-block"><h3>道号</h3><div class="field"><input id="dao-input" maxlength="12" value="${s.daoName}" /><button class="btn-sm" id="dao-save">保存</button></div></div>
+      ${s.realmIndex >= 1 ? `<div class="setting-block"><h3>筑基·自动修炼</h3><div class="field"><span style="font-size:12px;color:var(--text-dim)">到达筑基后每${AUTO_CLICK_INTERVAL/1000}秒自动点一次「运转周天」</span><button class="btn-sm" id="auto-toggle">${s.autoCultivate ? '⏸ 关闭' : '▶ 开启'}</button></div></div>` : ''}
       <div class="setting-block"><h3>道途纪要</h3><div class="stat-grid">
         <div class="cell"><b>${Game.formatNum(s.totalXp)}</b><span>累计修为</span></div>
         <div class="cell"><b>${s.breaks}</b><span>破境次数</span></div>
@@ -675,6 +666,13 @@
       <div class="setting-block"><h3>重入轮回</h3><button class="btn-danger" id="btn-reset">抹去此世修行记录</button>
         <div class="hint" style="text-align:left;margin-top:8px">此举将清空全部进度，且不可恢复。</div></div>`;
     $('#dao-save').addEventListener('click', () => { Game.setDaoName($('#dao-input').value); toast('道号已更易', true); });
+    const autoBtn = $('#auto-toggle');
+    if (autoBtn) autoBtn.addEventListener('click', () => {
+      Game.state.autoCultivate = !Game.state.autoCultivate;
+      if (Game.state.autoCultivate) { _autoStart = Date.now(); startAutoCultivate(); }
+      else stopAutoCultivate();
+      renderCurrent();
+    });
     $('#manual-save').addEventListener('click', () => { Game.save(); toast('已存档'); });
     $('#btn-reset').addEventListener('click', () => {
       const m = modal(`<h2>⚠ 重入轮回</h2><p>此操作将抹去全部道途，确定否？</p>
