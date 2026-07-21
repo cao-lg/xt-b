@@ -1035,7 +1035,11 @@
         ${dmgFormulaHtml}
         ${affHtml}
         ${summaryHtml}
-        <div style="text-align:center;margin-top:10px"><button class="bb-btn-cancel" data-close>关闭</button></div>
+        <div style="text-align:center;margin-top:10px;display:flex;gap:8px;justify-content:center;align-items:center;flex-wrap:wrap">
+          <span style="font-size:10px;color:var(--text-dim)">💡 一次出手=外功1门+所有内功+所有轻功的全部招式判定</span><br>
+          <button class="bb-btn-cancel" data-copy-report>📋 复制</button>
+          <button class="bb-btn-cancel" data-close>关闭</button>
+        </div>
       </div>
     `;
     const m = modal(fullHtml, 'battle-report');
@@ -1050,6 +1054,29 @@
       });
     }));
     m.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', () => closeModal(m)));
+    // 复制战报
+    m.querySelectorAll('[data-copy-report]').forEach(b => b.addEventListener('click', () => {
+      let txt = `📜 战报 · ${pName} vs ${eName}\n`;
+      txt += `═`.repeat(30) + `\n`;
+      txt += `胜负：${r.win ? '✅玩家胜' : '❌玩家败'} · 回合 ${r.rounds} · 行动 ${rep.actions.length}\n`;
+      txt += `玩家：攻${pStats.atk} 防${pStats.def} 血${pStats.hp} 速度${rep.pSpeed}\n`;
+      txt += `敌人：攻${eStats.atk} 防${eStats.def} 血${eStats.hp} 速度${rep.eSpeed}\n`;
+      txt += `═`.repeat(30) + `\n`;
+      txt += `【聚气过程】\n`;
+      rep.rounds.forEach(r => { txt += `R${r.round}: 玩家qi+${r.pGain}=${r.pQi} ${r.pAct?'⚔️':''} | 敌人qi+${r.eGain}=${r.eQi} ${r.eAct?'⚔️':''}\n`; });
+      txt += `═`.repeat(30) + `\n`;
+      txt += `【行动详情】\n`;
+      rep.actions.forEach(a => {
+        const who = a.side === 'p' ? pName : eName;
+        const status = a.fired ? '✅' : '❌';
+        const aff = a.affMod > 1 ? `${a.pAff}克${a.eAff}` : '';
+        const crit = a.crit ? '💥' : '';
+        txt += `R${a.round}·#${a.seq} ${who} ${a.ma||''} ${status}${a.skName||''}${aff?'['+aff+']':''}${crit} -${a.dmg} 我${a.pHp}/敌${a.eHp}\n`;
+      });
+      txt += `═`.repeat(30) + `\n`;
+      txt += `总伤：玩家${playerActions.reduce((s,a)=>s+a.dmg,0)} / 敌人${enemyActions.reduce((s,a)=>s+a.dmg,0)}\n`;
+      try { navigator.clipboard.writeText(txt).then(() => toast('战报已复制')).catch(() => { const t = document.createElement('textarea'); t.value = txt; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove(); toast('战报已复制'); }); } catch(e) { toast('复制失败'); }
+    }));
   }
   function getPlayerAff() {
     const s = Game.state;
