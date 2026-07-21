@@ -1521,6 +1521,8 @@ const Game = (function () {
       if (raw) {
         const data = JSON.parse(raw);
         state = Object.assign(defaultState(), data);
+        // 强制覆盖关键开关
+        if (typeof data.autoCultivate === 'boolean') state.autoCultivate = data.autoCultivate;
         ['techniques', 'abodes', 'pills', 'pets', 'insightLv', 'achievements', 'log', 'treasures', 'equipped', 'mapProgress', 'storyProgress', 'martialArts', 'martialLevels', 'martialSkills', 'skills', 'skillLevels'].forEach(k => { state[k] = data[k] || (Array.isArray(data[k]) ? [] : {}); });
         // 旧存档兼容：martialDeck 必须是数组（可能被旧代码存为 {}）
         if (!Array.isArray(state.martialDeck)) state.martialDeck = [];
