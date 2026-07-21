@@ -1768,6 +1768,7 @@
   /* ---------------- 启动 ---------------- */
   function init() {
     const offline = Game.start();
+    console.log('[DEBUG-init] autoCultivate='+Game.state.autoCultivate+' realm='+Game.state.realmIndex);
     if (window.SFX) window.SFX.setEnabled(!!Game.state.sfx);
     document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => switchTab(t.dataset.tab)));
     switchTab('cultivate');
