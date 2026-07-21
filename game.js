@@ -318,6 +318,8 @@ const Game = (function () {
       state.layer = 0; state.realmIndex++;
       const ins = CONFIG.insightPerMajor[state.realmIndex] || 0;
       if (ins > 0) { state.insight += ins; pushLog(`渡劫体悟，获悟性点 +${ins}`, '📿'); }
+      // 突破到筑基+后自动开启修炼（除非玩家手动关闭过）
+      if (state.realmIndex >= 1 && state.autoCultivate === false) state.autoCultivate = true;
       checkAchievements();
       pushLog(mercy ? `天道庇佑，渡劫终成，晋入${REALMS[state.realmIndex].name}！` : `渡劫成功，晋入${REALMS[state.realmIndex].name}！`, mercy ? '🛡️' : '🌟');
       save(); emit('break', { major: true, realm: REALMS[state.realmIndex].name, success: true, mercy });
