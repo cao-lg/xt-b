@@ -1783,9 +1783,10 @@
     requestAnimationFrame(loop);
     // 自动修炼：恢复上次状态
     if (Game.state && Game.state.realmIndex >= 1) {
-      // 筑基+：自动开启（除非用户明确关闭过）
-      if (Game.state.autoCultivate !== false) Game.state.autoCultivate = true;
-      if (Game.state.autoCultivate) { _autoStart = Date.now(); startAutoCultivate(); }
+    // 筑基+：自动开启（除非用户明确关闭过）
+    if (Game.state.autoCultivate !== false) Game.state.autoCultivate = true;
+    if (Game.state.autoCultivate) { _autoStart = Date.now(); startAutoCultivate(); }
+    console.log('[DEBUG-init-end] state.ac='+Game.state.autoCultivate+' __autoStarted='+window.__autoStarted);
     }
     // 页面隐藏时停止自动修炼
   }
