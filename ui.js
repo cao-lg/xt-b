@@ -970,16 +970,16 @@
     const qiRows = rep.rounds.slice(0, 10).map(r => {
       const pAct = r.pAct ? "\u2694" : "";
       const eAct = r.eAct ? "\u2694" : "";
-      return "<tr><td>"+r.round+"</td><td>"+r.pGain+"</td><td>"+r.pQi+"</td><td>"+pAct+"</td><td>"+r.eGain+"</td><td>"+r.eQi+"</td><td>"+eAct+"</td></tr>";
+      return "<tr><td>"+r.round+"</td><td>"+(r.pG||0)+"</td><td>"+(r.eG||0)+"</td><td>"+pAct+"</td><td>"+eAct+"</td></tr>";
     }).join("");
     const qiHtml = `
       <div class="rep-section">
-        <div class="rep-section-title">\u26a1 ATB\u805a\u6c14</div>
-        <div class="rep-hint">每轮聚气 qi += 34 + 0.05\u00d7(速度-平均速度) | qi\u2265100 行动\u2192归零 | 速度快先出手</div>
+        <div class="rep-section-title">⏱ 每轮行动</div>
+        <div class="rep-hint">外功每轮轮流一次，所有内功轻功每轮全部触发，出手后立刻检查血量</div>
         <div class="rep-qi-table-wrap"><table class="rep-qi-table">
-          <thead><tr><th>轮</th><th>我方+</th><th>累计</th><th></th><th>敌方+</th><th>累计</th><th></th></tr></thead>
+          <thead><tr><th>轮</th><th>我方</th><th>敌方</th><th>出手</th></tr></thead>
           <tbody>${qiRows}
-            ${rep.rounds.length > 10 ? `<tr><td colspan="7" style="color:var(--text-dim)">还有${rep.rounds.length-10}轮\u2026</td></tr>` : ""}
+            ${rep.rounds.length > 10 ? `<tr><td colspan="4" style="color:var(--text-dim)">还有${rep.rounds.length-10}轮\u2026</td></tr>` : ""}
           </tbody>
         </table></div>
       </div>`
