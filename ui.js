@@ -1767,6 +1767,7 @@
 
   /* ---------------- 启动 ---------------- */
   function init() {
+    try {
     const offline = Game.start();
     console.log('[DEBUG-init] autoCultivate='+Game.state.autoCultivate+' realm='+Game.state.realmIndex);
     if (window.SFX) window.SFX.setEnabled(!!Game.state.sfx);
@@ -1788,7 +1789,7 @@
     if (Game.state.autoCultivate) { _autoStart = Date.now(); startAutoCultivate(); }
     console.log('[DEBUG-init-end] state.ac='+Game.state.autoCultivate+' __autoStarted='+window.__autoStarted);
     }
-    // 页面隐藏时停止自动修炼
+    } catch(e) { console.error('[INIT-ERROR]', e); }
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
