@@ -1106,7 +1106,8 @@
       const surplus = own.count - keep;           // 多余件（仅剩 1 件时 surplus=0，不熔）
       const smeltAfford = surplus > 0;
       const enhBtn = maxed ? `<button class="buy-btn maxed" disabled>圆满</button>`
-        : `<button class="buy-btn" data-enh="${t.id}" ${enhAfford ? '' : 'disabled'}>强化<div class="price">${cost.mat}🌿 ${Game.formatNum(cost.stone)}💎</div></button>`;
+        : `<button class="buy-btn" data-enh="${t.id}" ${enhAfford ? '' : 'disabled'}>强化<div class="price">${cost.copy}件 ${cost.mat}🌿 ${Game.formatNum(cost.stone)}💎</div></button>`;
+      const resetTreBtn = own.level > 0 ? `<button class="buy-btn smelt" data-reset-tr="${t.id}">🔄重置</button>` : '';
       const eqBtn = equipped ? `<button class="buy-btn eq" data-unequip="${t.slot}">卸下</button>`
         : `<button class="buy-btn" data-equip="${t.id}">装备</button>`;
       const smeltLabel = equipped ? `熔炼多余(${surplus})` : `熔炼(${surplus})`;
@@ -1124,7 +1125,7 @@
         <div class="tattrs">${attrText(ts.attrs)}</div>
         ${affixHtml}
         <div class="tsub">持有 ${own.count} · ${own.level}级${maxed ? ' · 已满级' : ''}</div>
-        <div class="tactions">${eqBtn}${enhBtn}${smeltBtn}${awakenBtn}</div>
+        <div class="tactions">${eqBtn}${enhBtn}${resetTreBtn}${smeltBtn}${awakenBtn}</div>
       </div>`;
     }).join('');
     view.innerHTML = `
@@ -1147,6 +1148,7 @@
     view.querySelectorAll('[data-equip]').forEach(b => b.addEventListener('click', () => { if (Game.equipTreasure(b.dataset.equip)) renderTreasure(); else toast('无法装备'); }));
     view.querySelectorAll('[data-unequip]').forEach(b => b.addEventListener('click', () => { Game.unequip(b.dataset.unequip); renderTreasure(); }));
     view.querySelectorAll('[data-enh]').forEach(b => b.addEventListener('click', () => { if (Game.enhanceTreasure(b.dataset.enh)) renderTreasure(); else toast('材料或灵石不足'); }));
+    view.querySelectorAll('[data-reset-tr]').forEach(b => b.addEventListener('click', () => { if (Game.resetTreasure(b.dataset.resetTr)) renderTreasure(); else toast('重置失败'); }));
     view.querySelectorAll('[data-smelt]').forEach(b => b.addEventListener('click', () => { if (Game.smeltTreasure(b.dataset.smelt)) renderTreasure(); else toast('仅剩 1 件，已为你保留（不会误熔唯一法宝）'); }));
     view.querySelectorAll('[data-awaken]').forEach(b => b.addEventListener('click', () => { if (Game.awakenTreasure(b.dataset.awaken)) renderTreasure(); else toast('天材地宝不足'); }));
   }
@@ -1341,6 +1343,9 @@
     view.querySelectorAll('[data-skill-upgrade]').forEach(b => b.addEventListener('click', () => {
       if (Game.upgradeSkill(b.dataset.skillUpgrade)) renderCurrent(); else toast('天材地宝不足');
     }));
+    view.querySelectorAll('[data-reset-sk]').forEach(b => b.addEventListener('click', () => {
+      if (Game.resetSkill(b.dataset.resetSk)) renderCurrent(); else toast('重置失败');
+    }));
   }
   // 招式背包（显示全部12招式，已拥有可升级、未获得灰色）
   function renderSkillGrid() {
@@ -1353,6 +1358,7 @@
       const mult = 1 + lv * 0.05;
       const fireRate = Math.round(sk.fireRate * (1 + lv * 0.03));
       const dmgRate = Math.round(sk.dmgRate * mult);
+      const resetSkBtn = owned && lv > 0 ? `<span class="spd-ft" data-reset-sk="${sk.id}" style="cursor:pointer;margin-left:4px">🔄</span>` : '';
       const upgBtn = owned && cost
         ? `<button class="btn small" data-skill-upgrade="${sk.id}" ${s.materials>=cost?'':'disabled'}>Lv.${lv}/10 ↑</button>`
         : (owned ? `<span style="color:var(--jade);font-size:11px">满级</span>` : '');
@@ -1362,7 +1368,7 @@
           <div class="allskill-name">${sk.name} ${owned?`<span class="lv">Lv.${lv}</span>`:'<span style="color:var(--text-dim)">??</span>'}</div>
           <div class="allskill-info">${sk.type} · ${owned ? `${fireRate}%触发·${dmgRate}%伤害${sk.healPct?' 回血'+Math.round(sk.healPct*(1+lv*0.03))+'%':''}` : sk.desc.substring(0,20)}</div>
         </div>
-        <div class="allskill-upg">${upgBtn}</div>
+        <div class="allskill-upg">${upgBtn}${resetSkBtn}</div>
       </div>`;
     }).join('');
   }
