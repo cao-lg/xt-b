@@ -1048,11 +1048,12 @@ const Game = (function () {
     let pHp = p.hp, eHp = e.hp;
     const log = [];
     const report = { rounds: [], actions: [], pSpeed: 50 + ms.speed, eSpeed: 30 + (state ? state.realmIndex * 5 : 0) };
-    // 按装备槽位分组（外功0-5，内功6-8，轻功9-11）
+    // 按装备槽位+类型双过滤（防止旧存档错位）
     const deckArr = state.martialDeck || [];
-    const waigong = [0,1,2,3,4,5].map(i => deckArr[i] ? MARTIAL_ARTS.find(m => m.id === deckArr[i]) : null).filter(Boolean);
-    const neigong = [6,7,8].map(i => deckArr[i] ? MARTIAL_ARTS.find(m => m.id === deckArr[i]) : null).filter(Boolean);
-    const qinggong = [9,10,11].map(i => deckArr[i] ? MARTIAL_ARTS.find(m => m.id === deckArr[i]) : null).filter(Boolean);
+    const isWaiType = m => ['御剑','刀法','拳掌','奇门'].includes(m.type);
+    const waigong = [0,1,2,3,4,5].map(i => deckArr[i]).filter(id => id).map(id => MARTIAL_ARTS.find(m => m.id === id)).filter(isWaiType);
+    const neigong = [6,7,8].map(i => deckArr[i]).filter(id => id).map(id => MARTIAL_ARTS.find(m => m.id === id)).filter(m => m.type === '内功');
+    const qinggong = [9,10,11].map(i => deckArr[i]).filter(id => id).map(id => MARTIAL_ARTS.find(m => m.id === id)).filter(m => m.type === '轻功');
     const hasMA = waigong.length > 0 || neigong.length > 0 || qinggong.length > 0;
     let waigongIdx = 0;
 
@@ -1470,6 +1471,8 @@ const Game = (function () {
         ['techniques', 'abodes', 'pills', 'pets', 'insightLv', 'achievements', 'log', 'treasures', 'equipped', 'mapProgress', 'storyProgress', 'martialArts', 'martialLevels', 'martialSkills', 'skills', 'skillLevels'].forEach(k => { state[k] = data[k] || (Array.isArray(data[k]) ? [] : {}); });
         // 旧存档兼容：martialDeck 必须是数组（可能被旧代码存为 {}）
         if (!Array.isArray(state.martialDeck)) state.martialDeck = [];
+        // 旧存档可能只有6个元素，规范化到12（多保留少补null）
+        while (state.martialDeck.length < 12) state.martialDeck.push(null);
         state.goldenBuff = null;
         state.nextGoldenAt = (state.nextGoldenAt && state.nextGoldenAt > Date.now())
           ? state.nextGoldenAt : (Date.now() + randInt(CONFIG.golden.minInterval, CONFIG.golden.maxInterval) * 1000);
