@@ -284,17 +284,9 @@
           功法/洞府/灵宠永久加成，丹药限时暴涨，秘境/悟道拓展道途，飞升转世得仙缘。
         </div>
       </div>`;
-    $('#btn-cultivate').addEventListener('click', (e) => {
+    $('#btn-cultivate').addEventListener('click', () => {
       const r = Game.clickCultivate();
-      const rect = e.currentTarget.getBoundingClientRect();
-      const x = rect.left + rect.width / 2, y = rect.top - 8;
-      if (r.crit) {
-        FX.floatText('暴击! +' + Game.formatNum(r.gain), { x, y, kind: 'crit', size: 26 });
-        FX.burst(x, y, '#ff7a7a', 14); FX.shake(1.5);
-      } else {
-        FX.floatText('+' + Game.formatNum(r.gain) + ' 修为', { x, y, kind: 'good' });
-      }
-      updateComboMeter(r);
+      showCultivateFX(r);
     });
     $('#btn-break').addEventListener('click', () => { if (Game.canBreak()) Game.doBreak(); });
   }
@@ -306,10 +298,25 @@
     _autoStart = Date.now();
     _autoInterval = setInterval(() => {
       if (!Game.state || !Game.state.autoCultivate) { stopAutoCultivate(); return; }
-      Game.clickCultivate();
-      // 自动秒更新顶栏（不重绘全页）
+      const r = Game.clickCultivate();
+      showCultivateFX(r);
       if (currentTab === 'cultivate') renderCultivate();
     }, AUTO_CLICK_INTERVAL);
+  }
+  // 手动/自动点击的视觉效果（与运转周天按钮一致）
+  function showCultivateFX(r) {
+    const btn = $('#btn-cultivate');
+    if (!btn) return;
+    const rect = btn.getBoundingClientRect();
+    const x = rect.left + rect.width / 2, y = rect.top - 8;
+    if (r.crit) {
+      FX.floatText('暴击! +' + Game.formatNum(r.gain), { x, y, kind: 'crit', size: 26 });
+      FX.burst(x, y, '#ff7a7a', 14); FX.shake(1.5);
+      if (window.SFX) SFX.play('crit');
+    } else {
+      FX.floatText('+' + Game.formatNum(r.gain) + ' 修为', { x, y, kind: 'good' });
+    }
+    updateComboMeter(r);
   }
   function stopAutoCultivate() {
     if (_autoInterval) { clearInterval(_autoInterval); _autoInterval = null; }
