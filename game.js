@@ -1053,9 +1053,8 @@ const Game = (function () {
     return cleared !== undefined && cleared >= idx - 1;
   }
   // ATB 聚气战斗系统（替代回合制，速度决定出手频率，武学招式触发）
-  // 聚气参数（参照无名江湖 ATB 设计）
+  // 固定回合制战斗：每轮玩家(外功轮流+所有内功+所有轻功)→敌人(如有)→检查死亡
   const CFG_ATB = { MAX_ROUNDS: 80, DMG_DEF_COEF: 5 };
-  // 新ATB：外功轮流+内功/轻功每轮全触发
   function atbCombat(enemy) {
     const p = Object.assign({}, combatStats());
     const ms = martialStats ? martialStats() : {atk:0,def:0,hp:0,speed:0};
@@ -1064,159 +1063,105 @@ const Game = (function () {
     let pHp = p.hp, eHp = e.hp;
     const log = [];
     const report = { rounds: [], actions: [], pSpeed: 50 + ms.speed, eSpeed: 30 + (state ? state.realmIndex * 5 : 0) };
-    // 玩家装备武学（按槽位+类型双过滤）
+    // 玩家装备
     const deckArr = state.martialDeck || [];
-    const isWaiType = m => ['御剑','刀法','拳掌','奇门'].includes(m.type);
-    const waigong = [0,1,2,3,4,5].map(i => deckArr[i]).filter(id => id).map(id => MARTIAL_ARTS.find(m => m.id === id)).filter(isWaiType);
+    const isWai = m => ['御剑','刀法','拳掌','奇门'].includes(m.type);
+    const waigong = [0,1,2,3,4,5].map(i => deckArr[i]).filter(id => id).map(id => MARTIAL_ARTS.find(m => m.id === id)).filter(isWai);
     const neigong = [6,7,8].map(i => deckArr[i]).filter(id => id).map(id => MARTIAL_ARTS.find(m => m.id === id)).filter(m => m.type === '内功');
     const qinggong = [9,10,11].map(i => deckArr[i]).filter(id => id).map(id => MARTIAL_ARTS.find(m => m.id === id)).filter(m => m.type === '轻功');
-    // 敌人装备武学
+    const hasMA = waigong.length > 0 || neigong.length > 0 || qinggong.length > 0;
+    // 敌人装备
     const eDeckRaw = genEnemyDeck(enemy);
     const eWaigong = eDeckRaw.slice(0, 1).map(id => MARTIAL_ARTS.find(m => m.id === id)).filter(Boolean);
-    const eNeigong = [];
-    const eQinggong = [];
-    // 补全敌人 deck 为 12 元素（用于战报显示）
-    const eDeckFull = Array.from({length:12}, (_, i) => eDeckRaw[i] || null);
-    const hasMA = waigong.length > 0 || neigong.length > 0 || qinggong.length > 0;
     let waigongIdx = 0;
-
+    // 获取玩家内息偏向
+    function getDeckAff() {
+      const counts = { '阴':0, '阳':0, '调':0 };
+      (state.martialDeck || []).forEach(id => { const mm = MARTIAL_ARTS.find(x => x.id === id); if(mm) counts[martialAffinity(mm)]++; });
+      return Object.keys(counts).reduce((a,b) => counts[a] > counts[b] ? a : b);
+    }
     function calcDmg(atk, def, ratePct, flat) {
       const base = (atk * atk) / Math.max(1, atk + CFG_ATB.DMG_DEF_COEF * def);
       let dmg = base * (ratePct / 100) + flat;
-      const v = CONFIG.combat.variance;
-      dmg *= (1 - v + Math.random() * v * 2);
-      let isCrit = false;
-      if (Math.random() < Math.min(1, p.crit)) { dmg *= CONFIG.combat.critMult; isCrit = true; }
-      return { dmg: Math.floor(Math.max(1, dmg)), crit: isCrit };
+      dmg *= (1 - CONFIG.combat.variance + Math.random() * CONFIG.combat.variance * 2);
+      let crit = false;
+      if (Math.random() < Math.min(1, p.crit)) { dmg *= CONFIG.combat.critMult; crit = true; }
+      return { dmg: Math.floor(Math.max(1, dmg)), crit };
     }
-    // 触发一个武学的所有招式（按火率逐项判定）
-    function triggerMA(ma, side, isP, affMod, pAff, eAff) {
-      const skillList = martialSkillList ? martialSkillList(ma.id) : [];
-      const actLogs = [];
-      let healTotal = 0;
-      for (const sk of skillList) {
-        if (Math.random() < (sk.fireRate / 100)) {
+    function triggerMA(ma, isP, affMod) {
+      const skillList = (martialSkillList ? martialSkillList(ma.id) : []);
+      const acts = [];
+      skillList.forEach(sk => {
+        const fired = Math.random() < (sk.fireRate / 100);
+        if (fired) {
           const r = calcDmg(p.atk, e.def, sk.dmgRate * affMod, sk.dmgFlat * affMod);
-          if (isP) { eHp -= r.dmg; if (sk.healPct) { const h = Math.floor(p.hp * sk.healPct / 100); pHp = Math.min(p.hp, pHp + h); healTotal += h; } }
+          if (isP) { eHp -= r.dmg; if (sk.healPct) pHp = Math.min(p.hp, pHp + Math.floor(p.hp * sk.healPct / 100)); }
           else { pHp -= r.dmg; }
-          const affTag = affMod > 1 ? ` [内息${isP?'克制':'反克'}·${pAff}克${eAff}]` : '';
-          log.push({ side, miss: false, crit: r.crit, dmg: r.dmg, skill: sk.name + affTag });
-          // skName 用原始名（不附加标签），affTag 独立字段
-          actLogs.push({ ma: ma.name, skName: sk.name, fired: true, dmg: r.dmg, crit: r.crit, fireRate: sk.fireRate, healPct: sk.healPct, affTag });
+          log.push({ side: isP?'p':'e', miss: false, crit: r.crit, dmg: r.dmg, skill: sk.name });
+          acts.push({ ma: ma.name, skName: sk.name, fired: true, dmg: r.dmg, crit: r.crit });
         } else {
-          actLogs.push({ ma: ma.name, skName: sk.name, fired: false, dmg: 0, crit: false, fireRate: sk.fireRate, affTag: '' });
+          acts.push({ ma: ma.name, skName: sk.name, fired: false, dmg: 0, crit: false });
         }
-      }
-      return actLogs;
+      });
+      return acts;
     }
+
     let actionSeq = 0, round = 0;
     while (pHp > 0 && eHp > 0 && round < CFG_ATB.MAX_ROUNDS) {
       round++;
-      // 玩家侧：外功轮流 + 所有内功 + 所有轻功
       const roundActs = [];
+      const eAff = MARTIAL_ARTS[Math.min(MARTIAL_ARTS.length-1, Math.floor((enemy.hp||1000)/200))];
+      const enemyAff = eAff ? martialAffinity(eAff) : '调';
+      const pAff = getDeckAff();
+      // ── 玩家出手 ──
       if (hasMA) {
-        // 获取敌人的内息偏向
-        const eLv = Math.min(MARTIAL_ARTS.length - 1, Math.floor((enemy.hp || 1000) / 200));
-        const eMa = MARTIAL_ARTS[eLv];
-        const eAff = eMa ? martialAffinity(eMa) : '调';
-        const deckAff = Array.isArray(state.martialDeck) && state.martialDeck.length > 0 ? (() => {
-          const counts = { '阴':0, '阳':0, '调':0 };
-          state.martialDeck.forEach(id => { const mm = MARTIAL_ARTS.find(x => x.id === id); if(mm) counts[martialAffinity(mm)]++; });
-          return Object.keys(counts).reduce((a,b) => counts[a] > counts[b] ? a : b);
-        })() : '调';
-        // ① 外功轮流（本轮到谁）
+        // ① 外功轮流
         if (waigong.length > 0) {
-          const wg = waigong[waigongIdx % waigong.length];
-          waigongIdx++;
-          const pAff = martialAffinity(wg);
-          const affMod = affinityMult(pAff, eAff);
-          const acts = triggerMA(wg, 'p', true, affMod, pAff, eAff);
-          acts.forEach(a => { a.seq = ++actionSeq; a.round = round; a.side = 'p'; a.affMod = affMod; a.pAff = pAff; a.eAff = eAff; a.pHp = Math.floor(pHp); a.eHp = Math.floor(eHp); });
+          const wg = waigong[waigongIdx % waigong.length]; waigongIdx++;
+          const mod = affinityMult(martialAffinity(wg), enemyAff);
+          const acts = triggerMA(wg, true, mod);
+          acts.forEach(a => { a.seq=++actionSeq; a.round=round; a.side='p'; a.pHp=Math.floor(pHp); a.eHp=Math.floor(eHp); });
           roundActs.push(...acts);
         } else {
           const r = calcDmg(p.atk, e.def, 50, 0); eHp -= r.dmg;
-          const a = { seq: ++actionSeq, round, side: 'p', pHp: Math.floor(pHp), eHp: Math.floor(eHp), ma: '基础', skName: '基础攻击', fired: true, dmg: r.dmg, crit: r.crit };
-          roundActs.push(a);  log.push({ side: 'p', miss: false, crit: r.crit, dmg: r.dmg, skill: '基础攻击' });
+          roundActs.push({ seq:++actionSeq, round, side:'p', pHp:Math.floor(pHp), eHp:Math.floor(eHp), ma:'', skName:'普攻', fired:true, dmg:r.dmg });
+          log.push({ side:'p', miss:false, crit:r.crit, dmg:r.dmg, skill:'普攻' });
         }
-        // ⚠ 外功打完了检查敌人是否死亡
-        if (eHp <= 0) { pHp = Math.floor(pHp); eHp = Math.floor(Math.max(0, eHp)); break; }
-        // ② 所有内功触发（每轮全触发，敌人活着才触发）
-        for (const ng of neigong) {
-          if (eHp <= 0) break;
-          const pAff = martialAffinity(ng);
-          const affMod = affinityMult(pAff, eAff);
-          const acts = triggerMA(ng, 'p', true, affMod, pAff, eAff);
-          acts.forEach(a => { a.seq = ++actionSeq; a.round = round; a.side = 'p'; a.affMod = affMod; a.pAff = pAff; a.eAff = eAff; a.pHp = Math.floor(pHp); a.eHp = Math.floor(eHp); });
-          roundActs.push(...acts);
-        }
-        // ⚠ 内功打完了检查敌人是否死亡
-        if (eHp <= 0) { pHp = Math.floor(pHp); eHp = Math.floor(Math.max(0, eHp)); break; }
-        // ③ 所有轻功触发
-        for (const qg of qinggong) {
-          if (eHp <= 0) break;
-          const pAff = martialAffinity(qg);
-          const affMod = affinityMult(pAff, eAff);
-          const acts = triggerMA(qg, 'p', true, affMod, pAff, eAff);
-          acts.forEach(a => { a.seq = ++actionSeq; a.round = round; a.side = 'p'; a.affMod = affMod; a.pAff = pAff; a.eAff = eAff; a.pHp = Math.floor(pHp); a.eHp = Math.floor(eHp); });
-          roundActs.push(...acts);
-        }
-        // ⚠ 轻功打完了检查敌人是否死亡
-        if (eHp <= 0) { pHp = Math.floor(pHp); eHp = Math.floor(Math.max(0, eHp)); break; }
+        if (eHp <= 0) { report.rounds.push({round,pG:1,eG:0}); report.actions.push(...roundActs); break; }
+        // ② 所有内功
+        neigong.forEach(ng => { triggerMA(ng, true, affinityMult(martialAffinity(ng), enemyAff)).forEach(a => { a.seq=++actionSeq; a.round=round; a.side='p'; a.pHp=Math.floor(pHp); a.eHp=Math.floor(eHp); roundActs.push(a); }); });
+        if (eHp <= 0) { report.rounds.push({round,pG:1,eG:0}); report.actions.push(...roundActs); break; }
+        // ③ 所有轻功
+        qinggong.forEach(qg => { triggerMA(qg, true, affinityMult(martialAffinity(qg), enemyAff)).forEach(a => { a.seq=++actionSeq; a.round=round; a.side='p'; a.pHp=Math.floor(pHp); a.eHp=Math.floor(eHp); roundActs.push(a); }); });
+        if (eHp <= 0) { report.rounds.push({round,pG:1,eG:0}); report.actions.push(...roundActs); break; }
       } else {
-        // 无武学：基础攻击
         const r = calcDmg(p.atk, e.def, 50, 0); eHp -= r.dmg;
-        const a = { seq: ++actionSeq, round, side: 'p', pHp: Math.floor(pHp), eHp: Math.floor(eHp), ma: '基础', skName: '普通攻击', fired: true, dmg: r.dmg, crit: r.crit };
-        roundActs.push(a); log.push({ side: 'p', miss: false, crit: r.crit, dmg: r.dmg, skill: '普通攻击' });
+        roundActs.push({ seq:++actionSeq, round, side:'p', pHp:Math.floor(pHp), eHp:Math.floor(eHp), ma:'', skName:'普攻', fired:true, dmg:r.dmg });
+        log.push({ side:'p', miss:false, crit:r.crit, dmg:r.dmg, skill:'普攻' });
+        if (eHp <= 0) { report.rounds.push({round,pG:1,eG:0}); report.actions.push(...roundActs); break; }
       }
-      // 敌人行动（每轮触发装备的所有武学，玩家活着才触发）
+      // ── 敌人出手（玩家还活着才出手）──
       if (pHp > 0 && eHp > 0) {
-        // 玩家方的主流偏向
-        const deckAff = Array.isArray(state.martialDeck) && state.martialDeck.length > 0 ? (() => {
-          const counts = { '阴':0, '阳':0, '调':0 };
-          state.martialDeck.forEach(id => { const mm = MARTIAL_ARTS.find(x => x.id === id); if(mm) counts[martialAffinity(mm)]++; });
-          return Object.keys(counts).reduce((a,b) => counts[a] > counts[b] ? a : b);
-        })() : '调';
         const eActs = [];
-        // 敌人外功轮流（如果有多门）
-        const eOuters = eWaigong;
-        if (eOuters.length > 0) {
-          const eOuter = eOuters[(round - 1) % eOuters.length];
-          const eAff2 = martialAffinity(eOuter);
-          const eAffMod2 = 1 / affinityMult(eAff2, deckAff);
-          const acts = triggerMA(eOuter, 'e', false, eAffMod2, eAff2, deckAff);
-          acts.forEach(a => { a.seq = ++actionSeq; a.round = round; a.side = 'e'; a.affMod = eAffMod2; a.pAff = deckAff; a.eAff = eAff2; a.pHp = Math.floor(pHp); a.eHp = Math.floor(eHp); });
-          eActs.push(...acts);
+        if (eWaigong.length > 0) {
+          const eOuter = eWaigong[(round-1) % eWaigong.length];
+          const eMod = 1 / affinityMult(martialAffinity(eOuter), pAff);
+          triggerMA(eOuter, false, eMod).forEach(a => { a.seq=++actionSeq; a.round=round; a.side='e'; a.pHp=Math.floor(pHp); a.eHp=Math.floor(eHp); eActs.push(a); });
         } else {
-          // 无外功：基础攻击
           const r = calcDmg(e.atk, p.def, 50, 0); pHp -= r.dmg;
-          const a = { seq: ++actionSeq, round, side: 'e', pHp: Math.floor(pHp), eHp: Math.floor(eHp), ma: '基础', skName: '普通攻击', fired: true, dmg: r.dmg, crit: r.crit, fireRate: 0, affTag: '' };
-          eActs.push(a);
-          log.push({ side: 'e', miss: false, crit: r.crit, dmg: r.dmg, skill: '普通攻击' });
-        }
-        // 敌人内功（每轮触发）
-        for (const ng of eNeigong) {
-          const eAff = martialAffinity(ng);
-          const eAffMod = 1 / affinityMult(eAff, deckAff);
-          const acts = triggerMA(ng, 'e', false, eAffMod, eAff, deckAff);
-          acts.forEach(a => { a.seq = ++actionSeq; a.round = round; a.side = 'e'; a.affMod = eAffMod; a.pAff = deckAff; a.eAff = eAff; a.pHp = Math.floor(pHp); a.eHp = Math.floor(eHp); });
-          eActs.push(...acts);
-        }
-        // 敌人轻功（每轮触发）
-        for (const qg of eQinggong) {
-          const eAff = martialAffinity(qg);
-          const eAffMod = 1 / affinityMult(eAff, deckAff);
-          const acts = triggerMA(qg, 'e', false, eAffMod, eAff, deckAff);
-          acts.forEach(a => { a.seq = ++actionSeq; a.round = round; a.side = 'e'; a.affMod = eAffMod; a.pAff = deckAff; a.eAff = eAff; a.pHp = Math.floor(pHp); a.eHp = Math.floor(eHp); });
-          eActs.push(...acts);
+          eActs.push({ seq:++actionSeq, round, side:'e', pHp:Math.floor(pHp), eHp:Math.floor(eHp), ma:'', skName:'攻击', fired:true, dmg:r.dmg });
+          log.push({ side:'e', miss:false, crit:r.crit, dmg:r.dmg, skill:'攻击' });
         }
         roundActs.push(...eActs);
+        if (pHp <= 0) { report.rounds.push({round,pG:1,eG:1}); report.actions.push(...roundActs); break; }
       }
-      // 汇总本轮行动
-      report.rounds.push({ round, pQi: '—', eQi: '—', pGain: roundActs.filter(a=>a.side==='p').length, eGain: roundActs.filter(a=>a.side==='e').length });
+      // ── 轮次汇总 ──
+      report.rounds.push({round, pG: roundActs.filter(a=>a.side==='p').length, eG: roundActs.filter(a=>a.side==='e').length});
       report.actions.push(...roundActs);
     }
     return {
-      win: eHp <= 0, rounds: round, pHp: Math.floor(Math.max(0, pHp)), eHp: Math.floor(Math.max(0, eHp)),
+      win: eHp <= 0, rounds: round,
+      pHp: Math.floor(Math.max(0, pHp)), eHp: Math.floor(Math.max(0, eHp)),
       log, player: p, enemy: e, report
     };
   }
