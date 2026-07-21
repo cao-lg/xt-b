@@ -1284,7 +1284,23 @@
     `;
 
     // 事件绑定
-    view.querySelectorAll('[data-ma]').forEach(el => el.addEventListener('click', () => {
+    // 背包格子：单击快速装备/卸下
+    view.querySelectorAll('[data-ma].ma-grid-slot').forEach(el => el.addEventListener('click', () => {
+      const id = el.dataset.ma;
+      const owned = ownedIds.includes(id);
+      if (!owned) { toast('尚未获得此武学'); return; }
+      const equipped = deck.includes(id);
+      if (equipped) {
+        Game.unequipMartial(id);
+        renderCurrent();
+      } else {
+        const slot = Game.findEmptySlot(id);
+        if (slot < 0) { toast('没有可用槽位'); return; }
+        if (Game.equipMartial(id, slot)) renderCurrent(); else toast('装备失败');
+      }
+    }));
+    // 装备栏格子：单击弹出详情（升级/配招/重置）
+    view.querySelectorAll('[data-ma].ma-equipped').forEach(el => el.addEventListener('click', () => {
       const id = el.dataset.ma;
       const m = Game.MARTIAL_ARTS.find(x => x.id === id);
       if (!m) return;
